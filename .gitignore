@@ -1,0 +1,35 @@
+# ---------- Unity（Deeptide/ 工程） ----------
+/Deeptide/[Ll]ibrary/
+/Deeptide/[Tt]emp/
+/Deeptide/[Oo]bj/
+/Deeptide/[Bb]uild/
+/Deeptide/[Bb]uilds/
+/Deeptide/[Ll]ogs/
+/Deeptide/[Uu]ser[Ss]ettings/
+/Deeptide/[Mm]emoryCaptures/
+/Deeptide/*.csproj
+/Deeptide/*.sln
+/Deeptide/*.slnx
+/Deeptide/*.user
+/Deeptide/*.pidb
+/Deeptide/*.booproj
+/Deeptide/*.svd
+/Deeptide/*.pdb
+/Deeptide/*.mdb
+/Deeptide/*.opendb
+/Deeptide/*.VC.db
+/Deeptide/sysinfo.txt
+/Deeptide/crashlytics-build.properties
+
+# ---------- .NET（Tools/ 下的测试与模拟器） ----------
+bin/
+obj/
+TestResults/
+*.user
+
+# ---------- 编辑器 / 系统 ----------
+.vs/
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store

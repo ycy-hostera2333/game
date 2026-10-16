@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    在 Unity 之外编译战斗内核：直接链接 Unity 工程里的源码（不复制）。
+    netstandard2.1 + C# 9 与 Unity 6 的 API 兼容级别 / 语言版本一致，这里能编译，Unity 里就能编译。
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <RootNamespace>Deeptide.Core</RootNamespace>
+    <AssemblyName>Deeptide.Core</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Deeptide\Assets\_Project\Scripts\Core\**\*.cs" LinkBase="Core" />
+  </ItemGroup>
+
+</Project>

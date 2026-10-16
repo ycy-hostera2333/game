@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Deeptide.Core/Deeptide.Core.csproj" />
+  <Project Path="Deeptide.Sim/Deeptide.Sim.csproj" />
+  <Project Path="Deeptide.Tests/Deeptide.Tests.csproj" />
+</Solution>
