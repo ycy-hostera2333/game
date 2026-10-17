@@ -15,7 +15,9 @@ namespace Deeptide.Sim
     ///   erosion  侵蚀起始回合            lunacy   癫狂线（理智 ≤ 此值）
     ///   hp       所有遭遇的敌人生命倍率    hpHard   只对困难池（遭遇 2、3）生效的生命倍率
     ///   starter  base = 打击5 防御4 一瞥1；prayer = 用 1 张祷告换掉 1 张防御
+    ///   clarity  清明余量（清明 = 理智 ≥ 上限 − 余量）
     ///   卡牌ID.变量名  改卡牌数值（只改未升级版）    敌人ID.hp=最小-最大  改某种敌人的生命区间
+    ///   敌人ID.数值名  改敌人招式数值，如 acolyte.Dagger=6
     /// 只在本进程内生效，不改源码。
     /// </summary>
     static class Tuning
@@ -39,6 +41,7 @@ namespace Deeptide.Sim
                 {
                     case "erosion": Config.ErosionStartTurn = int.Parse(val); break;
                     case "lunacy": Config.LunacyThreshold = int.Parse(val); break;
+                    case "clarity": Config.ClarityMargin = int.Parse(val); break;
                     case "hp": HpEasy = HpHard = double.Parse(val, CultureInfo.InvariantCulture); break;
                     case "hpHard": HpHard = double.Parse(val, CultureInfo.InvariantCulture); break;
                     case "starter":
@@ -48,10 +51,19 @@ namespace Deeptide.Sim
                     default:
                         int dot = key.IndexOf('.');
                         if (dot < 0) throw new ArgumentException($"未知参数：{key}");
+                        string owner = key.Substring(0, dot);
                         if (key.EndsWith(".hp", StringComparison.Ordinal))
                         {
                             var range = val.Split('-');
-                            OriginalHp[key.Substring(0, dot)] = (int.Parse(range[0]), int.Parse(range[1]));
+                            OriginalHp[owner] = (int.Parse(range[0]), int.Parse(range[1]));
+                            break;
+                        }
+                        if (OriginalHp.ContainsKey(owner))
+                        {
+                            var enemy = EnemyLibrary.Get(owner);
+                            string varName = key.Substring(dot + 1);
+                            if (!enemy.Vars.ContainsKey(varName)) throw new ArgumentException($"{owner} 没有数值 {varName}");
+                            enemy.Vars[varName] = int.Parse(val);
                             break;
                         }
                         var def = CardLibrary.Get(key.Substring(0, dot));

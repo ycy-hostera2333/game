@@ -100,6 +100,32 @@ namespace Deeptide.Tests
         }
 
         [Test]
+        public void ClarityMargin_IsConfigurable()
+        {
+            var e = Battle(config: new BattleConfig { ClarityMargin = 0 });
+            e.Player.Sanity = 9;
+            Assert.That(e.Player.IsClarity, Is.False);
+            e.Player.Sanity = 10;
+            Assert.That(e.Player.IsClarity, Is.True);
+        }
+
+        [Test]
+        public void EnergyGainedDuringEnemyTurn_CarriesToNextTurn()
+        {
+            // 敌人的精神攻击把玩家推入癫狂 → 调查笔记在敌人回合触发：+1 能量顺延到下回合，抽的 2 张留在手里
+            var e = Battle(new[] { EnemyIds.Whisperer });
+            e.Player.Sanity = 5;
+            SetIntent(e, 0, "Whisper");
+            SetHand(e);
+            SetDrawPile(e, Enumerable.Repeat("B02", 10).ToArray());
+            EndTurn(e);
+            Assert.That(e.Player.IsLunatic, Is.True);
+            Assert.That(e.Player.Energy, Is.EqualTo(4));
+            Assert.That(e.Player.EnergyNextTurn, Is.EqualTo(0));
+            Assert.That(e.Player.Hand.Count, Is.EqualTo(7));
+        }
+
+        [Test]
         public void Collapse_ResolvesBeforeRestOfCard()
         {
             var e = Battle();
@@ -146,7 +172,8 @@ namespace Deeptide.Tests
         }
 
         [TestCase(10, 11)]
-        [TestCase(9, 7)]
+        [TestCase(9, 11)]     // 清明 = 理智 ≥ 上限 − 1
+        [TestCase(8, 7)]
         public void Clarity_IsCheckedWhenResolving(int sanity, int expectedBlock)
         {
             var e = Battle();
@@ -157,7 +184,8 @@ namespace Deeptide.Tests
         }
 
         [TestCase(10, 2)]
-        [TestCase(9, 0)]
+        [TestCase(9, 2)]
+        [TestCase(8, 0)]
         public void FirmBelief_GrantsWardOnlyAtClarity(int sanity, int expectedWard)
         {
             var e = Battle();

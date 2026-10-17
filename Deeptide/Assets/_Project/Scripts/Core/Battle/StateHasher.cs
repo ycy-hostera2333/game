@@ -20,7 +20,7 @@ namespace Deeptide.Core
             var p = s.Player;
             sb.Append("T").Append(N(s.Turn)).Append('|').Append(s.Phase).Append('|').Append(s.Outcome).Append('\n');
             sb.Append("P ").Append(N(p.Hp)).Append('/').Append(N(p.MaxHp))
-              .Append(" B").Append(N(p.Block)).Append(" E").Append(N(p.Energy))
+              .Append(" B").Append(N(p.Block)).Append(" E").Append(N(p.Energy)).Append('+').Append(N(p.EnergyNextTurn))
               .Append(" S").Append(N(p.Sanity)).Append('/').Append(N(p.MaxSanity));
             AppendStatuses(sb, p.Statuses);
             AppendPile(sb, "draw", p.DrawPile);

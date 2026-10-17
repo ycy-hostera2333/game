@@ -53,7 +53,7 @@ dotnet run --project Deeptide.Sim -- batch --n 500
 dotnet run --project Deeptide.Sim -- batch --deck C --style mad --set "erosion=3;U09.PerPoint=3"
 ```
 
-`--set` 支持：`erosion`（侵蚀起始回合）、`lunacy`（癫狂线）、`hp` / `hpHard`（全部 / 困难池敌人生命倍率）、`starter=base|prayer`、`卡牌ID.变量名=值`、`敌人ID.hp=最小-最大`。只在这一次运行中生效，不改源码。
+`--set` 支持：`erosion`（侵蚀起始回合）、`lunacy`（癫狂线）、`clarity`（清明余量）、`敌人ID.数值名`（如 `acolyte.Dagger=6`）、`hp` / `hpHard`（全部 / 困难池敌人生命倍率）、`starter=base|prayer`、`卡牌ID.变量名=值`、`敌人ID.hp=最小-最大`。只在这一次运行中生效，不改源码。
 
 ## 自动调参
 

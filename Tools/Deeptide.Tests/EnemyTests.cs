@@ -78,7 +78,23 @@ namespace Deeptide.Tests
                 Assert.That(seq[i] == "Prayer" && seq[i - 1] == "Prayer", Is.False, $"第 {i} 次连续祷文");
             for (int i = 2; i < seq.Count; i++)
                 Assert.That(seq[i] == "Dagger" && seq[i - 1] == "Dagger" && seq[i - 2] == "Dagger", Is.False, $"第 {i} 次连续三次匕首");
-            Assert.That(seq.Count(x => x == "Dagger"), Is.GreaterThan(seq.Count / 2));
+            for (int i = 1; i < seq.Count; i++)
+                Assert.That(seq[i] == "Heavy" && seq[i - 1] == "Heavy", Is.False, $"第 {i} 次连续重击");
+            Assert.That(seq.Count(x => x == "Dagger"), Is.GreaterThan(seq.Count / 3));
+            Assert.That(seq.Count(x => x == "Heavy"), Is.GreaterThan(seq.Count / 12));
+        }
+
+        [Test]
+        public void EveryEnemyHasTwoMovesOfTheSameType()
+        {
+            // 癫狂时意图只显示类型；同类型至少两招、数值不同，模糊才有信息代价（试玩发现 #2）
+            foreach (var id in new[] { EnemyIds.Acolyte, EnemyIds.Whisperer, EnemyIds.Townsfolk })
+            {
+                var moves = Battle(new[] { id }).State.Enemies[0].Behaviour.Moves.ToList();
+                bool hasVariant = moves.GroupBy(m => m.Intent)
+                    .Any(g => g.Select(m => m.Damage * 100 + m.SanityDamage).Distinct().Count() >= 2);
+                Assert.That(hasVariant, Is.True, id);
+            }
         }
 
         [Test]

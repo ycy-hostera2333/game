@@ -13,6 +13,8 @@ namespace Deeptide.Core.Enemies
         public int HpMax;
         /// <summary>意志；≤ 0 表示无心智（免疫恐惧）。</summary>
         public int Will;
+        /// <summary>招式数值（对应以后 enemies.csv 的 vars 列），由 EnemyBehaviour.V() 读取。</summary>
+        public Dictionary<string, int> Vars = new Dictionary<string, int>();
         public Func<EnemyBehaviour> Factory;
     }
 
@@ -51,6 +53,24 @@ namespace Deeptide.Core.Enemies
 
         /// <summary>第 1 回合固定使用的招式，null = 不固定。</summary>
         protected string FirstMove;
+
+        protected EnemyDef Def { get; private set; }
+
+        /// <summary>由引擎在创建后调用：记住定义，再按定义里的数值搭建招式表。</summary>
+        internal void Init(EnemyDef def)
+        {
+            Def = def;
+            Build();
+        }
+
+        /// <summary>用 AddMove / AddOption 搭建招式表，数值通过 V() 从定义里读取。</summary>
+        protected abstract void Build();
+
+        protected int V(string key)
+        {
+            if (!Def.Vars.TryGetValue(key, out var v)) throw new KeyNotFoundException($"{Def.Id} 缺少数值 {key}");
+            return v;
+        }
 
         protected void AddMove(EnemyMove move) => _moves.Add(move.Id, move);
 

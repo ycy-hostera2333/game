@@ -76,6 +76,13 @@ namespace Deeptide.Core.Actions
 
         public override void Execute(BattleEngine e)
         {
+            if (e.State.EnemyTurn)
+            {
+                // 回合开始会重置能量，敌人回合里获得的能量顺延到下回合，避免白白浪费（试玩发现 #3）
+                e.Player.EnergyNextTurn += _amount;
+                e.Log.Add(BattleEventType.EnergyGained, $"获得 {_amount} 能量（敌人回合中获得，下回合开始时生效）", amount: _amount);
+                return;
+            }
             e.Player.Energy += _amount;
             e.Log.Add(BattleEventType.EnergyGained, $"获得 {_amount} 能量（现有 {e.Player.Energy}）", amount: _amount);
         }

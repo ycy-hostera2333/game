@@ -58,6 +58,8 @@ namespace Deeptide.Core
         public int Turn;
         public BattlePhase Phase = BattlePhase.NotStarted;
         public BattleOutcome Outcome = BattleOutcome.Ongoing;
+        /// <summary>正在结算敌人回合（此时获得的能量顺延到下回合）。</summary>
+        public bool EnemyTurn;
         public readonly BattleStats Stats = new BattleStats();
 
         public IEnumerable<EnemyState> AliveEnemies => Enemies.Where(e => !e.IsDead);

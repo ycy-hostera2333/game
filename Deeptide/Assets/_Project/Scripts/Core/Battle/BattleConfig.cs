@@ -10,6 +10,9 @@ namespace Deeptide.Core
         /// <summary>理智 ≤ 此值即处于癫狂。</summary>
         public int LunacyThreshold = 4;
 
+        /// <summary>清明：理智 ≥ 上限 − 此值（0 = 必须满理智）。默认 1：上限 10 时理智 9、10 都算清明（策划/07 §7.5）。</summary>
+        public int ClarityMargin = 1;
+
         /// <summary>从第几回合开始侵蚀（回合开始时失去理智）。</summary>
         public int ErosionStartTurn = 4;
         public int ErosionAmount = 1;

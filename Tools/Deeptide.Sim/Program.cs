@@ -25,6 +25,7 @@ namespace Deeptide.Sim
             string mode = args.Length > 0 ? args[0] : "help";
             var opts = ParseOptions(args.Skip(1).ToArray());
             if (opts.TryGetValue("set", out var spec)) Tuning.Apply(spec);
+            if (opts.TryGetValue("peek", out var peek) && peek == "1") Autoplayer.IgnoreBlur = true;
             try
             {
                 switch (mode)
@@ -172,15 +173,17 @@ namespace Deeptide.Sim
         {
             string deck = Opt(o, "deck", "C"), enc = Opt(o, "enc", "1");
             if (!o.TryGetValue("seed", out var seedText)) throw new ArgumentException("replay 需要 --seed");
-            if (!o.TryGetValue("cmds", out var cmdText)) throw new ArgumentException("replay 需要 --cmds，内容就是对战结束时打印的回放命令");
+            string cmdText = Opt(o, "cmds", "");
+            int fromTurn = int.Parse(Opt(o, "from-turn", "1"));
             var commands = cmdText.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(BattleCommand.Parse).ToList();
             ulong seed = ulong.Parse(seedText);
 
             var e = BattleEngine.Replay(MakeSetup(deck, enc, seed), commands);
             Console.WriteLine($"牌组 {TestDecks.Describe(deck)}，遭遇 {enc}，种子 {seed}，共 {commands.Count} 条命令");
             foreach (var ev in e.Log.Events)
-                if (ev.Type != BattleEventType.IntentChosen) Console.WriteLine("  · " + ev.Message);
-            if (e.State.Outcome == BattleOutcome.Ongoing) Console.WriteLine("（回放结束时战斗还没打完）");
+                if (ev.Type != BattleEventType.IntentChosen && ev.Turn >= fromTurn) Console.WriteLine("  · " + ev.Message);
+            // 战斗没打完：显示当前局面，可以接着往 --cmds 里追加命令（逐步对战 / 复盘用）
+            if (e.State.Outcome == BattleOutcome.Ongoing) Console.Write(ConsoleView.Render(e));
             else PrintSummary(e);
             return 0;
         }

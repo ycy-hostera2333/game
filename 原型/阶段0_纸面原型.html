@@ -69,8 +69,8 @@
   .zone { display: flex; margin: 1.2mm 0 1.6mm; font-size: 7.4pt; text-align: center; border: .3mm solid var(--ink); }
   .zone div { padding: 1mm 0; border-right: .3mm solid var(--ink); }
   .zone div:last-child { border-right: 0; }
-  .z-clar { flex: 1; background: var(--gold-tint); }
-  .z-sane { flex: 5; }
+  .z-clar { flex: 2; background: var(--gold-tint); }
+  .z-sane { flex: 4; }
   .z-mad { flex: 4; background: var(--teal-tint); }
   .z-col { flex: 1; background: var(--ink); color: #fff; }
 
@@ -304,20 +304,20 @@
     <section>
       <h2><span class="n">9</span>理智</h2>
       <div class="zone">
-        <div class="z-clar">10<br>清明</div>
-        <div class="z-sane">9 – 5<br>清醒</div>
+        <div class="z-clar">10 – 9<br>清明</div>
+        <div class="z-sane">8 – 5<br>清醒</div>
         <div class="z-mad">4 – 1<br>癫狂</div>
         <div class="z-col">0<br>崩溃</div>
       </div>
       <ul>
-        <li><b>清明</b>：理智 = 10 时，卡上「清明：」后面的效果生效</li>
+        <li><b>清明</b>：理智 ≥ 9 时，卡上「清明：」后面的效果生效</li>
         <li><b>癫狂</b>：理智 ≤ 4 时，双面牌用<b>下半部</b>（癫狂面）。进入癫狂时把手里的双面牌倒过来，回到 5 以上再转回去</li>
         <li><b>崩溃</b>：理智降到 0 时，失去 7 生命，把 1 张疯语放进弃牌堆，理智设为 3（仍然是癫狂）</li>
         <li><b>代价N</b>：打出时失去 N 理智。理智不够也能打，结果就是崩溃</li>
         <li><b>精神攻击N</b>：失去 N 理智，格挡挡不住</li>
         <li><b>心防</b>：每层抵消一次精神攻击。自己付的代价、侵蚀、疯语都挡不住</li>
         <li>理智最多恢复到 10</li>
-        <li><b>调查笔记</b>：每场第一次进入癫狂时，获得 1 能量，抽 2 张牌</li>
+        <li><b>调查笔记</b>：每场第一次进入癫狂时，获得 1 能量，抽 2 张牌。如果是在敌人回合被推入癫狂，能量留到下回合开始再加</li>
       </ul>
     </section>
 
@@ -360,7 +360,7 @@
 
 <!-- ===================== 第 6 页：记录表 ===================== -->
 <div class="page">
-  <div class="page-title">测试记录 <small>每场打完填一行；「清明回合数」= 回合结束时理智仍为 10 的回合数（看追踪板上的正字）</small></div>
+  <div class="page-title">测试记录 <small>每场打完填一行；「清明回合数」= 回合结束时理智 ≥ 9 的回合数（看追踪板上的正字）</small></div>
   <table class="log">
     <tr>
       <th style="width:9mm">场次</th><th style="width:12mm">牌组</th><th>遭遇</th><th style="width:10mm">胜 / 负</th>
@@ -440,7 +440,7 @@ const CARDS = {
   S01: { name: "疯语", type: "诅咒", cost: null, arch: "诅咒", rarity: "诅咒",
          text: "不能打出。\n回合结束时若在手中，\n失去 1 理智。", note: "来源：崩溃、呓语者「惑乱」" },
   RL0: { name: "调查笔记", type: "起始遗物", cost: null, arch: "遗物", rarity: "遗物",
-         text: "每场战斗第一次\n进入癫狂时，\n获得 1 能量并抽 2 张牌。", note: "摆在桌面上，不洗进牌组" },
+         text: "每场战斗第一次\n进入癫狂时，\n获得 1 能量并抽 2 张牌。", note: "敌人回合触发：能量留到下回合" },
 };
 
 // 打印顺序：第 2 页起始基础牌；第 3 页守夜 + 一瞥 + 遗物；第 4 页堕落 + 疯语
@@ -515,29 +515,32 @@ const ENEMIES = [
     name: "教团侍僧", hp: 48, tag: "普通敌人 · 考点：伤害曲线，要不要速杀",
     moves: [
       ["首回合", "狂热祷文", ["buf"], "所有敌人获得 2 力量"],
-      ["1 – 4", "血祭匕首", ["atk"], "造成 7 伤害（+ 力量）"],
+      ["1 – 3", "血祭匕首", ["atk"], "造成 6 伤害（+ 力量）"],
+      ["4", "献祭重击", ["atk"], "造成 11 伤害（+ 力量）"],
       ["5 – 6", "狂热祷文", ["buf"], "所有敌人获得 2 力量"],
     ],
-    rules: ["第 1 回合固定用狂热祷文", "祷文不能连续用：上回合是祷文时，掷到 5–6 也改用匕首"],
+    rules: ["第 1 回合固定用狂热祷文", "重击、祷文都不能连续用，匕首最多连续 2 次；掷到不能用的招式就重掷"],
     marks: { ids: [""], block: false, strength: true }, tracks: [48], flavor: "「潮水记得每一滴献上的血。」",
   },
   {
     name: "呓语者", hp: 25, tag: "普通敌人 · 考点：理智压力，优先击杀",
     moves: [
-      ["1 – 4", "低语", ["mind"], "精神攻击 2"],
+      ["1 – 3", "低语", ["mind"], "精神攻击 2"],
+      ["4", "尖啸", ["mind"], "精神攻击 3"],
       ["5 – 6", "惑乱", ["deb"], "将 1 张疯语放入你的弃牌堆"],
     ],
-    rules: ["惑乱每场最多用 2 次，之后掷到 5–6 也改用低语", "精神攻击无视格挡，可以被心防抵消"],
+    rules: ["尖啸不能连续用，低语最多连续 2 次；惑乱每场最多 2 次。掷到不能用的招式就重掷", "精神攻击无视格挡，可以被心防抵消"],
     marks: { ids: [""], block: false, strength: false }, tracks: [25], flavor: "「……你也听见了，对吧？」",
   },
   {
     name: "失魂镇民", hp: 30, tag: "普通敌人 · 遭遇 3 中出现 2 只（分别掷骰、分别记血）",
     passive: "<b>嗅到疯狂</b>：你处于癫狂时，它的攻击伤害 +4。",
     moves: [
-      ["1 – 4", "挥锄", ["atk"], "造成 9 伤害（癫狂时 13）"],
-      ["5 – 6", "哀嚎", ["mind", "def"], "精神攻击 1，获得 5 格挡"],
+      ["1 – 2", "挥锄", ["atk"], "造成 9 伤害（癫狂时 13）"],
+      ["3", "猛砸", ["atk"], "造成 12 伤害（癫狂时 16）"],
+      ["4 – 6", "哀嚎", ["mind", "def"], "精神攻击 1，获得 5 格挡"],
     ],
-    rules: ["同一招式最多连续 2 次：第 3 次掷到时换成另一招"],
+    rules: ["猛砸不能连续用，其他招式最多连续 2 次；掷到不能用的招式就重掷", "数字版中，癫狂时分不清挥锄和猛砸（纸面不模拟）"],
     marks: { ids: ["A", "B"], block: true, strength: false }, tracks: [30, 30], trackLabels: ["镇民 A", "镇民 B"], flavor: "「你来之前，镇上一直很安静。」",
   },
 ];
@@ -582,7 +585,7 @@ function enemyHTML(e) {
 }
 
 function trackerHTML() {
-  const zones = [["c", "清明", [10]], ["", "清醒", [9, 8, 7, 6, 5]], ["m", "癫狂", [4, 3, 2, 1]], ["x", "崩溃", [0]]];
+  const zones = [["c", "清明", [10, 9]], ["", "清醒", [8, 7, 6, 5]], ["m", "癫狂", [4, 3, 2, 1]], ["x", "崩溃", [0]]];
   const san = zones.map(([cls, lbl, vs]) =>
     `<div class="san-zone ${cls}"><div class="cells">${vs.map(v => `<b>${v}</b>`).join("")}</div><span class="lbl">${lbl}</span></div>`).join("");
   const turns = Array.from({ length: 10 }, (_, i) =>
@@ -612,7 +615,7 @@ function trackerHTML() {
         ${boxes(70, 14).replace('repeat(14,4.2mm)', 'repeat(14,3.9mm)')}
       </div>
       <div style="display:flex;gap:3mm">
-        <div style="flex:1"><div class="tr-sec">清明回合（回合结束时理智 = 10 就划一笔）</div><div class="wbox" style="width:100%;height:6mm"></div></div>
+        <div style="flex:1"><div class="tr-sec">清明回合（回合结束时理智 ≥ 9 就划一笔）</div><div class="wbox" style="width:100%;height:6mm"></div></div>
         <div style="width:22mm"><div class="tr-sec">崩溃次数</div><div class="wbox" style="width:100%;height:6mm"></div></div>
       </div>
       <div class="quick">

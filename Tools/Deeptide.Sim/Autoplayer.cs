@@ -84,24 +84,49 @@ namespace Deeptide.Sim
                 if (!en.Mindless) v += 4.0 * en.Fear / Math.Max(1, en.Will);
             }
 
-            v -= 1.3 * Math.Max(0, s.IncomingDamage() - p.Block);
+            v -= 1.3 * Math.Max(0, EstimatedIncoming(s) - p.Block);
 
             // 预计受到的精神攻击（心防每层挡一次）
             int ward = p.Statuses.Get(StatusId.Ward);
-            int mind = 0;
+            double mind = 0;
             foreach (var en in s.State.AliveEnemies)
             {
-                if (en.Stunned || en.Intent == null || en.Intent.SanityDamage <= 0) continue;
+                if (en.Stunned || en.Intent == null || (en.Intent.Intent & IntentType.Mind) == 0) continue;
                 if (ward > 0) { ward--; continue; }
-                mind += en.Intent.SanityDamage;
+                mind += s.IntentsBlurred && !IgnoreBlur
+                    ? SameTypeMoves(en).Average(m => m.SanityDamage)
+                    : en.Intent.SanityDamage;
             }
             mind += p.Hand.Count(c => c.Id == "S01");
-            v += SanityValue(Math.Max(0, p.Sanity - mind), p);
+            v += SanityValue(Math.Max(0, p.Sanity - (int)Math.Round(mind)), p);
 
             v += 3.0 * p.Statuses.Get(StatusId.Strength) + 1.5 * p.Statuses.Get(StatusId.Ward);
             v -= 6.0 * s.State.Stats.CursesGained;   // 永久诅咒是局层代价
             return v;
         }
+
+        /// <summary>
+        /// AI 只用玩家能看到的信息：清醒时用真实意图数值；癫狂时只知道意图类型，
+        /// 按该敌人「同类型招式」的平均伤害估计（玩家知道敌人会哪几招，但不知道这次是哪一招）。
+        /// </summary>
+        /// <summary>调试开关（--peek 1）：癫狂时也偷看真实意图，用来量化意图模糊的信息代价。</summary>
+        public static bool IgnoreBlur;
+
+        static double EstimatedIncoming(BattleEngine s)
+        {
+            if (!s.IntentsBlurred || IgnoreBlur) return s.IncomingDamage();
+            double sum = 0;
+            foreach (var en in s.State.AliveEnemies)
+            {
+                if (en.Stunned || en.Intent == null || (en.Intent.Intent & IntentType.Attack) == 0) continue;
+                sum += SameTypeMoves(en).Where(m => m.Damage > 0)
+                    .Average(m => DamageCalculator.Compute(s, en, s.Player, m.Damage) * m.Hits);
+            }
+            return sum;
+        }
+
+        static System.Collections.Generic.List<Deeptide.Core.Enemies.EnemyMove> SameTypeMoves(EnemyState en) =>
+            en.Behaviour.Moves.Where(m => m.Intent == en.Intent.Intent).ToList();
 
         double SanityValue(int sanity, PlayerState p)
         {
@@ -109,7 +134,7 @@ namespace Deeptide.Sim
             switch (_style)
             {
                 case PlayStyle.Sane:
-                    return 1.5 * sanity + (sanity >= p.MaxSanity ? 3 : 0) - (lunatic ? 4 : 0);
+                    return 1.5 * sanity + (sanity >= p.ClarityThreshold ? 3 : 0) - (lunatic ? 4 : 0);
                 case PlayStyle.Mad:
                     if (!lunatic) return 2 - 0.8 * (sanity - p.LunacyThreshold);
                     return sanity >= 2 ? 3 : sanity == 1 ? 1 : -2;

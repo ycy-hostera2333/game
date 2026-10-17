@@ -22,6 +22,9 @@ namespace Deeptide.Core
         public int Sanity;
         public int MaxSanity;
         public int LunacyThreshold;
+        public int ClarityMargin;
+        /// <summary>敌人回合中获得的能量，保留到下个玩家回合开始时加上。</summary>
+        public int EnergyNextTurn;
 
         /// <summary>抽牌堆，列表末尾是牌堆顶。</summary>
         public readonly List<Card> DrawPile = new List<Card>();
@@ -31,7 +34,8 @@ namespace Deeptide.Core
         public readonly List<Relic> Relics = new List<Relic>();
 
         public bool IsLunatic => Sanity <= LunacyThreshold;
-        public bool IsClarity => Sanity >= MaxSanity;
+        public bool IsClarity => Sanity >= MaxSanity - ClarityMargin;
+        public int ClarityThreshold => MaxSanity - ClarityMargin;
         public int MissingSanity => MaxSanity - Sanity;
     }
 

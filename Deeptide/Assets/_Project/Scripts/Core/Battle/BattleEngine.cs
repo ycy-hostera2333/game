@@ -154,6 +154,7 @@ namespace Deeptide.Core
                 MaxSanity = Setup.MaxSanity,
                 Sanity = Setup.MaxSanity,
                 LunacyThreshold = Config.LunacyThreshold,
+                ClarityMargin = Config.ClarityMargin,
             };
             State.Player = p;
             State.Stats.MinSanity = p.Sanity;
@@ -181,7 +182,7 @@ namespace Deeptide.Core
                     Index = i,
                     Def = def,
                     Name = counts[id] > 1 ? $"{def.Name} {(char)('A' + seen[id] - 1)}" : def.Name,
-                    Behaviour = def.Factory(),
+                    Behaviour = CreateBehaviour(def),
                     MaxHp = hp,
                     Hp = hp,
                     Will = def.Will,
@@ -198,6 +199,13 @@ namespace Deeptide.Core
             StartPlayerTurn();
         }
 
+        static EnemyBehaviour CreateBehaviour(EnemyDef def)
+        {
+            var b = def.Factory();
+            b.Init(def);
+            return b;
+        }
+
         void StartPlayerTurn()
         {
             State.Turn++;
@@ -208,7 +216,8 @@ namespace Deeptide.Core
             if (State.Turn >= Config.ErosionStartTurn)
                 Queue.AddToBottom(new LoseSanityAction(Config.ErosionAmount, SanitySource.Erosion));
             Player.Block = 0;
-            Player.Energy = Config.EnergyPerTurn;
+            Player.Energy = Config.EnergyPerTurn + Player.EnergyNextTurn;
+            Player.EnergyNextTurn = 0;
             Notify(l => l.OnPlayerTurnStart(this));
 
             int bound = Player.Statuses.Get(StatusId.Bound);
@@ -222,6 +231,13 @@ namespace Deeptide.Core
         }
 
         void RunEnemyTurn()
+        {
+            State.EnemyTurn = true;
+            try { RunEnemyActions(); }
+            finally { State.EnemyTurn = false; }
+        }
+
+        void RunEnemyActions()
         {
             foreach (var en in State.Enemies.ToList())
             {
