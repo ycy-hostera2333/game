@@ -4,7 +4,7 @@
 
 ## 第一次打开
 
-1. 安装 Unity Hub，再通过 Hub 安装 **Unity 6 LTS**（6000.0.x）
+1. 安装 Unity Hub，再通过 Hub 安装 **Unity 6.3 LTS**（6000.3.26f1），模块勾选 Windows Build Support (IL2CPP) 和简体中文
 2. 在 Hub 里选「Add → Add project from disk」，选中本目录 `Deeptide/`
 3. Unity 会自动生成 `Library/`、`ProjectSettings/`、`Packages/` 等目录。`Library/` 已经写进 `.gitignore`，`ProjectSettings/` 和 `Packages/` 需要提交
 
