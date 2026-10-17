@@ -16,6 +16,10 @@
 dotnet test
 ```
 
+每次推送到 GitHub 都会自动跑同样的检查（`.github/workflows/test.yml`）：构建（警告视为错误）、单元测试、50 场批量模拟冒烟测试。
+
+Claude Code 云端会话启动时，`.claude/hooks/session-start.sh` 会自动安装 .NET 10 SDK 并还原 NuGet 包，会话里可以直接运行这里的所有命令。
+
 ## 手动对战
 
 ```bash

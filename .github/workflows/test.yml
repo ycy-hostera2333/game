@@ -1,0 +1,41 @@
+# 战斗内核的构建、单元测试和模拟器冒烟测试（策划/09 §5 M0.2）。
+# 回放哈希测试在 dotnet test 里，所以每次推送都会检查内核的确定性有没有被破坏。
+name: test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: 1
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: Tools
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: 构建（警告视为错误）
+        run: dotnet build Deeptide.slnx -c Release -warnaserror
+
+      - name: 单元测试
+        run: dotnet test Deeptide.slnx -c Release --no-build
+
+      - name: 模拟器冒烟测试
+        run: dotnet run -c Release --no-build --project Deeptide.Sim -- batch --n 50
