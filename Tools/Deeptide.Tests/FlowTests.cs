@@ -147,6 +147,7 @@ namespace Deeptide.Tests
             var replayed = BattleEngine.Replay(PrototypeSetup(99, "C", "3"), original.History);
             Assert.That(StateHasher.Hash(replayed), Is.EqualTo(StateHasher.Hash(original)));
             Assert.That(replayed.Log.Events.Count, Is.EqualTo(original.Log.Events.Count));
+            Assert.That(replayed.State.Stats.PlaysByCard.Values.Sum(), Is.EqualTo(replayed.State.Stats.CardsPlayed));
         }
 
         [Test]

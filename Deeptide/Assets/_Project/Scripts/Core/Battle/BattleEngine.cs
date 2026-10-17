@@ -100,6 +100,7 @@ namespace Deeptide.Core
             bool mad = UsesMadFace(card);            // ① 锁定卡面
             Player.Energy -= card.Cost;              // ② 能量
             State.Stats.CardsPlayed++;
+            State.Stats.PlaysByCard[card.Id] = State.Stats.PlaysByCard.TryGetValue(card.Id, out var plays) ? plays + 1 : 1;
             Log.Add(BattleEventType.CardPlayed,
                 $"打出 {card.Name}{(card.Def.Dual ? (mad ? "（癫狂面）" : "（清醒面）") : "")}{(target != null ? " → " + target.Name : "")}",
                 "调查员", target?.Name);

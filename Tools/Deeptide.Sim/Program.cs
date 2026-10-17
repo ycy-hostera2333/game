@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Deeptide.Core;
+using Deeptide.Core.Cards;
 using Deeptide.Core.Content;
 using Deeptide.Core.Enemies;
 
@@ -30,6 +31,7 @@ namespace Deeptide.Sim
                     case "play": return Play(opts);
                     case "auto": return Auto(opts);
                     case "batch": return Batch(opts);
+                    case "replay": return Replay(opts);
                     default:
                         PrintHelp();
                         return 0;
@@ -48,6 +50,7 @@ namespace Deeptide.Sim
             Console.WriteLine("  play  [--deck A|B|C|starter] [--enc 1|2|3] [--seed N]   手动对战");
             Console.WriteLine("  auto  [--deck A|B|C|starter] [--enc 1|2|3] [--seed N]   AI 打一场，输出完整日志");
             Console.WriteLine("  batch [--n 200] [--deck all|A|B|C|starter] [--enc all|1|2|3]   批量模拟统计");
+            Console.WriteLine("  replay --deck X --enc N --seed N --cmds \"play 4 1, end, ...\"   重放一局，输出完整日志");
             Console.WriteLine("遭遇：1 = 教团侍僧，2 = 侍僧 + 呓语者，3 = 失魂镇民 ×2");
         }
 
@@ -130,7 +133,8 @@ namespace Deeptide.Sim
             }
 
             PrintSummary(e);
-            Console.WriteLine($"回放命令（种子 {seed}）：{string.Join(", ", e.History)}");
+            Console.WriteLine("重放这一局：");
+            Console.WriteLine($"  dotnet run --project Deeptide.Sim -- replay --deck {deck} --enc {enc} --seed {seed} --cmds \"{string.Join(", ", e.History)}\"");
             return 0;
         }
 
@@ -153,6 +157,28 @@ namespace Deeptide.Sim
             Console.WriteLine($"回合数 {e.State.Turn}，剩余生命 {e.Player.Hp}，最低理智 {s.MinSanity}，" +
                               $"首次癫狂 {(s.FirstLunacyTurn == 0 ? "无" : "第 " + s.FirstLunacyTurn + " 回合")}，" +
                               $"崩溃 {s.Collapses} 次，清明回合 {s.ClarityTurns}");
+            var top = s.PlaysByCard.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key)
+                .Select(kv => $"{CardLibrary.Get(kv.Key).Name} ×{kv.Value}");
+            Console.WriteLine($"出牌 {s.CardsPlayed} 张：{string.Join("、", top)}");
+        }
+
+        // ------------------------------------------------------------ replay
+
+        static int Replay(Dictionary<string, string> o)
+        {
+            string deck = Opt(o, "deck", "C"), enc = Opt(o, "enc", "1");
+            if (!o.TryGetValue("seed", out var seedText)) throw new ArgumentException("replay 需要 --seed");
+            if (!o.TryGetValue("cmds", out var cmdText)) throw new ArgumentException("replay 需要 --cmds，内容就是对战结束时打印的回放命令");
+            var commands = cmdText.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(BattleCommand.Parse).ToList();
+            ulong seed = ulong.Parse(seedText);
+
+            var e = BattleEngine.Replay(MakeSetup(deck, enc, seed), commands);
+            Console.WriteLine($"牌组 {TestDecks.Describe(deck)}，遭遇 {enc}，种子 {seed}，共 {commands.Count} 条命令");
+            foreach (var ev in e.Log.Events)
+                if (ev.Type != BattleEventType.IntentChosen) Console.WriteLine("  · " + ev.Message);
+            if (e.State.Outcome == BattleOutcome.Ongoing) Console.WriteLine("（回放结束时战斗还没打完）");
+            else PrintSummary(e);
+            return 0;
         }
 
         // ------------------------------------------------------------ auto

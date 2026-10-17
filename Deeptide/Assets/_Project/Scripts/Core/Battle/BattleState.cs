@@ -47,6 +47,8 @@ namespace Deeptide.Core
         public int ClarityTurns;
         public int MinSanity;
         public int CardsPlayed;
+        /// <summary>按卡牌 ID 统计的打出次数（记录表「打得最多的牌」、遥测「每张牌打出次数」）。</summary>
+        public readonly Dictionary<string, int> PlaysByCard = new Dictionary<string, int>();
     }
 
     public sealed class BattleState

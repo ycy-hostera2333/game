@@ -27,6 +27,12 @@ dotnet run --project Deeptide.Sim -- play --deck C --enc 2 --seed 42
 - `--seed`：随机种子。同一个种子加同样的操作，结果完全一样
 - 对战中的输入：`2` 打第 2 张牌（需要目标时会提示）；`2 1` 打第 2 张牌，目标是 1 号敌人；`e` 结束回合；`a` 让 AI 打这一回合；`l` 看完整日志；`q` 退出
 
+对战结束时会打印一条现成的 `replay` 命令，复制下来运行，就能看到这一局的完整日志：
+
+```bash
+dotnet run --project Deeptide.Sim -- replay --deck C --enc 2 --seed 42 --cmds "play 4 1, play 0 -1, end, ..."
+```
+
 ## AI 自动对战（输出完整日志）
 
 ```bash
