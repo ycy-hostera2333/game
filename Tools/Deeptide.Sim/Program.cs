@@ -24,6 +24,7 @@ namespace Deeptide.Sim
             Console.InputEncoding = Encoding.UTF8;
             string mode = args.Length > 0 ? args[0] : "help";
             var opts = ParseOptions(args.Skip(1).ToArray());
+            if (opts.TryGetValue("set", out var spec)) Tuning.Apply(spec);
             try
             {
                 switch (mode)
@@ -32,6 +33,7 @@ namespace Deeptide.Sim
                     case "auto": return Auto(opts);
                     case "batch": return Batch(opts);
                     case "replay": return Replay(opts);
+                    case "tune": return Tune(opts);
                     default:
                         PrintHelp();
                         return 0;
@@ -51,6 +53,8 @@ namespace Deeptide.Sim
             Console.WriteLine("  auto  [--deck A|B|C|starter] [--enc 1|2|3] [--seed N]   AI 打一场，输出完整日志");
             Console.WriteLine("  batch [--n 200] [--deck all|A|B|C|starter] [--enc all|1|2|3]   批量模拟统计");
             Console.WriteLine("  replay --deck X --enc N --seed N --cmds \"play 4 1, end, ...\"   重放一局，输出完整日志");
+            Console.WriteLine("  tune  [--n 150] [--top 5] [--confirm 500] [--grid \"erosion=3,4;U09.PerPoint=2,3\"]   网格搜索最优参数");
+            Console.WriteLine("所有模式都支持 --set \"erosion=3;lunacy=5;hp=1.15;U09.PerPoint=3\" 临时覆盖参数；batch / auto 支持 --style sane|mad|mixed");
             Console.WriteLine("遭遇：1 = 教团侍僧，2 = 侍僧 + 呓语者，3 = 失魂镇民 ×2");
         }
 
@@ -66,8 +70,8 @@ namespace Deeptide.Sim
 
         static BattleSetup MakeSetup(string deck, string enc, ulong seed)
         {
-            if (!Encounters.Prototype.TryGetValue(enc, out var enemies)) throw new ArgumentException($"未知遭遇：{enc}（可选 1 / 2 / 3）");
-            return new BattleSetup { Seed = seed, Deck = TestDecks.Get(deck), Enemies = enemies.ToList() };
+            Tuning.ApplyHpFor(enc);
+            return Matchups.Setup(deck, enc, seed);
         }
 
         static ulong SeedOpt(Dictionary<string, string> o) =>
@@ -188,7 +192,7 @@ namespace Deeptide.Sim
             string deck = Opt(o, "deck", "C"), enc = Opt(o, "enc", "1");
             ulong seed = SeedOpt(o);
             var e = BattleEngine.Start(MakeSetup(deck, enc, seed));
-            var ai = new Autoplayer(Autoplayer.StyleFor(deck));
+            var ai = new Autoplayer(StyleOpt(o, deck));
             Console.WriteLine($"牌组 {TestDecks.Describe(deck)}，遭遇 {enc}，种子 {seed}");
             while (e.State.Outcome == BattleOutcome.Ongoing && e.State.Turn <= 40) ai.PlayTurn(e);
             foreach (var ev in e.Log.Events)
@@ -199,10 +203,16 @@ namespace Deeptide.Sim
 
         // ------------------------------------------------------------ batch
 
-        sealed class Result
+        static PlayStyle StyleOpt(Dictionary<string, string> o, string deck)
         {
-            public bool Won;
-            public int Turns, HpLost, Collapses, MinSanity, FirstLunacy, LunacyTurns, ClarityTurns;
+            if (!o.TryGetValue("style", out var s)) return Autoplayer.StyleFor(deck);
+            switch (s)
+            {
+                case "sane": return PlayStyle.Sane;
+                case "mad": return PlayStyle.Mad;
+                case "mixed": return PlayStyle.Mixed;
+                default: throw new ArgumentException($"未知 AI 风格：{s}（可选 sane / mad / mixed）");
+            }
         }
 
         static int Batch(Dictionary<string, string> o)
@@ -213,40 +223,78 @@ namespace Deeptide.Sim
             var encs = encOpt == "all" ? new[] { "1", "2", "3" } : new[] { encOpt };
 
             Console.WriteLine($"每组 {n} 场，种子 1..{n}，AI = 一步贪心（只适合做相对比较）");
+            if (o.TryGetValue("set", out var spec)) Console.WriteLine($"参数覆盖：{spec}");
             Console.WriteLine();
             Console.WriteLine("牌组      遭遇  胜率    平均回合  平均掉血  崩溃/场  最低理智  进入癫狂  首次癫狂  癫狂回合占比  清明回合占比");
             foreach (var deck in decks)
             foreach (var enc in encs)
             {
-                var results = new Result[n];
-                Parallel.For(0, n, i =>
-                {
-                    var e = BattleEngine.Start(MakeSetup(deck, enc, (ulong)(i + 1)));
-                    var ai = new Autoplayer(Autoplayer.StyleFor(deck));
-                    while (e.State.Outcome == BattleOutcome.Ongoing && e.State.Turn <= 40) ai.PlayTurn(e);
-                    var s = e.State.Stats;
-                    results[i] = new Result
-                    {
-                        Won = e.State.Outcome == BattleOutcome.Victory,
-                        Turns = e.State.Turn,
-                        HpLost = e.Setup.Hp - e.Player.Hp,
-                        Collapses = s.Collapses,
-                        MinSanity = s.MinSanity,
-                        FirstLunacy = s.FirstLunacyTurn,
-                        LunacyTurns = s.LunacyTurns,
-                        ClarityTurns = s.ClarityTurns,
-                    };
-                });
-
-                var lunatic = results.Where(r => r.FirstLunacy > 0).ToList();
-                double turns = results.Sum(r => r.Turns);
+                var m = Matchups.Run(deck, enc, n, StyleOpt(o, deck));
                 Console.WriteLine(
-                    $"{TestDecks.Describe(deck),-8}  {enc,3}  {Pct(results.Count(r => r.Won), n),6}  " +
-                    $"{results.Average(r => r.Turns),8:F1}  {results.Average(r => r.HpLost),8:F1}  " +
-                    $"{results.Average(r => r.Collapses),7:F2}  {results.Average(r => r.MinSanity),8:F1}  " +
-                    $"{Pct(lunatic.Count, n),8}  {(lunatic.Count > 0 ? lunatic.Average(r => r.FirstLunacy).ToString("F1") : "-"),8}  " +
-                    $"{Pct(results.Sum(r => r.LunacyTurns), turns),12}  {Pct(results.Sum(r => r.ClarityTurns), turns),12}");
+                    $"{TestDecks.Describe(deck),-8}  {enc,3}  {m.WinRate,6:P0}  {m.Turns,8:F1}  {m.HpLost,8:F1}  " +
+                    $"{m.Collapses,7:F2}  {m.MinSanity,8:F1}  {m.LunacyFightShare,8:P0}  " +
+                    $"{(m.FirstLunacy > 0 ? m.FirstLunacy.ToString("F1") : "-"),8}  {m.LunacyTurnShare,12:P0}  {m.ClarityTurnShare,12:P0}");
             }
+            return 0;
+        }
+
+        // ------------------------------------------------------------ tune
+
+        /// <summary>默认搜索网格；也可以用 --grid "erosion=3,4;U09.PerPoint=2,3" 自己指定。</summary>
+        static readonly Dictionary<string, string[]> DefaultGrid = new Dictionary<string, string[]>
+        {
+            ["erosion"] = new[] { "3", "4" },
+            ["lunacy"] = new[] { "4", "5" },
+            ["hpHard"] = new[] { "1.0", "1.15", "1.3" },
+            ["starter"] = new[] { "base", "prayer" },
+            ["U09.PerPoint"] = new[] { "2", "3" },
+            ["R05.Mult"] = new[] { "2", "3" },
+        };
+
+        static int Tune(Dictionary<string, string> o)
+        {
+            int n = int.Parse(Opt(o, "n", "150"));
+            int top = int.Parse(Opt(o, "top", "5"));
+            int confirmN = int.Parse(Opt(o, "confirm", "500"));
+            var axes = o.TryGetValue("grid", out var g)
+                ? g.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(a => a.Split('='))
+                    .ToDictionary(a => a[0].Trim(), a => a[1].Split(',').Select(v => v.Trim()).ToArray())
+                : DefaultGrid;
+            var specs = Tuner.Grid(axes).ToList();
+            Console.WriteLine($"网格 {specs.Count} 组参数 × 13 个对局组合 × {n} 场；前 {top} 名再用 {confirmN} 场复核");
+
+            var results = new List<Tuner.Evaluation>();
+            foreach (var spec in specs)
+            {
+                Tuning.Apply(spec);
+                var ev = Tuner.Evaluate(spec, n);
+                results.Add(ev);
+                Console.WriteLine($"  {ev.Score,6:F2}  {spec}");
+            }
+
+            Console.WriteLine();
+            Console.WriteLine($"前 {top} 名复核（{confirmN} 场）：");
+            var confirmed = new List<Tuner.Evaluation>();
+            foreach (var ev in results.OrderBy(r => r.Score).Take(top))
+            {
+                Tuning.Apply(ev.Spec);
+                var c = Tuner.Evaluate(ev.Spec, confirmN);
+                confirmed.Add(c);
+                Console.WriteLine($"  {c.Spec}");
+                Console.WriteLine($"    {Tuner.Summary(c)}");
+            }
+
+            var best = confirmed.OrderBy(r => r.Score).First();
+            Console.WriteLine();
+            Console.WriteLine($"最优：{best.Spec}（得分 {best.Score:F2}）");
+            foreach (var kv in best.Penalties.Where(kv => kv.Value > 0.001).OrderByDescending(kv => kv.Value))
+                Console.WriteLine($"  扣分 {kv.Key}：{kv.Value:F2}");
+            Console.WriteLine();
+            Console.WriteLine("牌组      遭遇  胜率    平均回合  平均掉血  崩溃/场  进入癫狂  癫狂回合占比  清明回合占比");
+            foreach (var m in best.Main.Concat(best.MixedSane).Concat(best.MixedMad))
+                Console.WriteLine(
+                    $"{TestDecks.Describe(m.Deck) + (m.Style == Autoplayer.StyleFor(m.Deck) ? "" : "/" + m.Style),-12}  {m.Enc,3}  {m.WinRate,6:P0}  {m.Turns,8:F1}  {m.HpLost,8:F1}  " +
+                    $"{m.Collapses,7:F2}  {m.LunacyFightShare,8:P0}  {m.LunacyTurnShare,12:P0}  {m.ClarityTurnShare,12:P0}");
             return 0;
         }
 

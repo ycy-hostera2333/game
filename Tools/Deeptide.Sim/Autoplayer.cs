@@ -77,7 +77,9 @@ namespace Deeptide.Sim
             foreach (var en in s.State.Enemies)
             {
                 if (en.IsDead) { v += 8; continue; }
-                v -= en.Hp;
+                // 会做精神攻击的敌人优先击杀：每点精神攻击让它的剩余生命多算 25%
+                int mindThreat = en.Behaviour.Moves.Max(m => m.SanityDamage);
+                v -= en.Hp * (1 + 0.25 * mindThreat);
                 v -= 2.0 * en.Statuses.Get(StatusId.Strength);
                 if (!en.Mindless) v += 4.0 * en.Fear / Math.Max(1, en.Will);
             }

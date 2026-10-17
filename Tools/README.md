@@ -47,4 +47,20 @@ dotnet run --project Deeptide.Sim -- batch --n 500
 
 统计每个「牌组 × 遭遇」组合的胜率、平均回合数、平均掉血、崩溃次数、癫狂回合占比和清明回合占比。
 
+可以用 `--set` 临时改参数做对比，用 `--style sane|mad|mixed` 指定 AI 打法：
+
+```bash
+dotnet run --project Deeptide.Sim -- batch --deck C --style mad --set "erosion=3;U09.PerPoint=3"
+```
+
+`--set` 支持：`erosion`（侵蚀起始回合）、`lunacy`（癫狂线）、`hp` / `hpHard`（全部 / 困难池敌人生命倍率）、`starter=base|prayer`、`卡牌ID.变量名=值`、`敌人ID.hp=最小-最大`。只在这一次运行中生效，不改源码。
+
+## 自动调参
+
+```bash
+dotnet run --project Deeptide.Sim -c Release -- tune --n 150 --top 5 --confirm 500
+```
+
+在参数网格上跑遍所有「牌组 × 遭遇」，按 策划/07 §7 的目标函数打分，前几名再用更多场次复核。用 `--grid "erosion=3,4;U09.PerPoint=2,3"` 可以自己指定网格；默认网格 96 组，大约 2 分钟。
+
 AI 是一步贪心：通过重放预演每个候选出牌的结果，所以它能看到真实的抽牌顺序。它打得比真人更顺，**只适合做相对比较**（改动前后、A 牌组对 B 牌组），绝对数值不能直接当成平衡结论。

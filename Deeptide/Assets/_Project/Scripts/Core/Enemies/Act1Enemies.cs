@@ -18,7 +18,7 @@ namespace Deeptide.Core.Enemies
         static readonly Dictionary<string, EnemyDef> Defs = new Dictionary<string, EnemyDef>
         {
             [EnemyIds.Acolyte] = new EnemyDef { Id = EnemyIds.Acolyte, Name = "教团侍僧", HpMin = 46, HpMax = 50, Will = 8, Factory = () => new CultAcolyte() },
-            [EnemyIds.Whisperer] = new EnemyDef { Id = EnemyIds.Whisperer, Name = "呓语者", HpMin = 18, HpMax = 22, Will = 5, Factory = () => new Whisperer() },
+            [EnemyIds.Whisperer] = new EnemyDef { Id = EnemyIds.Whisperer, Name = "呓语者", HpMin = 23, HpMax = 27, Will = 5, Factory = () => new Whisperer() },
             [EnemyIds.Townsfolk] = new EnemyDef { Id = EnemyIds.Townsfolk, Name = "失魂镇民", HpMin = 28, HpMax = 32, Will = 10, Factory = () => new HollowTownsfolk() },
             [EnemyIds.Dummy] = new EnemyDef { Id = EnemyIds.Dummy, Name = "稻草人", HpMin = 200, HpMax = 200, Will = 10, Factory = () => new TrainingDummy() },
         };

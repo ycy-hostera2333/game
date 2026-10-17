@@ -7,10 +7,11 @@ namespace Deeptide.Core.Content
     /// <summary>纸面原型的测试牌组（原型/阶段0 规则第 3 条），数字版用同一套组合做对照。</summary>
     public static class TestDecks
     {
+        /// <summary>起始牌组：打击 ×5、防御 ×3、祷告 ×1、禁忌一瞥 ×1（策划/03 §1，模拟调参后用祷告换掉 1 张防御）。</summary>
         public static readonly string[] Starter =
         {
             "B01", "B01", "B01", "B01", "B01",
-            "B02", "B02", "B02", "B02",
+            "B02", "B02", "B02", "C01",
             "B03",
         };
 
