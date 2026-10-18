@@ -1,0 +1,3 @@
+id,name,rarity,tendency,vars,text
+# 遗物表（策划/05 §1）。rarity 可选 Starter / Common / Uncommon / Rare / Shop
+investigator_notes,调查笔记,Starter,堕落,Energy=1;Draw=2,每场战斗第一次进入癫狂时，获得 {Energy} 能量并抽 {Draw} 张牌。

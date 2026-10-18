@@ -6,7 +6,9 @@ using System.Threading.Tasks;
 using Deeptide.Core;
 using Deeptide.Core.Cards;
 using Deeptide.Core.Content;
+using Deeptide.Core.Data;
 using Deeptide.Core.Enemies;
+using Deeptide.Tools;
 
 namespace Deeptide.Sim
 {
@@ -24,6 +26,12 @@ namespace Deeptide.Sim
             Console.InputEncoding = Encoding.UTF8;
             string mode = args.Length > 0 ? args[0] : "help";
             var opts = ParseOptions(args.Skip(1).ToArray());
+            try { DataFiles.EnsureLoaded(); }
+            catch (DataValidationException ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+                return 2;
+            }
             if (opts.TryGetValue("set", out var spec)) Tuning.Apply(spec);
             if (opts.TryGetValue("peek", out var peek) && peek == "1") Autoplayer.IgnoreBlur = true;
             try

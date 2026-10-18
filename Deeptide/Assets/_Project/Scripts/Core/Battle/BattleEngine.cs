@@ -131,7 +131,7 @@ namespace Deeptide.Core
 
             if (Player.IsClarity) State.Stats.ClarityTurns++;
             foreach (var c in Player.Hand)
-                (c.Def.Ethereal ? Player.ExhaustPile : Player.DiscardPile).Add(c);
+                (c.Ethereal ? Player.ExhaustPile : Player.DiscardPile).Add(c);
             Player.Hand.Clear();
             Player.Statuses.TickTurnEnd();
 
@@ -182,7 +182,7 @@ namespace Deeptide.Core
                     Index = i,
                     Def = def,
                     Name = counts[id] > 1 ? $"{def.Name} {(char)('A' + seen[id] - 1)}" : def.Name,
-                    Behaviour = CreateBehaviour(def),
+                    Behaviour = EnemyLibrary.CreateBehaviour(def),
                     MaxHp = hp,
                     Hp = hp,
                     Will = def.Will,
@@ -197,13 +197,6 @@ namespace Deeptide.Core
 
             foreach (var en in State.Enemies) RollIntent(en);
             StartPlayerTurn();
-        }
-
-        static EnemyBehaviour CreateBehaviour(EnemyDef def)
-        {
-            var b = def.Factory();
-            b.Init(def);
-            return b;
         }
 
         void StartPlayerTurn()

@@ -90,7 +90,7 @@ namespace Deeptide.Core.Actions
         {
             var p = e.Player;
             if (_card.Def.Type == CardType.Power) return;
-            if (_card.Def.Exhaust) p.ExhaustPile.Add(_card);
+            if (_card.Exhaust) p.ExhaustPile.Add(_card);
             else p.DiscardPile.Add(_card);
         }
     }

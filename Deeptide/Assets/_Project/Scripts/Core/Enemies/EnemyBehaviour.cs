@@ -13,9 +13,49 @@ namespace Deeptide.Core.Enemies
         public int HpMax;
         /// <summary>意志；≤ 0 表示无心智（免疫恐惧）。</summary>
         public int Will;
-        /// <summary>招式数值（对应以后 enemies.csv 的 vars 列），由 EnemyBehaviour.V() 读取。</summary>
+        /// <summary>招式数值（enemies.csv 的 vars 列），由 EnemyBehaviour.V() 读取。</summary>
         public Dictionary<string, int> Vars = new Dictionary<string, int>();
+        /// <summary>招式 ID → 显示名（enemies.csv 的 moves 列）。代码搭建招式表时只能用这里声明过的招式。</summary>
+        public Dictionary<string, string> MoveNames = new Dictionary<string, string>();
         public Func<EnemyBehaviour> Factory;
+    }
+
+    /// <summary>敌人注册表，内容由 Data.GameData 从 enemies.csv 载入。</summary>
+    public static class EnemyLibrary
+    {
+        static readonly Dictionary<string, EnemyDef> Defs = new Dictionary<string, EnemyDef>();
+        static readonly List<EnemyDef> Ordered = new List<EnemyDef>();
+
+        public static IReadOnlyList<EnemyDef> All => Ordered;
+
+        public static bool Exists(string id) => Defs.ContainsKey(id);
+
+        public static EnemyDef Get(string id)
+        {
+            if (Defs.TryGetValue(id, out var def)) return def;
+            if (Defs.Count == 0) throw new InvalidOperationException("敌人数据还没有载入（先调用 GameData.Load）");
+            throw new KeyNotFoundException($"未知敌人：{id}");
+        }
+
+        /// <summary>按定义创建并搭建好招式表的 AI 实例。</summary>
+        public static EnemyBehaviour CreateBehaviour(EnemyDef def)
+        {
+            var b = def.Factory();
+            b.Init(def);
+            return b;
+        }
+
+        internal static void Clear()
+        {
+            Defs.Clear();
+            Ordered.Clear();
+        }
+
+        internal static void Add(EnemyDef def)
+        {
+            Defs.Add(def.Id, def);
+            Ordered.Add(def);
+        }
     }
 
     /// <summary>一个招式：意图显示所需的信息。实际效果写在 EnemyBehaviour.Perform 里。</summary>
@@ -72,7 +112,14 @@ namespace Deeptide.Core.Enemies
             return v;
         }
 
-        protected void AddMove(EnemyMove move) => _moves.Add(move.Id, move);
+        /// <summary>招式的显示名从 enemies.csv 的 moves 列读取；没有声明过的招式直接报错。</summary>
+        protected void AddMove(EnemyMove move)
+        {
+            if (!Def.MoveNames.TryGetValue(move.Id, out var name))
+                throw new InvalidOperationException($"{Def.Id} 的招式 {move.Id} 没有在 enemies.csv 的 moves 列里声明");
+            move.Name = name;
+            _moves.Add(move.Id, move);
+        }
 
         protected void AddOption(string moveId, int weight, int maxConsecutive = 2, int maxUses = 0,
                                  Func<BattleEngine, EnemyState, bool> condition = null)

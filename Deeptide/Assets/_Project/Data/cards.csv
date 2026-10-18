@@ -1,0 +1,20 @@
+id,name,type,rarity,archetype,cost,cost_up,target,dual,keywords,keywords_up,vars,vars_up,text_sane,text_mad,text_sane_up,text_mad_up
+# 卡表（策划/03 §3）。cost 填 X 表示 X 费；dual=1 是双面牌；keywords 可选 exhaust / ethereal / unplayable / innate / retain，多个用分号隔开
+# keywords_up 为空表示升级后关键词不变；text_*_up 为空表示升级后沿用原文本（数值按 vars_up 替换）
+B01,打击,Attack,Basic,基础,1,,Enemy,,,,Damage=6,Damage=9,造成 {Damage} 伤害。,,,
+B02,防御,Skill,Basic,基础,1,,None,,,,Block=5,Block=8,获得 {Block} 格挡。,,,
+B03,禁忌一瞥,Skill,Basic,堕落,0,,None,1,,,Sanity=1;MadSanity=1;Draw=2;MadDraw=3,Draw=3;MadDraw=4,代价{Sanity}。抽 {Draw} 张牌。,代价{MadSanity}。抽 {MadDraw} 张牌。,,
+C01,祷告,Skill,Common,守夜,1,,None,,,,Block=6;Restore=1,Block=9,获得 {Block} 格挡，恢复 {Restore} 理智。,,,
+C02,守夜灯,Skill,Common,守夜,1,,None,,,,Block=7;Bonus=4,Block=9;Bonus=5,获得 {Block} 格挡。清明：再获得 {Bonus} 格挡。,,,
+C03,银质匕首,Attack,Common,守夜,1,,Enemy,,,,Damage=7;Draw=1,Damage=10,造成 {Damage} 伤害。清明：抽 {Draw} 张牌。,,,
+C04,镇定,Skill,Common,守夜,0,,None,,exhaust,,Restore=2,Restore=3,恢复 {Restore} 理智。消耗。,,,
+C06,梦魇之刃,Attack,Common,堕落,1,,Enemy,1,,,Damage=8;MadDamage=14;SelfHp=2,Damage=10;MadDamage=18,造成 {Damage} 伤害。,造成 {MadDamage} 伤害，失去 {SelfHp} 生命。,,
+C07,撕裂,Attack,Common,堕落,0,,Enemy,1,,,Sanity=1;MadSanity=1;Damage=6;MadHits=2,Damage=8,代价{Sanity}。造成 {Damage} 伤害。,代价{MadSanity}。造成 {Damage} 伤害 {MadHits} 次。,,
+C08,坠落,Skill,Common,堕落,0,,None,,,,Sanity=2;Energy=1;Draw=1,Draw=2,代价{Sanity}。获得 {Energy} 能量，抽 {Draw} 张牌。,,,
+C09,狂乱挥砍,Attack,Common,堕落,1,,Enemy,1,,,Damage=4;Hits=2;MadSanity=1;MadHits=4,Damage=5,造成 {Damage} 伤害 {Hits} 次。,代价{MadSanity}。造成 {Damage} 伤害 {MadHits} 次。,,
+C10,扭曲躯壳,Skill,Common,堕落,1,,None,1,,,Block=7;MadBlock=12;Discard=1,Block=10;MadBlock=16,获得 {Block} 格挡。,获得 {MadBlock} 格挡，随机弃 {Discard} 张牌。,,
+C11,恐怖低语,Skill,Common,传染,1,,Enemy,,,,Fear=4;Draw=1,Fear=6,施加 {Fear} 恐惧，抽 {Draw} 张牌。,,,
+U02,坚定信念,Skill,Uncommon,守夜,2,,None,,,,Block=12;Ward=2,Block=16,获得 {Block} 格挡。清明：获得 {Ward} 层心防。,,,
+U09,崩坏边缘,Attack,Uncommon,堕落,1,,Enemy,,,,Damage=4;PerPoint=2,PerPoint=3,造成 {Damage} 伤害。你每缺失 1 点理智，伤害 +{PerPoint}。,,,
+R05,明理之刃,Attack,Rare,守夜,2,,Enemy,,,,Mult=3,Mult=4,造成等同于当前理智 ×{Mult} 的伤害。,,,
+S01,疯语,Curse,Special,诅咒,0,,None,,unplayable,,Loss=1,,不能打出。回合结束时若在手中，失去 {Loss} 理智。,,,

@@ -1,39 +1,99 @@
+using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using Deeptide.Core.Actions;
 
 namespace Deeptide.Core.Relics
 {
     public static class RelicIds
     {
-        public const string InvestigatorNotes = "RL0";
+        public const string InvestigatorNotes = "investigator_notes";
+    }
+
+    public enum RelicRarity { Starter, Common, Uncommon, Rare, Shop }
+
+    /// <summary>遗物静态数据，对应 Data/relics.csv 的一行。</summary>
+    public sealed class RelicDef
+    {
+        public string Id;
+        public string Name;
+        public RelicRarity Rarity;
+        /// <summary>流派倾向（守夜 / 堕落 / 传染 / 中立），只用于统计和奖励偏好。</summary>
+        public string Tendency;
+        public Dictionary<string, int> Vars = new Dictionary<string, int>();
+        public string Text;
+        public Func<Relic> Factory;
     }
 
     public abstract class Relic : BattleListener
     {
-        public abstract string Id { get; }
-        public abstract string Name { get; }
-        public abstract string Description { get; }
+        static readonly Regex Placeholder = new Regex(@"\{(\w+)\}");
+
+        public RelicDef Def { get; private set; }
+
+        internal void Init(RelicDef def) => Def = def;
+
+        public string Id => Def.Id;
+        public string Name => Def.Name;
+        public string Description => Placeholder.Replace(Def.Text ?? "", m => V(m.Groups[1].Value).ToString());
+
+        protected int V(string key)
+        {
+            if (!Def.Vars.TryGetValue(key, out var v)) throw new KeyNotFoundException($"{Def.Id} 缺少数值 {key}");
+            return v;
+        }
     }
 
+    /// <summary>遗物注册表，内容由 Data.GameData 从 relics.csv 载入。</summary>
     public static class RelicLibrary
     {
+        static readonly Dictionary<string, RelicDef> Defs = new Dictionary<string, RelicDef>();
+        static readonly List<RelicDef> Ordered = new List<RelicDef>();
+
+        public static IReadOnlyList<RelicDef> All => Ordered;
+
+        public static bool Exists(string id) => Defs.ContainsKey(id);
+
+        public static RelicDef Get(string id)
+        {
+            if (Defs.TryGetValue(id, out var def)) return def;
+            if (Defs.Count == 0) throw new InvalidOperationException("遗物数据还没有载入（先调用 GameData.Load）");
+            throw new KeyNotFoundException($"未知遗物：{id}");
+        }
+
         public static Relic Create(string id)
         {
-            switch (id)
-            {
-                case RelicIds.InvestigatorNotes: return new InvestigatorNotes();
-                default: throw new KeyNotFoundException($"未知遗物：{id}");
-            }
+            var def = Get(id);
+            var relic = def.Factory();
+            relic.Init(def);
+            return relic;
         }
+
+        internal static void Clear()
+        {
+            Defs.Clear();
+            Ordered.Clear();
+        }
+
+        internal static void Add(RelicDef def)
+        {
+            Defs.Add(def.Id, def);
+            Ordered.Add(def);
+        }
+    }
+
+    /// <summary>遗物类注册表：relics.csv 的每一行按 ID 找到这里的工厂（显式表，理由同 CardClasses）。</summary>
+    public static class RelicClasses
+    {
+        public static readonly IReadOnlyDictionary<string, Func<Relic>> Factories = new Dictionary<string, Func<Relic>>
+        {
+            [RelicIds.InvestigatorNotes] = () => new InvestigatorNotes(),
+        };
     }
 
     /// <summary>起始遗物「调查笔记」：每场战斗首次进入癫狂时，获得 1 能量并抽 2 张牌（策划/03 §1）。</summary>
     public sealed class InvestigatorNotes : Relic
     {
-        public override string Id => RelicIds.InvestigatorNotes;
-        public override string Name => "调查笔记";
-        public override string Description => "每场战斗第一次进入癫狂时，获得 1 能量并抽 2 张牌。";
-
         public bool TriggeredThisCombat { get; private set; }
 
         public override void OnCombatStart(BattleEngine e) => TriggeredThisCombat = false;
@@ -42,8 +102,8 @@ namespace Deeptide.Core.Relics
         {
             if (!entered || TriggeredThisCombat) return;
             TriggeredThisCombat = true;
-            e.Log.Add(BattleEventType.RelicTriggered, "调查笔记触发：+1 能量，抽 2 张牌", Name);
-            e.Queue.AddToTop(new GainEnergyAction(1), new DrawCardsAction(2));
+            e.Log.Add(BattleEventType.RelicTriggered, $"调查笔记触发：+{V("Energy")} 能量，抽 {V("Draw")} 张牌", Name);
+            e.Queue.AddToTop(new GainEnergyAction(V("Energy")), new DrawCardsAction(V("Draw")));
         }
     }
 }

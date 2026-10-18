@@ -1,0 +1,6 @@
+id,name,hp_min,hp_max,will,moves,vars
+# 敌人表（策划/04）。will 填 0 表示无心智（免疫恐惧）；moves 是「招式ID=显示名」，必须和代码里搭建的招式表一一对应
+acolyte,教团侍僧,46,50,8,Prayer=狂热祷文;Dagger=血祭匕首;Heavy=献祭重击,Dagger=6;Heavy=11;PrayerStrength=2
+whisperer,呓语者,23,27,5,Whisper=低语;Shriek=尖啸;Confuse=惑乱,Whisper=2;Shriek=3
+townsfolk,失魂镇民,28,32,10,Hoe=挥锄;Smash=猛砸;Wail=哀嚎,Hoe=9;Smash=12;WailMind=1;WailBlock=5;ScentBonus=4
+dummy,稻草人,200,200,10,Idle=发呆,

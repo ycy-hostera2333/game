@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Deeptide.Core.Actions;
 using Deeptide.Core.Cards;
@@ -13,38 +14,16 @@ namespace Deeptide.Core.Enemies
         public const string Dummy = "dummy";
     }
 
-    public static class EnemyLibrary
+    /// <summary>敌人类注册表：enemies.csv 的每一行按 ID 找到这里的工厂（显式表，理由同 CardClasses）。</summary>
+    public static class EnemyClasses
     {
-        static readonly Dictionary<string, EnemyDef> Defs = new Dictionary<string, EnemyDef>
+        public static readonly IReadOnlyDictionary<string, Func<EnemyBehaviour>> Factories = new Dictionary<string, Func<EnemyBehaviour>>
         {
-            [EnemyIds.Acolyte] = new EnemyDef
-            {
-                Id = EnemyIds.Acolyte, Name = "教团侍僧", HpMin = 46, HpMax = 50, Will = 8,
-                Vars = CardLibrary.ParseVars("Dagger=6;Heavy=11;PrayerStrength=2"),
-                Factory = () => new CultAcolyte(),
-            },
-            [EnemyIds.Whisperer] = new EnemyDef
-            {
-                Id = EnemyIds.Whisperer, Name = "呓语者", HpMin = 23, HpMax = 27, Will = 5,
-                Vars = CardLibrary.ParseVars("Whisper=2;Shriek=3"),
-                Factory = () => new Whisperer(),
-            },
-            [EnemyIds.Townsfolk] = new EnemyDef
-            {
-                Id = EnemyIds.Townsfolk, Name = "失魂镇民", HpMin = 28, HpMax = 32, Will = 10,
-                Vars = CardLibrary.ParseVars("Hoe=9;Smash=12;WailMind=1;WailBlock=5;ScentBonus=4"),
-                Factory = () => new HollowTownsfolk(),
-            },
-            [EnemyIds.Dummy] = new EnemyDef { Id = EnemyIds.Dummy, Name = "稻草人", HpMin = 200, HpMax = 200, Will = 10, Factory = () => new TrainingDummy() },
+            [EnemyIds.Acolyte] = () => new CultAcolyte(),
+            [EnemyIds.Whisperer] = () => new Whisperer(),
+            [EnemyIds.Townsfolk] = () => new HollowTownsfolk(),
+            [EnemyIds.Dummy] = () => new TrainingDummy(),
         };
-
-        public static EnemyDef Get(string id)
-        {
-            if (!Defs.TryGetValue(id, out var def)) throw new KeyNotFoundException($"未知敌人：{id}");
-            return def;
-        }
-
-        public static IEnumerable<EnemyDef> All => Defs.Values;
     }
 
     // 招式权重按六面骰的「几个面」来定，纸面原型可以直接用骰子掷（策划/04 §2）。
@@ -55,9 +34,9 @@ namespace Deeptide.Core.Enemies
     {
         protected override void Build()
         {
-            AddMove(new EnemyMove { Id = "Prayer", Name = "狂热祷文", Intent = IntentType.Buff, Note = $"所有敌人获得 {V("PrayerStrength")} 力量" });
-            AddMove(new EnemyMove { Id = "Dagger", Name = "血祭匕首", Intent = IntentType.Attack, Damage = V("Dagger") });
-            AddMove(new EnemyMove { Id = "Heavy", Name = "献祭重击", Intent = IntentType.Attack, Damage = V("Heavy") });
+            AddMove(new EnemyMove { Id = "Prayer", Intent = IntentType.Buff, Note = $"所有敌人获得 {V("PrayerStrength")} 力量" });
+            AddMove(new EnemyMove { Id = "Dagger", Intent = IntentType.Attack, Damage = V("Dagger") });
+            AddMove(new EnemyMove { Id = "Heavy", Intent = IntentType.Attack, Damage = V("Heavy") });
             FirstMove = "Prayer";
             AddOption("Dagger", 3);
             AddOption("Heavy", 1, maxConsecutive: 1);
@@ -85,9 +64,9 @@ namespace Deeptide.Core.Enemies
     {
         protected override void Build()
         {
-            AddMove(new EnemyMove { Id = "Whisper", Name = "低语", Intent = IntentType.Mind, SanityDamage = V("Whisper") });
-            AddMove(new EnemyMove { Id = "Shriek", Name = "尖啸", Intent = IntentType.Mind, SanityDamage = V("Shriek") });
-            AddMove(new EnemyMove { Id = "Confuse", Name = "惑乱", Intent = IntentType.Debuff, Note = "将 1 张疯语放入你的弃牌堆" });
+            AddMove(new EnemyMove { Id = "Whisper", Intent = IntentType.Mind, SanityDamage = V("Whisper") });
+            AddMove(new EnemyMove { Id = "Shriek", Intent = IntentType.Mind, SanityDamage = V("Shriek") });
+            AddMove(new EnemyMove { Id = "Confuse", Intent = IntentType.Debuff, Note = "将 1 张疯语放入你的弃牌堆" });
             AddOption("Whisper", 3);
             AddOption("Shriek", 1, maxConsecutive: 1);
             AddOption("Confuse", 2, maxUses: 2);
@@ -113,9 +92,9 @@ namespace Deeptide.Core.Enemies
     {
         protected override void Build()
         {
-            AddMove(new EnemyMove { Id = "Hoe", Name = "挥锄", Intent = IntentType.Attack, Damage = V("Hoe") });
-            AddMove(new EnemyMove { Id = "Smash", Name = "猛砸", Intent = IntentType.Attack, Damage = V("Smash") });
-            AddMove(new EnemyMove { Id = "Wail", Name = "哀嚎", Intent = IntentType.Mind | IntentType.Defend, SanityDamage = V("WailMind"), Block = V("WailBlock") });
+            AddMove(new EnemyMove { Id = "Hoe", Intent = IntentType.Attack, Damage = V("Hoe") });
+            AddMove(new EnemyMove { Id = "Smash", Intent = IntentType.Attack, Damage = V("Smash") });
+            AddMove(new EnemyMove { Id = "Wail", Intent = IntentType.Mind | IntentType.Defend, SanityDamage = V("WailMind"), Block = V("WailBlock") });
             AddOption("Hoe", 2);
             AddOption("Smash", 1, maxConsecutive: 1);
             AddOption("Wail", 3);
@@ -144,7 +123,7 @@ namespace Deeptide.Core.Enemies
     {
         protected override void Build()
         {
-            AddMove(new EnemyMove { Id = "Idle", Name = "发呆", Intent = IntentType.Unknown });
+            AddMove(new EnemyMove { Id = "Idle", Intent = IntentType.Unknown });
             AddOption("Idle", 1, maxConsecutive: int.MaxValue);
         }
 
