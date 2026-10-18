@@ -528,7 +528,7 @@ namespace Deeptide.Core.Run
                     {
                         int index = k;
                         string card = State.Deck[k];
-                        string label = sel.Purpose == SelectPurpose.UpgradeCard ? $"{CardLabel(card)} → 升级" : CardLabel(card);
+                        string label = sel.Purpose == SelectPurpose.UpgradeCard ? $"{CardLabel(card)}  →  升级后：{CardLabel(card + "+")}" : CardLabel(card);
                         options.Add(new RunOption { Label = label, CardId = card, Tag = "deck:" + index, Do = () => FinishSelect(null, index) });
                     }
                     if (sel.CanSkip) options.Add(new RunOption { Label = "取消", Tag = "skip", Do = () => FinishSelect(null, -1) });

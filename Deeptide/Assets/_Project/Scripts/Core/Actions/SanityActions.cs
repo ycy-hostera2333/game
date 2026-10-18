@@ -89,7 +89,9 @@ namespace Deeptide.Core.Actions
             int overflow = amount - actual;
             e.SetSanity(p.Sanity + actual);
             var ev = e.Log.Add(BattleEventType.SanityRestored,
-                overflow > 0 ? $"恢复 {actual} 理智（溢出 {overflow}）→ {p.Sanity}/{p.MaxSanity}" : $"恢复 {actual} 理智 → {p.Sanity}/{p.MaxSanity}",
+                actual == 0 ? $"理智已满（溢出 {overflow}）"
+                : overflow > 0 ? $"恢复 {actual} 理智（溢出 {overflow}）→ {p.Sanity}/{p.MaxSanity}"
+                : $"恢复 {actual} 理智 → {p.Sanity}/{p.MaxSanity}",
                 amount: actual);
             ev.Value = p.Sanity;
             ev.Value2 = overflow;

@@ -200,9 +200,12 @@ namespace Deeptide.Sim
         static string StatusLine(RunEngine run)
         {
             var s = run.State;
-            var potions = s.Potions.Select((p, i) => p == null ? "空" : PotionLibrary.Get(p).Name).ToList();
+            // 战斗中生命和药水以战斗里的为准（局层状态要等战斗结束才同步）
+            var potionIds = run.Battle != null ? run.Battle.Player.Potions.Select(p => p?.Id).ToList() : s.Potions;
+            var potions = potionIds.Select(p => p == null ? "空" : PotionLibrary.Get(p).Name).ToList();
+            int hp = run.Battle?.Player.Hp ?? s.Hp;
             var relics = s.Relics.Select(r => RelicLibrary.Get(r).Name);
-            return $"── 第 {s.Floor}/{s.Map.BossFloor} 层  生命 {s.Hp}/{s.MaxHp}  理智上限 {s.MaxSanity}  金币 {s.Gold}  牌组 {s.Deck.Count} 张  " +
+            return $"── 第 {s.Floor}/{s.Map.BossFloor} 层  生命 {hp}/{s.MaxHp}  理智上限 {s.MaxSanity}  金币 {s.Gold}  牌组 {s.Deck.Count} 张  " +
                    $"药水 [{string.Join(" | ", potions)}]  遗物：{string.Join("、", relics)}";
         }
 
@@ -260,6 +263,87 @@ namespace Deeptide.Sim
             Console.WriteLine(Summary(run));
             return 0;
         }
+
+        // ------------------------------------------------------------ runview（一步步试玩用）
+
+        /// <summary>
+        /// 重放命令文件，打印 --from 之后发生的事情和当前界面（玩家能看到的信息，和 run 模式一样）。
+        /// 试玩时往命令文件里追加命令，再运行一次就能接着打；不用开着一个交互进程。
+        /// </summary>
+        public static int RunView(Dictionary<string, string> o)
+        {
+            ulong seed = ulong.Parse(Opt(o, "seed", "1"));
+            string file = Opt(o, "cmds-file", "playtest.txt");
+            var cmds = File.Exists(file)
+                ? File.ReadAllLines(file).Select(x => x.Split('#')[0].Trim()).Where(x => x.Length > 0).Select(RunCommand.Parse).ToList()
+                : new List<RunCommand>();
+            int from = int.Parse(Opt(o, "from", cmds.Count.ToString()));
+            var run = RunEngine.NewRun(seed, Config());
+            BattleEngine watched = null;
+            int watchedFrom = 0;
+            var lines = new List<string>();
+            for (int i = 0; i < cmds.Count; i++)
+            {
+                if (i == from)
+                {
+                    watched = run.Battle;
+                    watchedFrom = watched?.Log.Events.Count ?? 0;
+                }
+                var before = run.Battle;
+                string title = run.Title;
+                var options = run.State.Phase == RunPhase.Battle ? null : run.Options();
+                if (!run.Execute(cmds[i], out var error))
+                {
+                    Console.WriteLine($"第 {i + 1} 条命令 {cmds[i]} 不合法：{error}");
+                    break;
+                }
+                if (i >= from)
+                {
+                    if (options != null && cmds[i].Kind == RunCommandKind.Pick) lines.Add($"[{title}] → {options[cmds[i].Index].Label}");
+                    if (before != null && before != watched) { watched = before; watchedFrom = 0; }
+                    if (before != null && run.Battle != before)
+                    {
+                        lines.AddRange(Narrative(before, watchedFrom));
+                        var rec = run.State.Stats.Battles.Last();
+                        lines.Add($"战斗结束：{(rec.Won ? "胜" : "败")}，{rec.Turns} 回合，掉血 {rec.HpLost}");
+                        watched = null;
+                    }
+                }
+            }
+            if (run.Battle != null)
+            {
+                if (watched != run.Battle) watchedFrom = run.Battle.Log.Events.Count > 0 && from >= cmds.Count ? 0 : 0;
+                lines.AddRange(Narrative(run.Battle, watched == run.Battle ? watchedFrom : 0));
+            }
+            foreach (var l in lines) Console.WriteLine(l);
+            Console.WriteLine();
+            Console.WriteLine($"（已执行 {cmds.Count} 条命令）");
+            Console.WriteLine(StatusLine(run));
+            if (o.TryGetValue("deck", out var d) && d == "1") Console.WriteLine(DeckText(run.State));
+            if (o.TryGetValue("map", out var m) && m == "1")
+            {
+                Console.Write(MapGenerator.Render(run.State.Map, run.State.Row, run.State.Col));
+                Console.WriteLine(MapGenerator.Legend);
+            }
+            if (run.IsOver)
+            {
+                Console.WriteLine(run.State.Phase == RunPhase.Victory ? "【通关】" : "【失败】");
+                Console.WriteLine(Summary(run));
+            }
+            else if (run.State.Phase == RunPhase.Battle) Console.Write(ConsoleView.Render(run.Battle));
+            else
+            {
+                Console.WriteLine($"【{run.Title}】");
+                if (run.Description != null) Console.WriteLine(run.Description);
+                var options = run.Options();
+                for (int i = 0; i < options.Count; i++)
+                    Console.WriteLine($" {(options[i].Enabled ? " " : "×")}pick {i}) {options[i].Label}{(options[i].Enabled ? "" : $"（{options[i].Reason}）")}");
+            }
+            return 0;
+        }
+
+        static IEnumerable<string> Narrative(BattleEngine e, int from) =>
+            e.Log.Events.Skip(from).Where(ev => !ev.IsStateChange && ev.Type != BattleEventType.IntentChosen).Select(ev => "  · " + ev.Message);
 
         // ------------------------------------------------------------ runreplay
 

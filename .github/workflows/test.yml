@@ -39,3 +39,9 @@ jobs:
 
       - name: 模拟器冒烟测试
         run: dotnet run -c Release --no-build --project Deeptide.Sim -- batch --n 50
+
+      # 地图约束有违规、整局 AI 跑局出现异常时返回非 0
+      - name: 地图与整局冒烟测试
+        run: |
+          dotnet run -c Release --no-build --project Deeptide.Sim -- map --n 200
+          dotnet run -c Release --no-build --project Deeptide.Sim -- runbatch --n 25 --cards 0

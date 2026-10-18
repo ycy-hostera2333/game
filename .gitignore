@@ -26,6 +26,9 @@ bin/
 obj/
 TestResults/
 *.user
+# 控制台 run 模式的存档和命令记录
+run_save.json*
+run_commands.txt
 
 # ---------- 编辑器 / 系统 ----------
 .vs/

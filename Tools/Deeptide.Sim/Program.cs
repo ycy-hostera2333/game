@@ -50,6 +50,7 @@ namespace Deeptide.Sim
                     case "run": return RunModes.Run(opts);
                     case "runreplay": return RunModes.RunReplay(opts);
                     case "runauto": return RunModes.RunAuto(opts);
+                    case "runview": return RunModes.RunView(opts);
                     case "runbatch": return RunModes.RunBatch(opts);
                     default:
                         PrintHelp();
@@ -76,6 +77,7 @@ namespace Deeptide.Sim
             Console.WriteLine("  run   [--seed N] [--load run_save.json] [--save run_save.json] [--arch mixed]   文字版完整一局（进入节点时自动存档）");
             Console.WriteLine("  runreplay --seed N --cmds-file run_commands.txt   重放整局");
             Console.WriteLine("  runauto [--seed N] [--arch mixed] [--log boss|elite|all|none]   AI 打一局，打印每个节点的选择和战斗日志");
+            Console.WriteLine("  runview --seed N --cmds-file playtest.txt [--from K] [--deck 1] [--map 1]   重放命令文件并显示当前界面（逐步试玩用）");
             Console.WriteLine("  runbatch [--n 200] [--arch watch,fall,contagion,mixed] [--cards 1]   批量跑整局，输出生命账本、各项指标和拾取率");
             Console.WriteLine("遭遇：1 = 教团侍僧，2 = 侍僧 + 呓语者，3 = 失魂镇民 ×2，或遭遇表里的 ID");
         }

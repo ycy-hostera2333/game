@@ -13,8 +13,8 @@
 ```
 ├─ 策划/        策划案：核心机制、战斗、卡牌、敌人、遗物与事件、地图、数值、技术方案、开发计划、美术
 ├─ 原型/        阶段 0 纸面原型（可打印的 PDF 和 HTML 源文件）
-├─ Deeptide/    Unity 工程；目前只有纯 C# 的战斗内核（Assets/_Project/Scripts/Core）
-└─ Tools/       在 Unity 外编译内核：单元测试 + 控制台对战 / 批量模拟
+├─ Deeptide/    Unity 工程：纯 C# 内核（Assets/_Project/Scripts/Core，战斗 + 跑局）和内容数据（Assets/_Project/Data/*.csv）
+└─ Tools/       在 Unity 外编译内核：单元测试 + 控制台对战 / 整局 / 批量模拟
 ```
 
 ## 快速开始
@@ -26,16 +26,23 @@ cd Tools
 dotnet test
 ```
 
-手动对战（`--deck`：A 守夜 / B 堕落 / C 混合；`--enc`：1 教团侍僧 / 2 侍僧 + 呓语者 / 3 失魂镇民 ×2）：
+手动对战（`--deck`：A 守夜 / B 堕落 / C 混合 / D 传染；`--enc`：1 教团侍僧 / 2 侍僧 + 呓语者 / 3 失魂镇民 ×2，或 `encounters.csv` 里的遭遇 ID）：
 
 ```bash
 dotnet run --project Deeptide.Sim -- play --deck C --enc 2 --seed 42
 ```
 
-批量模拟，统计每个牌组 × 遭遇组合的胜率、掉血、崩溃次数和癫狂回合占比：
+文字版完整一局（地图、战斗、奖励、商店、篝火、事件、Boss；自动存档，`--load run_save.json` 继续）：
 
 ```bash
-dotnet run --project Deeptide.Sim -- batch --n 500
+dotnet run --project Deeptide.Sim -- run --seed 42
+```
+
+批量模拟：单场（每个牌组 × 遭遇组合的胜率、掉血、崩溃、癫狂回合占比）和整局（每个流派 1000 局的生命账本、胜率、拾取率）：
+
+```bash
+dotnet run --project Deeptide.Sim -c Release -- batch --n 500
+dotnet run --project Deeptide.Sim -c Release -- runbatch --n 1000
 ```
 
 更多用法见 [Tools/README.md](Tools/README.md)。
@@ -46,11 +53,13 @@ dotnet run --project Deeptide.Sim -- batch --n 500
 |---|---|
 | 策划案 | 完成 |
 | 0 纸面原型 | 两个关键问题已由 Claude 的数字试玩回答（[试玩记录](原型/试玩记录_2026-10-17.md)）；手感待真人验证 |
-| 1 战斗内核 | 完成：动作队列、理智状态机、恐惧与震慑、敌人 AI、确定性回放；60 个单元测试全部通过 |
+| 1 战斗内核 | 完成：动作队列、理智状态机、恐惧与震慑、敌人 AI、确定性回放；玩家选择、能力、修正钩子、召唤、药水、可重建状态的事件流 |
 | 2 战斗表现（Unity） | 未开始 |
-| 3 内容填充 / 4 跑局循环 / 5 平衡打磨 | 未开始 |
+| 3 内容填充 | 内核部分完成：40 张牌、12 种敌人、20 件遗物、8 种药水、8 个事件，CSV 驱动并校验 |
+| 4 跑局循环 | 逻辑部分完成：地图、节点、奖励、商店、篝火、事件、Boss、整局回放、存读档；控制台能打完整局 |
+| 5 平衡打磨 | 模拟器调参一轮（[07 §8](策划/07_数值框架.md)）、Claude 跑局试玩 2 局（[试玩记录](原型/试玩记录_跑局_2026-10-18.md)）；外部试玩未开始 |
 
-**下一步**：内核先行（引擎扩展 → CSV 数据管线 → 补齐内容 → 跑局逻辑），Unity 表现层在本机并行，详见 [09 §5](策划/09_开发计划.md)。阶段的验收标准也在这份文档里。
+测试 266 个全部通过。**下一步**：Unity 灰盒战斗（阶段 2）和跑局 UI；几个需要你决定的数值问题见 [09 §5.4](策划/09_开发计划.md)。
 
 ## 许可
 
