@@ -31,13 +31,15 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      # NU1900–NU1904 是 NuGet 漏洞审计（只涉及测试用的包，不进游戏）：留在日志里当警告，
+      # 不让新发布的安全公告或审计服务临时故障把构建标红，免得误以为内核出了问题
       - name: 构建（警告视为错误）
-        run: dotnet build Deeptide.slnx -c Release -warnaserror
+        run: dotnet build Deeptide.slnx -c Release -warnaserror '-warnnotaserror:NU1900;NU1901;NU1902;NU1903;NU1904'
 
       - name: 单元测试
         run: dotnet test Deeptide.slnx -c Release --no-build
 
-      - name: 模拟器冒烟测试
+      - name: 模拟器冒烟测试（3 牌组 × 3 遭遇，每组 50 场）
         run: dotnet run -c Release --no-build --project Deeptide.Sim -- batch --n 50
 
       # 地图约束有违规、整局 AI 跑局出现异常时返回非 0

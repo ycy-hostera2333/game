@@ -34,7 +34,11 @@ if ! has_sdk10; then
   if ! apt-cache show dotnet-sdk-10.0 >/dev/null 2>&1; then
     as_root apt-get update -q
   fi
-  as_root apt-get install -y -q --no-install-recommends dotnet-sdk-10.0
+  # 索引过期时，里面记的旧版本可能已经从源里删掉（404），刷新索引后再试一次
+  if ! as_root apt-get install -y -q --no-install-recommends dotnet-sdk-10.0; then
+    as_root apt-get update -q
+    as_root apt-get install -y -q --no-install-recommends dotnet-sdk-10.0
+  fi
 fi
 
 if ! has_sdk10; then

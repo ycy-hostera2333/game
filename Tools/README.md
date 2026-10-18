@@ -17,7 +17,7 @@
 dotnet test
 ```
 
-测试启动时载入真实的 `Data/*.csv`，数据校验有任何错误整套测试直接失败。每次推送到 GitHub 都会自动跑同样的检查（`.github/workflows/test.yml`）：构建（警告视为错误）、单元测试、批量模拟冒烟测试。
+测试启动时载入真实的 `Data/*.csv`，数据校验有任何错误整套测试直接失败。每次推送到 GitHub 都会自动跑同样的检查（`.github/workflows/test.yml`）：构建（警告视为错误；NuGet 漏洞审计除外，只作警告）、单元测试、批量模拟冒烟测试（3 个牌组 × 3 个遭遇，每组 50 场）、地图和整局冒烟测试（200 张地图约束检查，4 个流派各 25 局）。
 
 Claude Code 云端会话启动时，`.claude/hooks/session-start.sh` 会自动安装 .NET 10 SDK 并还原 NuGet 包，会话里可以直接运行这里的所有命令。
 
