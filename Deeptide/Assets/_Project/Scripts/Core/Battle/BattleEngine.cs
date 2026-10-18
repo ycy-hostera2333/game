@@ -377,7 +377,7 @@ namespace Deeptide.Core
             var ev = Log.Add(BattleEventType.TurnStarted, $"—— 第 {State.Turn} 回合 ——", amount: State.Turn);
             ev.Value = State.Turn;
             State.CardsPlayedThisTurn = 0;
-            State.IntentsRevealedThisTurn = false;
+            SetIntentsRevealed(false);
 
             if (State.Turn >= Config.ErosionStartTurn)
                 Queue.AddToBottom(new LoseSanityAction(Config.ErosionAmount, SanitySource.Erosion));
@@ -397,6 +397,7 @@ namespace Deeptide.Core
 
         void EndTurnTriggers()
         {
+            State.EnemyTurn = true;   // 从这里开始获得的能量都用不上了，顺延到下回合
             foreach (var c in Player.Hand.ToList()) c.OnTurnEndInHand(this);
             Notify(l => l.OnPlayerTurnEnd(this));
         }
@@ -541,6 +542,22 @@ namespace Deeptide.Core
             if (en.Counter(key) == value && en.Counters.ContainsKey(key)) return;
             en.Counters[key] = value;
             Log.State(BattleEventType.CounterChanged, en.Index, value, key);
+        }
+
+        public void SetIntentsRevealed(bool revealed)
+        {
+            if (State.IntentsRevealedThisTurn == revealed) return;
+            State.IntentsRevealedThisTurn = revealed;
+            Log.State(BattleEventType.IntentRevealChanged, BattleEvent.PlayerEntity, revealed ? 1 : 0);
+        }
+
+        /// <summary>按 Uid 找手牌 / 牌堆里的牌，找不到返回 null。</summary>
+        public Card FindCard(int uid)
+        {
+            foreach (var pile in Piles)
+                foreach (var c in PileList(pile))
+                    if (c.Uid == uid) return c;
+            return null;
         }
 
         internal void SetPotion(int slot, Potion potion)

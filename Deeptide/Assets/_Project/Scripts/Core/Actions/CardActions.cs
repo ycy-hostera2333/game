@@ -154,9 +154,9 @@ namespace Deeptide.Core.Actions
     {
         readonly string _prompt;
         readonly Func<BattleEngine, List<ChoiceOption>> _options;
-        readonly Action<BattleEngine, int> _onChosen;
+        readonly Action<BattleEngine, ChoiceOption> _onChosen;
 
-        public ChooseAction(string prompt, Func<BattleEngine, List<ChoiceOption>> options, Action<BattleEngine, int> onChosen)
+        public ChooseAction(string prompt, Func<BattleEngine, List<ChoiceOption>> options, Action<BattleEngine, ChoiceOption> onChosen)
         {
             _prompt = prompt;
             _options = options;
@@ -170,10 +170,10 @@ namespace Deeptide.Core.Actions
             if (options.Count == 1)
             {
                 e.Log.Add(BattleEventType.ChoiceMade, $"{_prompt}：只有「{options[0].Label}」可选");
-                _onChosen(e, 0);
+                _onChosen(e, options[0]);
                 return;
             }
-            var choice = new PendingChoice { Prompt = _prompt, OnChosen = _onChosen };
+            var choice = new PendingChoice { Prompt = _prompt, OnChosen = (en, i) => _onChosen(en, options[i]) };
             choice.Options.AddRange(options);
             e.RequestChoice(choice);
         }

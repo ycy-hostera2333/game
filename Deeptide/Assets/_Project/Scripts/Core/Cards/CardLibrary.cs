@@ -6,6 +6,7 @@ namespace Deeptide.Core.Cards
     public static class CardIds
     {
         public const string Whispers = "S01";
+        public const string Web = "S02";
     }
 
     /// <summary>卡牌注册表，内容由 Data.GameData 从 cards.csv 载入。按表格行序保存，随机抽牌时顺序固定。</summary>

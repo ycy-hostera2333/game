@@ -199,7 +199,7 @@ namespace Deeptide.Core.Cards
         public void StatusAll(StatusId status, int amount) => Enqueue(new StatusAllEnemiesAction(status, amount));
         public void DiscardRandom(int count) => Enqueue(new DiscardRandomAction(count));
         public void AddCard(string cardId, PileKind pile, int tempCost = -1) => Enqueue(new AddCardToPileAction(cardId, pile, tempCost));
-        public void Choose(string prompt, Func<BattleEngine, List<ChoiceOption>> options, Action<BattleEngine, int> onChosen) =>
+        public void Choose(string prompt, Func<BattleEngine, List<ChoiceOption>> options, Action<BattleEngine, ChoiceOption> onChosen) =>
             Enqueue(new ChooseAction(prompt, options, onChosen));
 
         /// <summary>打出能力牌：能力以这张牌的 ID 和名字常驻到战斗结束，同名能力叠加 amount。</summary>

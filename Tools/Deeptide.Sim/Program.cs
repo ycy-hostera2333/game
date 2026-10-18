@@ -60,7 +60,7 @@ namespace Deeptide.Sim
             Console.WriteLine("深潮 · 战斗内核控制台");
             Console.WriteLine("  play  [--deck A|B|C|starter] [--enc 1|2|3] [--seed N]   手动对战");
             Console.WriteLine("  auto  [--deck A|B|C|starter] [--enc 1|2|3] [--seed N]   AI 打一场，输出完整日志");
-            Console.WriteLine("  batch [--n 200] [--deck all|A|B|C|starter] [--enc all|1|2|3]   批量模拟统计");
+            Console.WriteLine("  batch [--n 200] [--deck all|A,B,C,D|starter] [--enc all|1|2|3|pools|pool:hard|遭遇ID,...]   批量模拟统计");
             Console.WriteLine("  replay --deck X --enc N --seed N --cmds \"play 4 1, end, ...\"   重放一局，输出完整日志");
             Console.WriteLine("  tune  [--n 150] [--top 5] [--confirm 500] [--grid \"erosion=3,4;U09.PerPoint=2,3\"]   网格搜索最优参数");
             Console.WriteLine("所有模式都支持 --set \"erosion=3;lunacy=5;hp=1.15;U09.PerPoint=3\" 临时覆盖参数；batch / auto 支持 --style sane|mad|mixed");
@@ -216,8 +216,11 @@ namespace Deeptide.Sim
         {
             int n = int.Parse(Opt(o, "n", "200"));
             string deckOpt = Opt(o, "deck", "all"), encOpt = Opt(o, "enc", "all");
-            var decks = deckOpt == "all" ? new[] { "A", "B", "C" } : new[] { deckOpt };
-            var encs = encOpt == "all" ? new[] { "1", "2", "3" } : new[] { encOpt };
+            var decks = deckOpt == "all" ? new[] { "A", "B", "C", "D" } : deckOpt.Split(',');
+            var encs = encOpt == "all" ? new[] { "1", "2", "3" }
+                : encOpt == "pools" ? EncounterLibrary.All.Select(x => x.Id).ToArray()
+                : encOpt.StartsWith("pool:") ? EncounterLibrary.InPool(Enum.Parse<EncounterPool>(encOpt.Substring(5), true)).Select(x => x.Id).ToArray()
+                : encOpt.Split(',');
 
             Console.WriteLine($"每组 {n} 场，种子 1..{n}，AI = 一步贪心（只适合做相对比较）");
             if (o.TryGetValue("set", out var spec)) Console.WriteLine($"参数覆盖：{spec}");

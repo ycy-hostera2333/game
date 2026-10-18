@@ -24,10 +24,10 @@ namespace Deeptide.Tests
 
         static IEnumerable<TestCaseData> Matchups()
         {
-            foreach (var deck in TestDecks.Names)
-            foreach (var enc in Encounters.Prototype.Keys)
-            foreach (var seed in new ulong[] { 3, 17 })
-                yield return new TestCaseData(deck, enc, seed).SetName($"Mirror_{deck}_{enc}_{seed}");
+            Deeptide.Tools.DataFiles.EnsureLoaded();   // 用例在测试发现阶段生成，早于 SetUpFixture
+            foreach (var deck in new[] { "starter", "B", "C", "D" })
+            foreach (var enc in EncounterLibrary.All)
+                yield return new TestCaseData(deck, enc.Id, (ulong)(enc.Id.Length * 7 + deck.Length)).SetName($"Mirror_{deck}_{enc.Id}");
         }
 
         [TestCaseSource(nameof(Matchups))]
@@ -37,14 +37,14 @@ namespace Deeptide.Tests
             {
                 Seed = seed,
                 Deck = TestDecks.Get(deck),
-                Enemies = Encounters.Prototype[enc].ToList(),
+                Enemies = EncounterLibrary.Get(enc).Enemies.ToList(),
                 Potions = new List<string> { "iron_tonic", null, "fear_powder" },
             });
             var mirror = new EventMirror();
             mirror.Consume(e.Log);
             Assert.That(mirror.Diff(e), Is.Null);
 
-            for (int step = 0; step < 300 && e.State.Outcome == BattleOutcome.Ongoing; step++)
+            for (int step = 0; step < 600 && e.State.Outcome == BattleOutcome.Ongoing; step++)
             {
                 var cmd = step == 4 && e.State.Phase == BattlePhase.PlayerAction ? BattleCommand.Potion(0) : Scripted(e, step);
                 Assert.That(e.Execute(cmd, out var error), Is.True, $"{cmd}：{error}");

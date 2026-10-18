@@ -8,6 +8,9 @@ namespace Deeptide.Core.Relics
     public static class RelicIds
     {
         public const string InvestigatorNotes = "investigator_notes";
+        public const string PawnbrokersScale = "pawnbrokers_scale";
+        public const string AlchemistBelt = "alchemist_belt";
+        public const string CollectorsLens = "collectors_lens";
     }
 
     public enum RelicRarity { Starter, Common, Uncommon, Rare, Shop }
@@ -37,7 +40,14 @@ namespace Deeptide.Core.Relics
         public string Name => Def.Name;
         public string Description => Placeholder.Replace(Def.Text ?? "", m => V(m.Groups[1].Value).ToString());
 
-        protected int V(string key)
+        /// <summary>记一条「遗物触发」的叙述事件。</summary>
+        protected void Trigger(BattleEngine e, string what)
+        {
+            var ev = e.Log.Add(BattleEventType.RelicTriggered, $"{Name}：{what}", Name);
+            ev.Id = Id;
+        }
+
+        public int V(string key)
         {
             if (!Def.Vars.TryGetValue(key, out var v)) throw new KeyNotFoundException($"{Def.Id} 缺少数值 {key}");
             return v;
@@ -88,6 +98,25 @@ namespace Deeptide.Core.Relics
         public static readonly IReadOnlyDictionary<string, Func<Relic>> Factories = new Dictionary<string, Func<Relic>>
         {
             [RelicIds.InvestigatorNotes] = () => new InvestigatorNotes(),
+            ["old_pipe"] = () => new OldPipe(),
+            ["salt_circle"] = () => new SaltCircle(),
+            ["black_candle"] = () => new BlackCandle(),
+            ["whale_oil_lamp"] = () => new WhaleOilLamp(),
+            ["worn_prayer_book"] = () => new WornPrayerBook(),
+            ["lead_amulet"] = () => new LeadAmulet(),
+            ["fishermans_charm"] = () => new FishermansCharm(),
+            ["broken_watch"] = () => new BrokenWatch(),
+            ["third_eye"] = () => new ThirdEye(),
+            ["silver_cross"] = () => new SilverCross(),
+            ["fear_mask"] = () => new FearMask(),
+            ["consecrated_bell"] = () => new ConsecratedBell(),
+            ["watchers_lantern"] = () => new WatchersLantern(),
+            ["abyssal_fragment"] = () => new AbyssalFragment(),
+            ["crown_of_dread"] = () => new CrownOfDread(),
+            ["drowned_ring"] = () => new DrownedRing(),
+            [RelicIds.PawnbrokersScale] = () => new PawnbrokersScale(),
+            [RelicIds.AlchemistBelt] = () => new AlchemistBelt(),
+            [RelicIds.CollectorsLens] = () => new CollectorsLens(),
         };
     }
 
@@ -102,7 +131,7 @@ namespace Deeptide.Core.Relics
         {
             if (!entered || TriggeredThisCombat) return;
             TriggeredThisCombat = true;
-            e.Log.Add(BattleEventType.RelicTriggered, $"调查笔记触发：+{V("Energy")} 能量，抽 {V("Draw")} 张牌", Name);
+            e.Log.Add(BattleEventType.RelicTriggered, $"调查笔记触发：+{V("Energy")} 能量，抽 {V("Draw")} 张牌", Name).Id = Id;
             e.Queue.AddToTop(new GainEnergyAction(V("Energy")), new DrawCardsAction(V("Draw")));
         }
     }

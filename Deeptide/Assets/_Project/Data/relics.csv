@@ -1,3 +1,26 @@
 id,name,rarity,tendency,vars,text
-# 遗物表（策划/05 §1）。rarity 可选 Starter / Common / Uncommon / Rare / Shop
+# 遗物表（策划/05 §1）。rarity 可选 Starter / Common / Uncommon / Rare / Shop；tendency 是流派倾向（守夜 / 堕落 / 传染 / 中立）
 investigator_notes,调查笔记,Starter,堕落,Energy=1;Draw=2,每场战斗第一次进入癫狂时，获得 {Energy} 能量并抽 {Draw} 张牌。
+# ---------------- 普通
+old_pipe,旧烟斗,Common,守夜,Ward=1,战斗开始时获得 {Ward} 层心防。
+salt_circle,盐圈,Common,中立,Block=10,第一回合开始时获得 {Block} 格挡。
+black_candle,黑蜡烛,Common,传染,Fear=3,战斗开始时，对所有敌人施加 {Fear} 恐惧。
+whale_oil_lamp,鲸油灯,Common,堕落,,癫狂时，敌人意图不再模糊。
+worn_prayer_book,破旧祈祷书,Common,守夜,Bonus=2,每场战斗第一次恢复理智时，额外恢复 {Bonus}。
+lead_amulet,铅制护符,Common,堕落,,崩溃造成的生命损失减半。
+fishermans_charm,渔夫的护身符,Common,中立,Heal=3,战斗结束时，若本场未崩溃，恢复 {Heal} 生命。
+# ---------------- 罕见
+broken_watch,破碎怀表,Uncommon,堕落,Loss=4;Strength=1,战斗开始时失去 {Loss} 理智，获得 {Strength} 力量。
+third_eye,第三只眼,Uncommon,堕落,Draw=1,癫狂时，每回合多抽 {Draw} 张牌。
+silver_cross,银十字,Uncommon,守夜,Block=6,回合结束时，若清明，获得 {Block} 格挡。
+fear_mask,恐惧面具,Uncommon,传染,Energy=1,每当敌人被震慑，获得 {Energy} 能量。
+consecrated_bell,祝圣银铃,Uncommon,守夜,,每场战斗第一次受到精神攻击时，改为恢复等量理智（先于心防判定）。
+# ---------------- 稀有
+watchers_lantern,守夜人提灯,Rare,守夜,Draw=1,回合结束时，若清明，下回合多抽 {Draw} 张牌。
+abyssal_fragment,深渊残章,Rare,堕落,Per=3;Strength=1,本场战斗每累计失去 {Per} 点理智，获得 {Strength} 力量。
+crown_of_dread,恐怖王冠,Rare,传染,Percent=50,被震慑的敌人在下次行动前，受到的伤害 +{Percent}%。
+drowned_ring,溺者之戒,Rare,堕落,,每场战斗第一次崩溃时，不失去生命，也不获得疯语。
+# ---------------- 商店专属
+pawnbrokers_scale,典当行的天平,Shop,中立,Discount=20,商店价格 −{Discount}%。
+alchemist_belt,炼金腰带,Shop,中立,Slots=1,药水栏 +{Slots}。
+collectors_lens,收藏家的放大镜,Shop,中立,Choices=1,卡牌奖励多 {Choices} 个选项。

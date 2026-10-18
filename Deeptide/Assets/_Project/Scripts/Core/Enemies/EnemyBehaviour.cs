@@ -132,6 +132,9 @@ namespace Deeptide.Core.Enemies
 
         public IEnumerable<EnemyMove> Moves => _moves.Values;
 
+        /// <summary>被动能力的说明（显示在敌人身上），没有返回 null。</summary>
+        public virtual string Passive => null;
+
         /// <summary>攻击伤害的额外加值（如失魂镇民的「嗅到疯狂」），在伤害公式的「加法」阶段生效。</summary>
         public virtual int BonusAttackDamage(BattleEngine e, EnemyState self) => 0;
 

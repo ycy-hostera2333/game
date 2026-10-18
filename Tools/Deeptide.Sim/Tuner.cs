@@ -75,8 +75,8 @@ namespace Deeptide.Sim
             }
         }
 
-        /// <summary>按遭遇所在的池子设置敌人生命（遭遇 1 = 简单池，其余 = 困难池）。</summary>
-        public static void ApplyHpFor(string enc) => ScaleEnemyHp(enc == "1" ? HpEasy : HpHard);
+        /// <summary>按遭遇所在的池子设置敌人生命（简单池用 hp，其余用 hpHard）。</summary>
+        public static void ApplyHpFor(string enc) => ScaleEnemyHp(Encounters.Resolve(enc).Pool == EncounterPool.Easy ? HpEasy : HpHard);
 
         static void ScaleEnemyHp(double scale)
         {
@@ -102,8 +102,10 @@ namespace Deeptide.Sim
     {
         public static BattleSetup Setup(string deck, string enc, ulong seed)
         {
-            if (!Encounters.Prototype.TryGetValue(enc, out var enemies)) throw new ArgumentException($"未知遭遇：{enc}（可选 1 / 2 / 3）");
-            return new BattleSetup { Seed = seed, Deck = TestDecks.Get(deck), Enemies = enemies.ToList(), Config = Tuning.Config };
+            EncounterDef def;
+            try { def = Encounters.Resolve(enc); }
+            catch (KeyNotFoundException) { throw new ArgumentException($"未知遭遇：{enc}（可选 1 / 2 / 3 或遭遇表里的 ID）"); }
+            return new BattleSetup { Seed = seed, Deck = TestDecks.Get(deck), Enemies = def.Enemies.ToList(), Config = Tuning.Config };
         }
 
         /// <summary>用种子 1..n 跑 n 场（不同参数之间共用同一组种子，比较时噪声更小）。</summary>

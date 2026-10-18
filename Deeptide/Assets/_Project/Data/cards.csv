@@ -1,20 +1,51 @@
 id,name,type,rarity,archetype,cost,cost_up,target,dual,keywords,keywords_up,vars,vars_up,text_sane,text_mad,text_sane_up,text_mad_up
 # 卡表（策划/03 §3）。cost 填 X 表示 X 费；dual=1 是双面牌；keywords 可选 exhaust / ethereal / unplayable / innate / retain，多个用分号隔开
 # keywords_up 为空表示升级后关键词不变；text_*_up 为空表示升级后沿用原文本（数值按 vars_up 替换）
+# 变量名里带 Damage 的是攻击伤害、带 Block 的是卡牌格挡：战斗中的卡面会显示经过力量 / 虚弱 / 易伤 / 敏捷 / 脆弱修正后的数值
+# ---------------- 基础
 B01,打击,Attack,Basic,基础,1,,Enemy,,,,Damage=6,Damage=9,造成 {Damage} 伤害。,,,
 B02,防御,Skill,Basic,基础,1,,None,,,,Block=5,Block=8,获得 {Block} 格挡。,,,
 B03,禁忌一瞥,Skill,Basic,堕落,0,,None,1,,,Sanity=1;MadSanity=1;Draw=2;MadDraw=3,Draw=3;MadDraw=4,代价{Sanity}。抽 {Draw} 张牌。,代价{MadSanity}。抽 {MadDraw} 张牌。,,
+# ---------------- 普通
 C01,祷告,Skill,Common,守夜,1,,None,,,,Block=6;Restore=1,Block=9,获得 {Block} 格挡，恢复 {Restore} 理智。,,,
-C02,守夜灯,Skill,Common,守夜,1,,None,,,,Block=7;Bonus=4,Block=9;Bonus=5,获得 {Block} 格挡。清明：再获得 {Bonus} 格挡。,,,
+C02,守夜灯,Skill,Common,守夜,1,,None,,,,Block=7;BonusBlock=4,Block=9;BonusBlock=5,获得 {Block} 格挡。清明：再获得 {BonusBlock} 格挡。,,,
 C03,银质匕首,Attack,Common,守夜,1,,Enemy,,,,Damage=7;Draw=1,Damage=10,造成 {Damage} 伤害。清明：抽 {Draw} 张牌。,,,
 C04,镇定,Skill,Common,守夜,0,,None,,exhaust,,Restore=2,Restore=3,恢复 {Restore} 理智。消耗。,,,
+C05,圣水泼洒,Attack,Common,守夜,1,,None,,,,Damage=6;Weak=1,Damage=9,对所有敌人造成 {Damage} 伤害。清明：对所有敌人施加 {Weak} 层虚弱。,,,
 C06,梦魇之刃,Attack,Common,堕落,1,,Enemy,1,,,Damage=8;MadDamage=14;SelfHp=2,Damage=10;MadDamage=18,造成 {Damage} 伤害。,造成 {MadDamage} 伤害，失去 {SelfHp} 生命。,,
 C07,撕裂,Attack,Common,堕落,0,,Enemy,1,,,Sanity=1;MadSanity=1;Damage=6;MadHits=2,Damage=8,代价{Sanity}。造成 {Damage} 伤害。,代价{MadSanity}。造成 {Damage} 伤害 {MadHits} 次。,,
 C08,坠落,Skill,Common,堕落,0,,None,,,,Sanity=2;Energy=1;Draw=1,Draw=2,代价{Sanity}。获得 {Energy} 能量，抽 {Draw} 张牌。,,,
 C09,狂乱挥砍,Attack,Common,堕落,1,,Enemy,1,,,Damage=4;Hits=2;MadSanity=1;MadHits=4,Damage=5,造成 {Damage} 伤害 {Hits} 次。,代价{MadSanity}。造成 {Damage} 伤害 {MadHits} 次。,,
 C10,扭曲躯壳,Skill,Common,堕落,1,,None,1,,,Block=7;MadBlock=12;Discard=1,Block=10;MadBlock=16,获得 {Block} 格挡。,获得 {MadBlock} 格挡，随机弃 {Discard} 张牌。,,
 C11,恐怖低语,Skill,Common,传染,1,,Enemy,,,,Fear=4;Draw=1,Fear=6,施加 {Fear} 恐惧，抽 {Draw} 张牌。,,,
+C12,影中之物,Attack,Common,传染,1,,Enemy,1,,,Damage=6;Fear=3;MadFear=6;SelfHp=2,Damage=8;Fear=4;MadFear=8,造成 {Damage} 伤害，施加 {Fear} 恐惧。,造成 {Damage} 伤害，施加 {MadFear} 恐惧，失去 {SelfHp} 生命。,,
+C13,惊叫,Skill,Common,传染,1,,None,1,,,Block=5;Fear=2;MadSanity=1;MadFear=5,Block=7;Fear=3;MadFear=7,获得 {Block} 格挡，对所有敌人施加 {Fear} 恐惧。,代价{MadSanity}。对所有敌人施加 {MadFear} 恐惧。,,
+C14,左轮射击,Attack,Common,通用,1,,Enemy,,,,Damage=5;BonusDamage=5,Damage=7;BonusDamage=7,造成 {Damage} 伤害。若为本回合打出的第一张牌，再造成 {BonusDamage} 伤害。,,,
+C15,查阅资料,Skill,Common,通用,1,,None,1,,,Draw=3;Discard=1;MadSanity=1;MadDraw=4,Draw=4;MadDraw=5,抽 {Draw} 张牌，弃 {Discard} 张牌。,代价{MadSanity}。抽 {MadDraw} 张牌。,,
+C16,点亮提灯,Skill,Common,通用,1,,None,,,,Block=5;Draw=1,Block=8,获得 {Block} 格挡，抽 {Draw} 张牌。本回合敌人意图不受癫狂模糊。,,,
+# ---------------- 罕见
+U01,圣徽,Power,Uncommon,守夜,1,,None,,,,Guard=2,Guard=3,每恢复 1 点理智（含溢出），获得 {Guard} 格挡。,,,
 U02,坚定信念,Skill,Uncommon,守夜,2,,None,,,,Block=12;Ward=2,Block=16,获得 {Block} 格挡。清明：获得 {Ward} 层心防。,,,
+U03,驱散,Attack,Uncommon,守夜,2,,Enemy,,,,Damage=15;ClarityDamage=24,Damage=20;ClarityDamage=32,造成 {Damage} 伤害。清明：改为造成 {ClarityDamage} 伤害。,,,
+U04,默祷,Skill,Uncommon,守夜,1,0,None,,exhaust,,,,将理智恢复至上限。消耗。,,,
+U05,守夜人之誓,Power,Uncommon,守夜,2,1,None,,,,Strength=1,,回合结束时，若清明，获得 {Strength} 力量。,,,
+U06,深渊献礼,Skill,Uncommon,堕落,1,,None,,exhaust,,Sanity=3;Strength=2,Strength=3,代价{Sanity}。获得 {Strength} 力量。消耗。,,,
+U07,疯狂本能,Power,Uncommon,堕落,1,,None,,,,Hit=3,Hit=4,每失去 1 点理智，对随机敌人造成 {Hit} 伤害。,,,
+U08,触须鞭笞,Attack,Uncommon,堕落,2,,Enemy,1,,,Damage=12;Vulnerable=2;SelfHp=4,Damage=15,造成 {Damage} 伤害，施加 {Vulnerable} 层易伤。,对所有敌人造成 {Damage} 伤害并施加 {Vulnerable} 层易伤，失去 {SelfHp} 生命。,,
 U09,崩坏边缘,Attack,Uncommon,堕落,1,,Enemy,,,,Damage=4;PerPoint=2,PerPoint=3,造成 {Damage} 伤害。你每缺失 1 点理智，伤害 +{PerPoint}。,,,
+U10,狂笑,Skill,Uncommon,堕落,0,,None,1,exhaust,,Energy=1;Draw=0;MadSanity=1;MadEnergy=2,Draw=1,获得 {Energy} 能量。消耗。,代价{MadSanity}。获得 {MadEnergy} 能量。消耗。,获得 {Energy} 能量，抽 {Draw} 张牌。消耗。,
+U11,恐惧之源,Power,Uncommon,传染,2,,None,,,,Fear=2,Fear=3,回合结束时，对所有敌人施加 {Fear} 恐惧。,,,
+U12,心智崩塌,Attack,Uncommon,传染,1,,Enemy,,,,Mult=2,Mult=3,造成等同于目标恐惧 ×{Mult} 的伤害（不清除恐惧）。,,,
+U13,凝视深渊,Skill,Uncommon,传染,1,,Enemy,1,,,Fear=5;MadSanity=2;MadFear=10,Fear=7;MadFear=14,施加 {Fear} 恐惧。,代价{MadSanity}。施加 {MadFear} 恐惧。,,
+U14,惊惧失神,Skill,Uncommon,传染,1,0,Enemy,,exhaust,,,,若目标恐惧 ≥ 其意志的一半，立即震慑它。消耗。,,,
+U15,禁书残页,Skill,Uncommon,通用,1,0,None,,exhaust,,Choices=3,,从 {Choices} 张随机罕见牌中选 1 张加入手牌，本回合费用为 0。消耗。,,,
+# ---------------- 稀有
+R01,旧日注视,Power,Rare,堕落,3,2,None,,,,,,你的双面牌始终使用癫狂面。,,,
+R02,圣痕,Power,Rare,守夜,2,,None,,,,Burst=4,Burst=6,恢复理智时，每溢出 1 点，对所有敌人造成 {Burst} 伤害。,,,
+R03,终末仪式,Attack,Rare,堕落,X,,None,,,,Damage=7;SanityPerX=1,Damage=9,代价X。对所有敌人造成 {Damage} 伤害 X 次。,,,
+R04,群体癔症,Skill,Rare,传染,2,1,None,,exhaust,,,,对所有敌人施加等同于你已缺失理智的恐惧。消耗。,,,
 R05,明理之刃,Attack,Rare,守夜,2,,Enemy,,,,Mult=3,Mult=4,造成等同于当前理智 ×{Mult} 的伤害。,,,
+R06,心灵之锚,Power,Rare,通用,1,,None,,,innate,Shift=2,,回合开始时选择一项：恢复 {Shift} 理智，或失去 {Shift} 理智。,,回合开始时选择一项：恢复 {Shift} 理智，或失去 {Shift} 理智。固有。,
+# ---------------- 状态 / 诅咒
 S01,疯语,Curse,Special,诅咒,0,,None,,unplayable,,Loss=1,,不能打出。回合结束时若在手中，失去 {Loss} 理智。,,,
+S02,缠网,Status,Special,状态,1,,None,,exhaust,,,,消耗。,,,

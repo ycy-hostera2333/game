@@ -199,13 +199,13 @@ namespace Deeptide.Tests
                 var upgraded = CardLibrary.Create(def.Id + "+", uid++);
                 Assert.That(upgraded.Name, Does.EndWith("+"));
             }
-            Assert.That(CardLibrary.All.Count(), Is.EqualTo(17));
+            Assert.That(CardLibrary.All.Count(), Is.EqualTo(42));   // 40 张角色牌 + 疯语 + 缠网（策划/03 §2）
         }
 
         [Test]
         public void TestDecks_AreSixteenCardsAndValid()
         {
-            foreach (var name in new[] { "A", "B", "C" })
+            foreach (var name in TestDecks.Names.Where(n => n != "starter"))
             {
                 var deck = TestDecks.Get(name);
                 Assert.That(deck.Count, Is.EqualTo(16), name);

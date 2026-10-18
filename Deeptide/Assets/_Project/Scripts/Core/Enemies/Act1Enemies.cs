@@ -10,6 +10,15 @@ namespace Deeptide.Core.Enemies
         public const string Acolyte = "acolyte";
         public const string Whisperer = "whisperer";
         public const string Townsfolk = "townsfolk";
+        public const string Drowned = "drowned";
+        public const string Scaleling = "scaleling";
+        public const string Crows = "crows";
+        public const string Tentacle = "tentacle";
+        public const string Rat = "rat";
+        public const string Lighthouse = "lighthouse";
+        public const string Nun = "nun";
+        public const string Fisherman = "fisherman";
+        public const string Priest = "drowned_priest";
         /// <summary>调试用稻草人：不行动，用于测试和数值试验。</summary>
         public const string Dummy = "dummy";
     }
@@ -22,6 +31,15 @@ namespace Deeptide.Core.Enemies
             [EnemyIds.Acolyte] = () => new CultAcolyte(),
             [EnemyIds.Whisperer] = () => new Whisperer(),
             [EnemyIds.Townsfolk] = () => new HollowTownsfolk(),
+            [EnemyIds.Drowned] = () => new DrownedCorpse(),
+            [EnemyIds.Scaleling] = () => new Scaleling(),
+            [EnemyIds.Crows] = () => new CrowSwarm(),
+            [EnemyIds.Tentacle] = () => new SeaTentacle(),
+            [EnemyIds.Rat] = () => new PlagueRat(),
+            [EnemyIds.Lighthouse] = () => new LighthouseKeeper(),
+            [EnemyIds.Nun] = () => new FacelessNun(),
+            [EnemyIds.Fisherman] = () => new NetFisherman(),
+            [EnemyIds.Priest] = () => new DrownedPriest(),
             [EnemyIds.Dummy] = () => new TrainingDummy(),
         };
     }
@@ -103,6 +121,8 @@ namespace Deeptide.Core.Enemies
         public override int BonusAttackDamage(BattleEngine e, EnemyState self) =>
             e.Player.IsLunatic ? V("ScentBonus") : 0;
 
+        public override string Passive => $"嗅到疯狂：你癫狂时，它的攻击 +{V("ScentBonus")}";
+
         public override void Perform(BattleEngine e, EnemyState self, EnemyMove m)
         {
             switch (m.Id)
@@ -128,16 +148,5 @@ namespace Deeptide.Core.Enemies
         }
 
         public override void Perform(BattleEngine e, EnemyState self, EnemyMove m) { }
-    }
-
-    /// <summary>纸面原型的三个测试遭遇（原型/阶段0 规则第 4 条）。</summary>
-    public static class Encounters
-    {
-        public static readonly Dictionary<string, string[]> Prototype = new Dictionary<string, string[]>
-        {
-            ["1"] = new[] { EnemyIds.Acolyte },
-            ["2"] = new[] { EnemyIds.Acolyte, EnemyIds.Whisperer },
-            ["3"] = new[] { EnemyIds.Townsfolk, EnemyIds.Townsfolk },
-        };
     }
 }

@@ -1,0 +1,17 @@
+id,pool,name,enemies
+# 遭遇池（策划/04 §3）。pool 可选 Easy（前 3 场普通战斗）/ Hard（第 4 场起）/ Elite / Boss；enemies 是敌人 ID，用分号隔开
+easy_acolyte,Easy,教团侍僧,acolyte
+easy_rats,Easy,疫鼠 ×3,rat;rat;rat
+easy_scalelings,Easy,鳞民幼体 ×2,scaleling;scaleling
+easy_drowned,Easy,溺尸,drowned
+hard_acolyte_whisperer,Hard,侍僧 + 呓语者,acolyte;whisperer
+hard_townsfolk,Hard,失魂镇民 ×2,townsfolk;townsfolk
+hard_crows_whisperer,Hard,腐鸦群 + 呓语者,crows;whisperer
+hard_tentacles,Hard,海底触须 ×3,tentacle;tentacle;tentacle
+hard_scalelings_whisperer,Hard,鳞民幼体 ×2 + 呓语者,scaleling;scaleling;whisperer
+hard_drowned_rats,Hard,溺尸 + 疫鼠 ×2,drowned;rat;rat
+hard_crows_rats,Hard,腐鸦群 + 疫鼠 ×2,crows;rat;rat
+elite_lighthouse,Elite,灯塔守望者,lighthouse
+elite_nun,Elite,无面修女,nun
+elite_fisherman,Elite,网缚渔夫,fisherman
+boss_priest,Boss,溺亡司祭,drowned_priest

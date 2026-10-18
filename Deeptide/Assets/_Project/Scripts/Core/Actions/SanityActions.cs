@@ -80,6 +80,7 @@ namespace Deeptide.Core.Actions
         public override void Execute(BattleEngine e)
         {
             var p = e.Player;
+            if (_amount <= 0) return;   // 恢复 0 点不算恢复（满理智时打默祷），不触发破旧祈祷书
             int amount = _amount;
             foreach (var l in e.Listeners) amount = l.ModifyRestore(e, amount);
             if (amount <= 0) return;

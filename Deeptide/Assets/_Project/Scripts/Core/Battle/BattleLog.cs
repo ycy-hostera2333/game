@@ -57,6 +57,8 @@ namespace Deeptide.Core
         PowerChanged,
         PotionChanged,
         CounterChanged,
+        /// <summary>本回合意图是否不受癫狂模糊（点亮提灯）。Value = 1 / 0。</summary>
+        IntentRevealChanged,
     }
 
     /// <summary>

@@ -71,6 +71,8 @@ namespace Deeptide.Core
         public int CardUid;
         /// <summary>选项对应的卡牌 ID（带 + 表示升级），表现层用来画卡面。</summary>
         public string CardId;
+        /// <summary>非卡牌选项的含义（由发起选择的效果自己约定）。</summary>
+        public int Value;
     }
 
     public sealed class BattleState
@@ -80,7 +82,7 @@ namespace Deeptide.Core
         public int Turn;
         public BattlePhase Phase = BattlePhase.NotStarted;
         public BattleOutcome Outcome = BattleOutcome.Ongoing;
-        /// <summary>正在结算敌人回合（此时获得的能量顺延到下回合）。</summary>
+        /// <summary>玩家已经结束回合（回合结束效果和敌人回合期间）：此时获得的能量顺延到下回合。</summary>
         public bool EnemyTurn;
         /// <summary>本回合已经打出的牌数（左轮射击等「本回合第一张」判定）。</summary>
         public int CardsPlayedThisTurn;

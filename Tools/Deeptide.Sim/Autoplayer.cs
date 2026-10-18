@@ -18,7 +18,7 @@ namespace Deeptide.Sim
         public Autoplayer(PlayStyle style) { _style = style; }
 
         public static PlayStyle StyleFor(string deck) =>
-            deck == "B" ? PlayStyle.Mad : deck == "C" ? PlayStyle.Mixed : PlayStyle.Sane;
+            deck.StartsWith("B") ? PlayStyle.Mad : deck.StartsWith("C") || deck == "D" ? PlayStyle.Mixed : PlayStyle.Sane;
 
         public void PlayTurn(BattleEngine e)
         {

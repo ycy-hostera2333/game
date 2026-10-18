@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Deeptide.Core;
 using Deeptide.Core.Enemies;
+using Deeptide.Core.Relics;
 using NUnit.Framework;
 
 namespace Deeptide.Tests
@@ -9,7 +10,8 @@ namespace Deeptide.Tests
     /// <summary>测试工具：开一场战斗后把手牌、理智、敌人意图直接摆成想要的样子。</summary>
     static class TestUtil
     {
-        public static BattleEngine Battle(string[] enemies = null, string[] deck = null, ulong seed = 1, BattleConfig config = null)
+        public static BattleEngine Battle(string[] enemies = null, string[] deck = null, ulong seed = 1, BattleConfig config = null,
+                                          string[] relics = null, string[] potions = null)
         {
             return BattleEngine.Start(new BattleSetup
             {
@@ -17,6 +19,8 @@ namespace Deeptide.Tests
                 Deck = (deck ?? Enumerable.Repeat("B02", 10).ToArray()).ToList(),
                 Enemies = (enemies ?? new[] { EnemyIds.Dummy }).ToList(),
                 Config = config ?? new BattleConfig(),
+                Relics = (relics ?? new[] { RelicIds.InvestigatorNotes }).ToList(),
+                Potions = (potions ?? new string[0]).ToList(),
             });
         }
 
@@ -42,6 +46,17 @@ namespace Deeptide.Tests
         public static void EndTurn(BattleEngine e)
         {
             Assert.That(e.Execute(BattleCommand.End(), out var error), Is.True, error);
+        }
+
+        public static void Choose(BattleEngine e, int option)
+        {
+            Assert.That(e.State.Phase, Is.EqualTo(BattlePhase.WaitingForChoice), "现在没有在等选择");
+            Assert.That(e.Execute(BattleCommand.Choose(option), out var error), Is.True, error);
+        }
+
+        public static void UsePotion(BattleEngine e, int slot, int target = -1)
+        {
+            Assert.That(e.Execute(BattleCommand.Potion(slot, target), out var error), Is.True, error);
         }
 
         public static void SetIntent(BattleEngine e, int enemyIndex, string moveId)

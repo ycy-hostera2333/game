@@ -16,9 +16,10 @@ namespace Deeptide.Core.Data
         public string Enemies;
         public string Relics;
         public string Potions;
+        public string Encounters;
 
         /// <summary>Data 目录下的文件名，外层按这个名字找文件。</summary>
-        public static readonly string[] FileNames = { "cards.csv", "enemies.csv", "relics.csv", "potions.csv" };
+        public static readonly string[] FileNames = { "cards.csv", "enemies.csv", "relics.csv", "potions.csv", "encounters.csv" };
 
         /// <summary>按文件名取文本，供外层统一读取：DataSource.From(name => File.ReadAllText(dir + name))。</summary>
         public static DataSource From(Func<string, string> read) => new DataSource
@@ -27,6 +28,7 @@ namespace Deeptide.Core.Data
             Enemies = read("enemies.csv"),
             Relics = read("relics.csv"),
             Potions = read("potions.csv"),
+            Encounters = read("encounters.csv"),
         };
     }
 
@@ -62,10 +64,12 @@ namespace Deeptide.Core.Data
             EnemyLibrary.Clear();
             RelicLibrary.Clear();
             PotionLibrary.Clear();
+            EncounterLibrary.Clear();
             foreach (var d in staged.Cards) CardLibrary.Add(d);
             foreach (var d in staged.Enemies) EnemyLibrary.Add(d);
             foreach (var d in staged.Relics) RelicLibrary.Add(d);
             foreach (var d in staged.Potions) PotionLibrary.Add(d);
+            foreach (var d in staged.Encounters) EncounterLibrary.Add(d);
             IsLoaded = true;
         }
 
@@ -82,6 +86,7 @@ namespace Deeptide.Core.Data
             public readonly List<EnemyDef> Enemies = new List<EnemyDef>();
             public readonly List<RelicDef> Relics = new List<RelicDef>();
             public readonly List<PotionDef> Potions = new List<PotionDef>();
+            public readonly List<EncounterDef> Encounters = new List<EncounterDef>();
         }
 
         static Staged Stage(DataSource source, out List<string> errors)
@@ -92,6 +97,7 @@ namespace Deeptide.Core.Data
             LoadTable(source.Enemies, "enemies.csv", errs, t => LoadEnemies(t, errs, staged.Enemies));
             LoadTable(source.Relics, "relics.csv", errs, t => LoadRelics(t, errs, staged.Relics));
             LoadTable(source.Potions, "potions.csv", errs, t => LoadPotions(t, errs, staged.Potions));
+            LoadTable(source.Encounters, "encounters.csv", errs, t => LoadEncounters(t, errs, staged.Encounters, staged.Enemies));
             errors = errs;
             return staged;
         }
@@ -294,6 +300,31 @@ namespace Deeptide.Core.Data
                 output.Add(def);
             });
             CheckClasses(table.FileName, ids, PotionClasses.Factories.Keys, errors);
+        }
+
+        // ------------------------------------------------------------------ encounters.csv
+
+        static void LoadEncounters(CsvTable table, List<string> errors, List<EncounterDef> output, List<EnemyDef> enemies)
+        {
+            EachRow(table, errors, row =>
+            {
+                string id = row["id"];
+                if (id.Length == 0) throw new FormatException("id 为空");
+                if (output.Any(d => d.Id == id)) throw new FormatException($"遭遇 ID 重复：{id}");
+                var def = new EncounterDef
+                {
+                    Id = id,
+                    Name = row["name"],
+                    Pool = row.Enum<EncounterPool>("pool"),
+                    Enemies = Csv.ParseList(row["enemies"]),
+                };
+                if (def.Enemies.Count == 0) throw new FormatException($"{id} 没有敌人");
+                foreach (var enemy in def.Enemies)
+                    if (enemies.All(x => x.Id != enemy)) throw new FormatException($"{id} 引用了不存在的敌人 {enemy}");
+                output.Add(def);
+            });
+            foreach (EncounterPool pool in Enum.GetValues(typeof(EncounterPool)))
+                if (output.All(d => d.Pool != pool)) errors.Add($"{table.FileName}：{pool} 池是空的");
         }
     }
 }
