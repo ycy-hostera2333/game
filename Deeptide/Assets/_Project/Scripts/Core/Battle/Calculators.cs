@@ -3,23 +3,31 @@ using System;
 namespace Deeptide.Core
 {
     /// <summary>
-    /// 伤害公式（策划/02 §3.1）：基础值 + 力量 → ×0.75（攻击者虚弱）→ ×1.5（目标易伤）→ 向下取整。
-    /// 用分子 / 分母做整数运算，结果精确且跨平台一致。卡面预览和实际结算都走这里。
+    /// 伤害公式（策划/02 §3.1）：基础值 + 力量 + 加值修正 → ×0.75（攻击者虚弱）→ ×1.5（目标易伤）→ 乘法修正 → 向下取整。
+    /// 效果伤害（DamageKind.Effect）不吃力量、虚弱、易伤，只吃遗物 / 能力的修正。
+    /// 用分子 / 分母做整数运算，结果精确且跨平台一致。卡面预览、意图显示和实际结算都走这里。
     /// </summary>
     public static class DamageCalculator
     {
-        public static int Compute(BattleEngine engine, Combatant source, Combatant target, int baseAmount)
+        public static int Compute(BattleEngine engine, Combatant source, Combatant target, int baseAmount, DamageKind kind = DamageKind.Attack)
         {
             long num = baseAmount;
             long den = 1;
-            if (source != null)
+            if (kind == DamageKind.Attack && source != null)
             {
                 num += source.Statuses.Get(StatusId.Strength);
                 if (source is EnemyState enemy && enemy.Behaviour != null)
                     num += enemy.Behaviour.BonusAttackDamage(engine, enemy);
-                if (source.Statuses.Get(StatusId.Weak) > 0) { num *= 3; den *= 4; }
             }
-            if (target != null && target.Statuses.Get(StatusId.Vulnerable) > 0) { num *= 3; den *= 2; }
+            if (engine != null)
+                foreach (var l in engine.Listeners) num += l.DamageBonus(engine, source, target, kind);
+            if (kind == DamageKind.Attack)
+            {
+                if (source != null && source.Statuses.Get(StatusId.Weak) > 0) { num *= 3; den *= 4; }
+                if (target != null && target.Statuses.Get(StatusId.Vulnerable) > 0) { num *= 3; den *= 2; }
+            }
+            if (engine != null)
+                foreach (var l in engine.Listeners) l.DamageMultiplier(engine, source, target, kind, ref num, ref den);
             return num <= 0 ? 0 : (int)(num / den);
         }
     }

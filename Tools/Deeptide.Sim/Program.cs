@@ -95,7 +95,7 @@ namespace Deeptide.Sim
             var e = BattleEngine.Start(MakeSetup(deck, enc, seed));
             var ai = new Autoplayer(Autoplayer.StyleFor(deck));
             Console.WriteLine($"牌组 {TestDecks.Describe(deck)}，遭遇 {enc}，种子 {seed}");
-            Console.WriteLine("输入：牌号 [目标]（如「2」或「2 1」）出牌 | e 结束回合 | a 让 AI 打这一回合 | l 看完整日志 | q 退出");
+            Console.WriteLine(ConsoleView.InputHelp + " | a 让 AI 打这一回合 | l 看完整日志 | q 退出");
             int logCursor = 0;
             logCursor = Flush(e, logCursor);
 
@@ -111,7 +111,7 @@ namespace Deeptide.Sim
 
                 if (line == "l")
                 {
-                    foreach (var ev in e.Log.Events) Console.WriteLine("  " + ev.Message);
+                    foreach (var ev in e.Log.Events.Where(x => !x.IsStateChange)) Console.WriteLine("  " + ev.Message);
                     continue;
                 }
                 if (line == "a")
@@ -121,24 +121,10 @@ namespace Deeptide.Sim
                     continue;
                 }
 
-                BattleCommand cmd;
-                if (line == "e") cmd = BattleCommand.End();
-                else
+                if (!ConsoleView.TryParseCommand(e, line, Console.ReadLine, out var cmd, out var parseError))
                 {
-                    var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                    if (!int.TryParse(parts[0], out int n)) { Console.WriteLine("看不懂这条输入"); continue; }
-                    int target = parts.Length > 1 && int.TryParse(parts[1], out int t) ? t : -1;
-                    if (target < 0 && n >= 1 && n <= e.Player.Hand.Count && e.Player.Hand[n - 1].Def.Target == CardTarget.Enemy)
-                    {
-                        var alive = e.State.Enemies.Where(x => !x.IsDead).ToList();
-                        if (alive.Count == 1) target = alive[0].Index;
-                        else
-                        {
-                            Console.Write($"目标？（{string.Join(" / ", alive.Select(x => $"{x.Index}={x.Name}"))}）> ");
-                            if (!int.TryParse(Console.ReadLine(), out target)) continue;
-                        }
-                    }
-                    cmd = BattleCommand.Play(n - 1, target);
+                    Console.WriteLine(parseError);
+                    continue;
                 }
 
                 if (!e.Execute(cmd, out var error)) Console.WriteLine($"不行：{error}");
@@ -156,7 +142,7 @@ namespace Deeptide.Sim
             for (; cursor < e.Log.Events.Count; cursor++)
             {
                 var ev = e.Log.Events[cursor];
-                if (ev.Type == BattleEventType.IntentChosen) continue;
+                if (ev.Type == BattleEventType.IntentChosen || ev.IsStateChange) continue;
                 Console.WriteLine("  · " + ev.Message);
             }
             return cursor;
@@ -189,7 +175,7 @@ namespace Deeptide.Sim
             var e = BattleEngine.Replay(MakeSetup(deck, enc, seed), commands);
             Console.WriteLine($"牌组 {TestDecks.Describe(deck)}，遭遇 {enc}，种子 {seed}，共 {commands.Count} 条命令");
             foreach (var ev in e.Log.Events)
-                if (ev.Type != BattleEventType.IntentChosen && ev.Turn >= fromTurn) Console.WriteLine("  · " + ev.Message);
+                if (ev.Type != BattleEventType.IntentChosen && !ev.IsStateChange && ev.Turn >= fromTurn) Console.WriteLine("  · " + ev.Message);
             // 战斗没打完：显示当前局面，可以接着往 --cmds 里追加命令（逐步对战 / 复盘用）
             if (e.State.Outcome == BattleOutcome.Ongoing) Console.Write(ConsoleView.Render(e));
             else PrintSummary(e);
@@ -207,7 +193,7 @@ namespace Deeptide.Sim
             Console.WriteLine($"牌组 {TestDecks.Describe(deck)}，遭遇 {enc}，种子 {seed}");
             while (e.State.Outcome == BattleOutcome.Ongoing && e.State.Turn <= 40) ai.PlayTurn(e);
             foreach (var ev in e.Log.Events)
-                if (ev.Type != BattleEventType.IntentChosen) Console.WriteLine("  · " + ev.Message);
+                if (ev.Type != BattleEventType.IntentChosen && !ev.IsStateChange) Console.WriteLine("  · " + ev.Message);
             PrintSummary(e);
             return 0;
         }

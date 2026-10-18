@@ -18,21 +18,32 @@ namespace Deeptide.Core
             var sb = new StringBuilder();
             var s = e.State;
             var p = s.Player;
-            sb.Append("T").Append(N(s.Turn)).Append('|').Append(s.Phase).Append('|').Append(s.Outcome).Append('\n');
+            sb.Append("T").Append(N(s.Turn)).Append('|').Append(s.Phase).Append('|').Append(s.Outcome)
+              .Append("|played ").Append(N(s.CardsPlayedThisTurn)).Append(s.IntentsRevealedThisTurn ? "|reveal" : "").Append('\n');
             sb.Append("P ").Append(N(p.Hp)).Append('/').Append(N(p.MaxHp))
               .Append(" B").Append(N(p.Block)).Append(" E").Append(N(p.Energy)).Append('+').Append(N(p.EnergyNextTurn))
               .Append(" S").Append(N(p.Sanity)).Append('/').Append(N(p.MaxSanity));
             AppendStatuses(sb, p.Statuses);
+            sb.Append("\npow:");
+            foreach (var pw in p.Powers) sb.Append(' ').Append(pw.Id).Append('=').Append(N(pw.Amount));
+            sb.Append("\npot:");
+            foreach (var pt in p.Potions) sb.Append(' ').Append(pt?.Id ?? "-");
             AppendPile(sb, "draw", p.DrawPile);
             AppendPile(sb, "hand", p.Hand);
             AppendPile(sb, "disc", p.DiscardPile);
             AppendPile(sb, "exh", p.ExhaustPile);
             foreach (var en in s.Enemies)
             {
-                sb.Append("\nE").Append(N(en.Index)).Append(' ').Append(N(en.Hp)).Append('/').Append(N(en.MaxHp))
+                sb.Append("\nE").Append(N(en.Index)).Append(' ').Append(en.Def.Id).Append(' ').Append(N(en.Hp)).Append('/').Append(N(en.MaxHp))
                   .Append(" B").Append(N(en.Block)).Append(" F").Append(N(en.Fear)).Append('/').Append(N(en.Will))
-                  .Append(en.Stunned ? " stun" : "").Append(" I:").Append(en.Intent?.Id ?? "-");
+                  .Append(en.Stunned ? " stun" : "").Append(en.Minion ? " minion" : "").Append(" I:").Append(en.Intent?.Id ?? "-");
                 AppendStatuses(sb, en.Statuses);
+                foreach (var kv in en.Counters) sb.Append(" #").Append(kv.Key).Append('=').Append(N(kv.Value));
+            }
+            if (s.Choice != null)
+            {
+                sb.Append("\nchoice ").Append(s.Choice.Prompt).Append(':');
+                foreach (var o in s.Choice.Options) sb.Append(' ').Append(o.Label).Append('#').Append(N(o.CardUid));
             }
             sb.Append("\nRNG ").Append(e.Rng.Shuffle.State).Append(',').Append(e.Rng.Ai.State).Append(',').Append(e.Rng.Misc.State);
             return sb.ToString();
@@ -46,7 +57,11 @@ namespace Deeptide.Core
         static void AppendPile(StringBuilder sb, string name, List<Card> pile)
         {
             sb.Append("\n").Append(name).Append(':');
-            foreach (var c in pile) sb.Append(' ').Append(c.Id).Append(c.Upgraded ? "+" : "").Append('#').Append(N(c.Uid));
+            foreach (var c in pile)
+            {
+                sb.Append(' ').Append(c.DeckId).Append('#').Append(N(c.Uid));
+                if (c.CostThisTurn >= 0) sb.Append('$').Append(N(c.CostThisTurn));
+            }
         }
 
         static string N(int v) => v.ToString(CultureInfo.InvariantCulture);

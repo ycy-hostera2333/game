@@ -9,7 +9,8 @@ namespace Deeptide.Core
     /// </summary>
     public sealed class StatusSet
     {
-        static readonly StatusId[] TurnBased = { StatusId.Vulnerable, StatusId.Weak, StatusId.Frail };
+        /// <summary>回合制状态：持有者回合结束时 −1（由 BattleEngine.TickStatuses 结算并写事件）。</summary>
+        public static readonly StatusId[] TurnBased = { StatusId.Vulnerable, StatusId.Weak, StatusId.Frail };
         static readonly StatusId[] AllIds = (StatusId[])Enum.GetValues(typeof(StatusId));
 
         readonly Dictionary<StatusId, int> _amounts = new Dictionary<StatusId, int>();
@@ -22,12 +23,6 @@ namespace Deeptide.Core
         {
             if (amount == 0) _amounts.Remove(id);
             else _amounts[id] = amount;
-        }
-
-        public void TickTurnEnd()
-        {
-            foreach (var id in TurnBased)
-                if (Get(id) > 0) Add(id, -1);
         }
 
         /// <summary>按枚举顺序列出非零状态（显示和哈希都依赖这个固定顺序）。</summary>

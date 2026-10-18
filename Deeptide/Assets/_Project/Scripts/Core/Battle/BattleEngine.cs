@@ -4,6 +4,7 @@ using System.Linq;
 using Deeptide.Core.Actions;
 using Deeptide.Core.Cards;
 using Deeptide.Core.Enemies;
+using Deeptide.Core.Potions;
 using Deeptide.Core.Relics;
 
 namespace Deeptide.Core
@@ -11,6 +12,13 @@ namespace Deeptide.Core
     /// <summary>
     /// 战斗内核：持有状态、动作队列和随机流，对外只接受 BattleCommand（策划/08 §2–3）。
     /// 逻辑瞬时结算并写入 Log，表现层按顺序回放 Log 播放动画。
+    ///
+    /// 结算模型：动作队列（GameAction）之外还有一条「流程步骤」队列。回合流程被拆成若干步骤，
+    /// 每一步只在动作队列清空之后才执行。需要玩家选择时（WaitingForChoice）两条队列都原地暂停，
+    /// 收到 ChooseOption 命令后从断点继续——所以选择可以出现在出牌中途、回合开始等任何位置（策划/09 M1.1）。
+    ///
+    /// 所有状态修改都经过本类的 Set... / MoveCard 等方法，它们会写出状态事件，
+    /// 表现层只读事件流就能重建整个战斗状态（策划/09 M1.7）。
     /// </summary>
     public sealed class BattleEngine
     {
@@ -24,12 +32,18 @@ namespace Deeptide.Core
         public readonly List<BattleCommand> History = new List<BattleCommand>();
 
         readonly List<BattleListener> _listeners = new List<BattleListener>();
+        readonly LinkedList<Action> _flow = new LinkedList<Action>();
         int _nextUid = 1;
+        int _innateExtraDraw;
 
         public PlayerState Player => State.Player;
 
-        /// <summary>癫狂时敌人意图只显示类型、隐藏数值（策划/01 §2.7）。</summary>
-        public bool IntentsBlurred => Player.IsLunatic;
+        /// <summary>遗物和能力，按 Priority 排好序（同优先级按加入顺序）。</summary>
+        public IReadOnlyList<BattleListener> Listeners => _listeners;
+
+        /// <summary>癫狂时敌人意图只显示类型、隐藏数值（策划/01 §2.7）；点亮提灯、鲸油灯可以看清。</summary>
+        public bool IntentsBlurred =>
+            Player.IsLunatic && !State.IntentsRevealedThisTurn && !_listeners.Any(l => l.RevealsIntents(this));
 
         BattleEngine(BattleSetup setup)
         {
@@ -58,24 +72,48 @@ namespace Deeptide.Core
 
         public bool Execute(BattleCommand cmd, out string error)
         {
-            bool ok = cmd.Kind == CommandKind.EndTurn
-                ? TryEndTurn(out error)
-                : TryPlayCard(cmd.HandIndex, cmd.TargetIndex, out error);
+            bool ok;
+            switch (cmd.Kind)
+            {
+                case CommandKind.EndTurn: ok = TryEndTurn(out error); break;
+                case CommandKind.Choose: ok = TryChoose(cmd.Index, out error); break;
+                case CommandKind.UsePotion: ok = TryUsePotion(cmd.Index, cmd.TargetIndex, out error); break;
+                default: ok = TryPlayCard(cmd.Index, cmd.TargetIndex, out error); break;
+            }
             if (ok) History.Add(cmd);
             return ok;
         }
 
-        public bool CanPlay(int handIndex, out string error)
+        bool CheckActionPhase(out string error, string what)
         {
             error = null;
             if (State.Outcome != BattleOutcome.Ongoing) { error = "战斗已结束"; return false; }
-            if (State.Phase != BattlePhase.PlayerAction) { error = "现在不能出牌"; return false; }
+            if (State.Phase == BattlePhase.WaitingForChoice) { error = "请先做出选择"; return false; }
+            if (State.Phase != BattlePhase.PlayerAction) { error = $"现在不能{what}"; return false; }
+            return true;
+        }
+
+        public bool CanPlay(int handIndex, out string error)
+        {
+            if (!CheckActionPhase(out error, "出牌")) return false;
             if (handIndex < 0 || handIndex >= Player.Hand.Count) { error = "没有这张牌"; return false; }
             var card = Player.Hand[handIndex];
             if (!card.Playable) { error = $"{card.Name}不能打出"; return false; }
-            if (card.Cost > Player.Energy) { error = "能量不足"; return false; }
+            if (!card.Def.XCost && CostOf(card) > Player.Energy) { error = "能量不足"; return false; }
             return true;
         }
+
+        /// <summary>当前费用：本回合临时费用（禁书残页）→ 监听器修正。X 费牌返回当前能量。</summary>
+        public int CostOf(Card card)
+        {
+            if (card.Def.XCost) return Player.Energy;
+            int cost = card.CostThisTurn >= 0 ? card.CostThisTurn : card.Cost;
+            foreach (var l in _listeners) cost = l.ModifyCost(this, card, cost);
+            return Math.Max(0, cost);
+        }
+
+        public bool UsesMadFace(Card card) =>
+            card.Def.Dual && (Player.IsLunatic || _listeners.Any(l => l.ForcesMadFace(this, card)));
 
         /// <summary>出牌，按 策划/02 §3.5 的五步结算。</summary>
         bool TryPlayCard(int handIndex, int targetIndex, out string error)
@@ -86,61 +124,184 @@ namespace Deeptide.Core
             EnemyState target = null;
             if (card.Def.Target == CardTarget.Enemy)
             {
-                if (targetIndex < 0 || targetIndex >= State.Enemies.Count || State.Enemies[targetIndex].IsDead)
-                {
-                    error = "目标无效";
-                    return false;
-                }
-                target = State.Enemies[targetIndex];
+                target = TargetAt(targetIndex);
+                if (target == null) { error = "目标无效"; return false; }
             }
 
             State.Phase = BattlePhase.Resolving;
-            Player.Hand.RemoveAt(handIndex);
-
             bool mad = UsesMadFace(card);            // ① 锁定卡面
-            Player.Energy -= card.Cost;              // ② 能量
+            int cost = CostOf(card);
+            int x = card.Def.XCost ? Player.Energy : 0;
+            MoveCard(card, PileKind.Play);
+            SetEnergy(Player.Energy - cost);         // ② 能量
+            State.CardsPlayedThisTurn++;
             State.Stats.CardsPlayed++;
             State.Stats.PlaysByCard[card.Id] = State.Stats.PlaysByCard.TryGetValue(card.Id, out var plays) ? plays + 1 : 1;
-            Log.Add(BattleEventType.CardPlayed,
-                $"打出 {card.Name}{(card.Def.Dual ? (mad ? "（癫狂面）" : "（清醒面）") : "")}{(target != null ? " → " + target.Name : "")}",
+            var ev = Log.Add(BattleEventType.CardPlayed,
+                $"打出 {card.Name}{(card.Def.Dual ? (mad ? "（癫狂面）" : "（清醒面）") : "")}{(card.Def.XCost ? $"（X={x}）" : "")}{(target != null ? " → " + target.Name : "")}",
                 "调查员", target?.Name);
+            ev.CardUid = card.Uid;
+            ev.Id = card.DeckId;
+            ev.Source = BattleEvent.PlayerEntity;
+            ev.Entity = target?.Index ?? BattleEvent.NoEntity;
+            ev.Flag = mad;
+            ev.Value = cost;
+            ev.Value2 = x;
 
-            int sanityCost = card.SanityCost(mad);   // ③ 代价
+            int sanityCost = card.SanityCost(mad, x);   // ③ 代价
             if (sanityCost > 0) Queue.AddToBottom(new LoseSanityAction(sanityCost, SanitySource.Card));
 
-            card.Play(new PlayContext(this, card, target, mad));   // ④ 效果
-            Queue.AddToBottom(new FinishCardAction(card));         // ⑤ 去向
+            card.Play(new PlayContext(this, card, target, mad, x));   // ④ 效果
+            Queue.AddToBottom(new FinishCardAction(card));            // ⑤ 去向
             Notify(l => l.OnCardPlayed(this, card, mad));
 
-            ProcessQueue();
-            if (State.Outcome == BattleOutcome.Ongoing) State.Phase = BattlePhase.PlayerAction;
+            Settle();
             return true;
         }
+
+        EnemyState TargetAt(int index) =>
+            index >= 0 && index < State.Enemies.Count && !State.Enemies[index].IsDead ? State.Enemies[index] : null;
 
         bool TryEndTurn(out string error)
         {
-            error = null;
-            if (State.Outcome != BattleOutcome.Ongoing) { error = "战斗已结束"; return false; }
-            if (State.Phase != BattlePhase.PlayerAction) { error = "现在不能结束回合"; return false; }
-
+            if (!CheckActionPhase(out error, "结束回合")) return false;
             State.Phase = BattlePhase.Resolving;
-            foreach (var c in Player.Hand.ToList()) c.OnTurnEndInHand(this);
-            Notify(l => l.OnPlayerTurnEnd(this));
-            ProcessQueue();
-            if (State.Outcome != BattleOutcome.Ongoing) return true;
-
-            if (Player.IsClarity) State.Stats.ClarityTurns++;
-            foreach (var c in Player.Hand)
-                (c.Ethereal ? Player.ExhaustPile : Player.DiscardPile).Add(c);
-            Player.Hand.Clear();
-            Player.Statuses.TickTurnEnd();
-
-            RunEnemyTurn();
-            if (State.Outcome == BattleOutcome.Ongoing) StartPlayerTurn();
+            _flow.AddLast(EndTurnTriggers);
+            _flow.AddLast(EndTurnCleanup);
+            _flow.AddLast(BeginEnemyTurn);
+            Settle();
             return true;
         }
 
-        public bool UsesMadFace(Card card) => card.Def.Dual && Player.IsLunatic;
+        bool TryChoose(int option, out string error)
+        {
+            error = null;
+            if (State.Outcome != BattleOutcome.Ongoing) { error = "战斗已结束"; return false; }
+            if (State.Phase != BattlePhase.WaitingForChoice || State.Choice == null) { error = "现在没有需要做的选择"; return false; }
+            if (option < 0 || option >= State.Choice.Options.Count) { error = "没有这个选项"; return false; }
+
+            var choice = State.Choice;
+            State.Choice = null;
+            State.Phase = BattlePhase.Resolving;
+            var ev = Log.Add(BattleEventType.ChoiceMade, $"选择：{choice.Options[option].Label}");
+            ev.Value = option;
+            ev.CardUid = choice.Options[option].CardUid;
+            choice.OnChosen(this, option);
+            Settle();
+            return true;
+        }
+
+        public bool CanUsePotion(int slot, out string error)
+        {
+            if (!CheckActionPhase(out error, "用药水")) return false;
+            if (slot < 0 || slot >= Player.Potions.Count || Player.Potions[slot] == null) { error = "这个药水栏是空的"; return false; }
+            return true;
+        }
+
+        bool TryUsePotion(int slot, int targetIndex, out string error)
+        {
+            if (!CanUsePotion(slot, out error)) return false;
+            var potion = Player.Potions[slot];
+            EnemyState target = null;
+            if (potion.Def.Target == CardTarget.Enemy)
+            {
+                target = TargetAt(targetIndex);
+                if (target == null) { error = "目标无效"; return false; }
+            }
+
+            State.Phase = BattlePhase.Resolving;
+            SetPotion(slot, null);
+            State.Stats.PotionsUsed++;
+            var ev = Log.Add(BattleEventType.PotionUsed, $"使用药水 {potion.Name}{(target != null ? " → " + target.Name : "")}", "调查员", target?.Name);
+            ev.Id = potion.Id;
+            ev.Value = slot;
+            ev.Entity = target?.Index ?? BattleEvent.NoEntity;
+            potion.Use(new PotionContext(this, potion, target));
+            Settle();
+            return true;
+        }
+
+        // ------------------------------------------------------------------ 结算循环
+
+        /// <summary>跑动作队列和流程步骤，直到全部结算完、需要玩家选择、或战斗结束。</summary>
+        void Pump()
+        {
+            while (State.Outcome == BattleOutcome.Ongoing && State.Phase != BattlePhase.WaitingForChoice)
+            {
+                if (Queue.Count > 0) Queue.Pop().Execute(this);
+                else if (_flow.Count > 0)
+                {
+                    var step = _flow.First.Value;
+                    _flow.RemoveFirst();
+                    step();
+                }
+                else break;
+                CheckOutcome();
+            }
+        }
+
+        /// <summary>结算到底；全部结算完且没有在等选择时回到玩家行动阶段。</summary>
+        void Settle()
+        {
+            Pump();
+            if (State.Outcome == BattleOutcome.Ongoing && State.Phase == BattlePhase.Resolving && Queue.Count == 0 && _flow.Count == 0)
+                State.Phase = BattlePhase.PlayerAction;
+        }
+
+        /// <summary>按顺序插到流程队列最前面。</summary>
+        void PushFlow(params Action[] steps)
+        {
+            for (int i = steps.Length - 1; i >= 0; i--) _flow.AddFirst(steps[i]);
+        }
+
+        internal void RequestChoice(PendingChoice choice)
+        {
+            State.Choice = choice;
+            State.Phase = BattlePhase.WaitingForChoice;
+            var ev = Log.Add(BattleEventType.ChoiceRequested, $"请选择：{choice.Prompt}（{string.Join(" / ", choice.Options.Select(o => o.Label))}）");
+            ev.Value = choice.Options.Count;
+        }
+
+        void CheckOutcome()
+        {
+            if (State.Outcome != BattleOutcome.Ongoing) return;
+            if (Player.IsDead)
+            {
+                State.Outcome = BattleOutcome.Defeat;
+                State.Phase = BattlePhase.Ended;
+                Log.Add(BattleEventType.Defeat, "调查员倒下了……");
+                EndCombat(false);
+            }
+            else if (State.Enemies.Where(x => !x.Minion).All(x => x.IsDead))
+            {
+                State.Outcome = BattleOutcome.Victory;
+                State.Phase = BattlePhase.Ended;
+                Log.Add(BattleEventType.Victory, $"战斗胜利！剩余生命 {Player.Hp}/{Player.MaxHp}");
+                EndCombat(true);
+            }
+        }
+
+        void EndCombat(bool victory)
+        {
+            Queue.Clear();
+            _flow.Clear();
+            State.Choice = null;
+            Notify(l => l.OnCombatEnd(this, victory));
+            // 战斗结束时的效果（如渔夫的护身符回复生命）立即结算，不再判定胜负
+            while (Queue.Count > 0) Queue.Pop().Execute(this);
+        }
+
+        internal void Notify(Action<BattleListener> fn)
+        {
+            foreach (var l in _listeners.ToList()) fn(l);
+        }
+
+        internal void AddListener(BattleListener listener)
+        {
+            int i = _listeners.Count;
+            while (i > 0 && _listeners[i - 1].Priority > listener.Priority) i--;
+            _listeners.Insert(i, listener);
+        }
 
         // ------------------------------------------------------------------ 回合流程（策划/02 §2）
 
@@ -158,45 +319,54 @@ namespace Deeptide.Core
             };
             State.Player = p;
             State.Stats.MinSanity = p.Sanity;
+            var init = Log.State(BattleEventType.PlayerInit, BattleEvent.PlayerEntity, p.Hp, value2: p.MaxHp);
+            init.Amount = p.MaxSanity;
 
-            foreach (var id in Setup.Deck) p.DrawPile.Add(NewCard(id));
+            foreach (var id in Setup.Deck) MoveCard(NewCard(id), PileKind.Draw);
             Rng.Shuffle.Shuffle(p.DrawPile);
+            PutInnateOnTop();
 
             foreach (var id in Setup.Relics)
             {
                 var relic = RelicLibrary.Create(id);
                 p.Relics.Add(relic);
-                _listeners.Add(relic);
+                AddListener(relic);
+            }
+
+            for (int i = 0; i < Math.Max(Setup.PotionSlots, Setup.Potions.Count); i++)
+            {
+                p.Potions.Add(null);
+                string id = i < Setup.Potions.Count ? Setup.Potions[i] : null;
+                SetPotion(i, id != null ? PotionLibrary.Create(id) : null);   // 空位也写事件，表现层据此知道药水栏有几格
             }
 
             var counts = Setup.Enemies.GroupBy(x => x).ToDictionary(g => g.Key, g => g.Count());
             var seen = new Dictionary<string, int>();
-            for (int i = 0; i < Setup.Enemies.Count; i++)
+            foreach (var id in Setup.Enemies)
             {
-                string id = Setup.Enemies[i];
                 var def = EnemyLibrary.Get(id);
                 seen[id] = seen.TryGetValue(id, out var k) ? k + 1 : 1;
-                int hp = Rng.Misc.Range(def.HpMin, def.HpMax);
-                State.Enemies.Add(new EnemyState
-                {
-                    Index = i,
-                    Def = def,
-                    Name = counts[id] > 1 ? $"{def.Name} {(char)('A' + seen[id] - 1)}" : def.Name,
-                    Behaviour = EnemyLibrary.CreateBehaviour(def),
-                    MaxHp = hp,
-                    Hp = hp,
-                    Will = def.Will,
-                    Mindless = def.Will <= 0,
-                });
+                SpawnEnemy(id, false, counts[id] > 1 ? $"{def.Name} {(char)('A' + seen[id] - 1)}" : def.Name);
             }
 
             Log.Add(BattleEventType.CombatStarted,
                 $"战斗开始：{string.Join("、", State.Enemies.Select(x => $"{x.Name}（{x.Hp}）"))}");
-            Notify(l => l.OnCombatStart(this));
-            ProcessQueue();
+            State.Phase = BattlePhase.Resolving;
+            _flow.AddLast(() => Notify(l => l.OnCombatStart(this)));
+            _flow.AddLast(() => { foreach (var en in State.Enemies) RollIntent(en); });
+            _flow.AddLast(StartPlayerTurn);
+            Settle();
+        }
 
-            foreach (var en in State.Enemies) RollIntent(en);
-            StartPlayerTurn();
+        /// <summary>「固有」的牌放到抽牌堆顶；固有牌多于每回合抽牌数时，第一回合多抽。</summary>
+        void PutInnateOnTop()
+        {
+            var draw = Player.DrawPile;
+            var innate = draw.Where(c => c.Has(CardKeywords.Innate)).ToList();
+            if (innate.Count == 0) return;
+            foreach (var c in innate) draw.Remove(c);
+            for (int i = innate.Count - 1; i >= 0; i--) draw.Add(innate[i]);
+            _innateExtraDraw = Math.Max(0, innate.Count - Config.DrawPerTurn);
         }
 
         void StartPlayerTurn()
@@ -204,127 +374,343 @@ namespace Deeptide.Core
             State.Turn++;
             Log.CurrentTurn = State.Turn;
             State.Phase = BattlePhase.Resolving;
-            Log.Add(BattleEventType.TurnStarted, $"—— 第 {State.Turn} 回合 ——", amount: State.Turn);
+            var ev = Log.Add(BattleEventType.TurnStarted, $"—— 第 {State.Turn} 回合 ——", amount: State.Turn);
+            ev.Value = State.Turn;
+            State.CardsPlayedThisTurn = 0;
+            State.IntentsRevealedThisTurn = false;
 
             if (State.Turn >= Config.ErosionStartTurn)
                 Queue.AddToBottom(new LoseSanityAction(Config.ErosionAmount, SanitySource.Erosion));
-            Player.Block = 0;
-            Player.Energy = Config.EnergyPerTurn + Player.EnergyNextTurn;
-            Player.EnergyNextTurn = 0;
+            foreach (var en in State.AliveEnemies.ToList()) en.Behaviour.OnPlayerTurnStart(this, en);
+            SetBlock(Player, 0);
+            SetEnergy(Config.EnergyPerTurn + Player.EnergyNextTurn);
+            SetEnergyNextTurn(0);
             Notify(l => l.OnPlayerTurnStart(this));
+            Queue.AddToBottom(new TurnDrawAction(State.Turn == 1 ? _innateExtraDraw : 0));
 
-            int bound = Player.Statuses.Get(StatusId.Bound);
-            if (bound > 0) Player.Statuses.Set(StatusId.Bound, 0);
-            Queue.AddToBottom(new DrawCardsAction(Math.Max(0, Config.DrawPerTurn - bound)));
-
-            ProcessQueue();
-            if (State.Outcome != BattleOutcome.Ongoing) return;
-            if (Player.IsLunatic) State.Stats.LunacyTurns++;
-            State.Phase = BattlePhase.PlayerAction;
+            PushFlow(() =>
+            {
+                if (Player.IsLunatic) State.Stats.LunacyTurns++;
+                State.Phase = BattlePhase.PlayerAction;
+            });
         }
 
-        void RunEnemyTurn()
+        void EndTurnTriggers()
+        {
+            foreach (var c in Player.Hand.ToList()) c.OnTurnEndInHand(this);
+            Notify(l => l.OnPlayerTurnEnd(this));
+        }
+
+        void EndTurnCleanup()
+        {
+            if (Player.IsClarity) State.Stats.ClarityTurns++;
+            foreach (var c in Player.Hand.ToList())
+            {
+                if (c.Has(CardKeywords.Retain)) SetTempCost(c, -1);
+                else MoveCard(c, c.Ethereal ? PileKind.Exhaust : PileKind.Discard);
+            }
+            TickStatuses(Player);
+        }
+
+        void BeginEnemyTurn()
         {
             State.EnemyTurn = true;
-            try { RunEnemyActions(); }
-            finally { State.EnemyTurn = false; }
+            var steps = State.Enemies.ToList().Select(en => (Action)(() => EnemyAct(en))).ToList();
+            steps.Add(() =>
+            {
+                State.EnemyTurn = false;
+                PushFlow(StartPlayerTurn);
+            });
+            PushFlow(steps.ToArray());
         }
 
-        void RunEnemyActions()
+        void EnemyAct(EnemyState en)
         {
-            foreach (var en in State.Enemies.ToList())
+            if (en.IsDead) return;
+            SetBlock(en, 0);
+            if (en.Stunned)
             {
-                if (en.IsDead) continue;
-                en.Block = 0;
-                if (en.Stunned)
-                {
-                    en.Stunned = false;
-                    Log.Add(BattleEventType.EnemyStunSkipped, $"{en.Name} 被震慑，跳过行动", en.Name);
-                }
-                else
-                {
-                    var move = en.Intent;
-                    en.MoveHistory.Add(move.Id);
-                    en.MoveUses[move.Id] = en.UsesOf(move.Id) + 1;
-                    Log.Add(BattleEventType.EnemyMove, $"{en.Name} 使用「{move.Name}」", en.Name);
-                    en.Behaviour.Perform(this, en, move);
-                    ProcessQueue();
-                    if (State.Outcome != BattleOutcome.Ongoing) return;
-                }
-                en.Statuses.TickTurnEnd();
+                SetStunned(en, false);
+                Log.Add(BattleEventType.EnemyStunSkipped, $"{en.Name} 被震慑，跳过行动", en.Name).Entity = en.Index;
+            }
+            else
+            {
+                var move = en.Intent;
+                en.MoveHistory.Add(move.Id);
+                en.MoveUses[move.Id] = en.UsesOf(move.Id) + 1;
+                var ev = Log.Add(BattleEventType.EnemyMove, $"{en.Name} 使用「{move.Name}」", en.Name);
+                ev.Entity = en.Index;
+                ev.Id = move.Id;
+                en.Behaviour.Perform(this, en, move);
+            }
+            PushFlow(() =>
+            {
+                TickStatuses(en);
+                en.Behaviour.OnOwnTurnEnd(this, en);
                 if (!en.IsDead) RollIntent(en);
+            });
+        }
+
+        internal void RollIntent(EnemyState en)
+        {
+            en.Intent = en.Behaviour.ChooseNext(this, en);
+            var ev = Log.Add(BattleEventType.IntentChosen, $"{en.Name} 的意图：{en.Intent.Name}", en.Name);
+            ev.Entity = en.Index;
+            ev.Id = en.Intent.Id;
+        }
+
+        // ------------------------------------------------------------------ 状态修改（都会写状态事件）
+
+        public Card NewCard(string id) => CardLibrary.Create(id, _nextUid++);
+
+        /// <summary>设置生命（夹在 0..最大生命）。返回这次修改是否让它倒下。</summary>
+        internal bool SetHp(Combatant c, int hp)
+        {
+            hp = Math.Max(0, Math.Min(c.MaxHp, hp));
+            if (hp == c.Hp) return false;
+            bool wasAlive = !c.IsDead;
+            c.Hp = hp;
+            Log.State(BattleEventType.HpChanged, c.EntityId, hp, value2: c.MaxHp);
+            return wasAlive && c.IsDead;
+        }
+
+        internal void SetBlock(Combatant c, int block)
+        {
+            block = Math.Max(0, block);
+            if (block == c.Block) return;
+            c.Block = block;
+            Log.State(BattleEventType.BlockChanged, c.EntityId, block);
+        }
+
+        internal void SetEnergy(int energy)
+        {
+            if (energy == Player.Energy) return;
+            Player.Energy = energy;
+            Log.State(BattleEventType.EnergyChanged, BattleEvent.PlayerEntity, energy, value2: Player.EnergyNextTurn);
+        }
+
+        internal void SetEnergyNextTurn(int energy)
+        {
+            if (energy == Player.EnergyNextTurn) return;
+            Player.EnergyNextTurn = energy;
+            Log.State(BattleEventType.EnergyChanged, BattleEvent.PlayerEntity, Player.Energy, value2: energy);
+        }
+
+        internal void SetSanity(int sanity)
+        {
+            sanity = Math.Max(0, Math.Min(Player.MaxSanity, sanity));
+            if (sanity == Player.Sanity) return;
+            Player.Sanity = sanity;
+            Log.State(BattleEventType.SanityChanged, BattleEvent.PlayerEntity, sanity, value2: Player.MaxSanity);
+        }
+
+        internal void SetStatus(Combatant c, StatusId id, int amount)
+        {
+            if (c.Statuses.Get(id) == amount) return;
+            c.Statuses.Set(id, amount);
+            var ev = Log.State(BattleEventType.StatusChanged, c.EntityId, amount);
+            ev.Status = id;
+        }
+
+        internal void AddStatus(Combatant c, StatusId id, int delta) => SetStatus(c, id, c.Statuses.Get(id) + delta);
+
+        /// <summary>回合制状态（易伤 / 虚弱 / 脆弱）在持有者回合结束时 −1。</summary>
+        internal void TickStatuses(Combatant c)
+        {
+            foreach (var id in StatusSet.TurnBased)
+                if (c.Statuses.Get(id) > 0) AddStatus(c, id, -1);
+        }
+
+        internal void SetFear(EnemyState en, int fear, int will)
+        {
+            if (fear == en.Fear && will == en.Will) return;
+            en.Fear = fear;
+            en.Will = will;
+            Log.State(BattleEventType.FearChanged, en.Index, fear, value2: will);
+        }
+
+        internal void SetStunned(EnemyState en, bool stunned)
+        {
+            if (en.Stunned == stunned) return;
+            en.Stunned = stunned;
+            Log.State(BattleEventType.StunChanged, en.Index, stunned ? 1 : 0);
+        }
+
+        public void SetCounter(EnemyState en, string key, int value)
+        {
+            if (en.Counter(key) == value && en.Counters.ContainsKey(key)) return;
+            en.Counters[key] = value;
+            Log.State(BattleEventType.CounterChanged, en.Index, value, key);
+        }
+
+        internal void SetPotion(int slot, Potion potion)
+        {
+            Player.Potions[slot] = potion;
+            Log.State(BattleEventType.PotionChanged, BattleEvent.PlayerEntity, slot, potion?.Id);
+        }
+
+        internal void SetTempCost(Card card, int cost)
+        {
+            if (card.CostThisTurn == cost) return;
+            card.CostThisTurn = cost;
+            var ev = Log.State(BattleEventType.CardCostChanged, BattleEvent.NoEntity, cost);
+            ev.CardUid = card.Uid;
+        }
+
+        /// <summary>叠加能力：同 ID 的能力增加 Amount，否则加入并开始监听。</summary>
+        internal Power ApplyPower(Power power, int amount)
+        {
+            var existing = Player.FindPower(power.Id);
+            if (existing != null)
+            {
+                existing.Amount += amount;
+                power = existing;
+            }
+            else
+            {
+                power.Amount = amount;
+                Player.Powers.Add(power);
+                AddListener(power);
+            }
+            Log.State(BattleEventType.PowerChanged, BattleEvent.PlayerEntity, power.Amount, power.Id);
+            return power;
+        }
+
+        static readonly PileKind[] Piles = { PileKind.Hand, PileKind.Draw, PileKind.Discard, PileKind.Exhaust };
+
+        List<Card> PileList(PileKind pile)
+        {
+            switch (pile)
+            {
+                case PileKind.Hand: return Player.Hand;
+                case PileKind.Draw: return Player.DrawPile;
+                case PileKind.Discard: return Player.DiscardPile;
+                case PileKind.Exhaust: return Player.ExhaustPile;
+                default: return null;
             }
         }
 
-        void RollIntent(EnemyState en)
+        /// <summary>这张牌现在在哪儿（测试会直接往牌堆里塞牌，所以按实际列表查找）。</summary>
+        public PileKind Locate(Card card)
         {
-            en.Intent = en.Behaviour.ChooseNext(this, en);
-            Log.Add(BattleEventType.IntentChosen, $"{en.Name} 的意图：{en.Intent.Name}", en.Name);
+            foreach (var pile in Piles)
+                if (PileList(pile).Contains(card)) return pile;
+            return card.Pile == PileKind.Play ? PileKind.Play : PileKind.None;
+        }
+
+        /// <summary>
+        /// 移动一张牌。放进抽牌堆时 index 是插入位置（-1 = 牌堆顶，即列表末尾）。
+        /// 离开手牌时清掉「本回合费用」。手牌上限由调用方处理。
+        /// </summary>
+        internal void MoveCard(Card card, PileKind to, int index = -1)
+        {
+            var from = Locate(card);
+            PileList(from)?.Remove(card);
+            if (from == PileKind.Hand && to != PileKind.Hand) SetTempCost(card, -1);
+            var list = PileList(to);
+            if (list != null)
+            {
+                if (index < 0 || index > list.Count) index = list.Count;
+                list.Insert(index, card);
+            }
+            card.Pile = to;
+            var ev = Log.State(BattleEventType.CardMoved, BattleEvent.NoEntity, index, card.DeckId);
+            ev.CardUid = card.Uid;
+            ev.From = from;
+            ev.To = to;
+        }
+
+        /// <summary>弃牌堆整个洗回抽牌堆。</summary>
+        internal void ShuffleDiscardIntoDraw()
+        {
+            var p = Player;
+            foreach (var c in p.DiscardPile) c.Pile = PileKind.Draw;
+            p.DrawPile.AddRange(p.DiscardPile);
+            p.DiscardPile.Clear();
+            Rng.Shuffle.Shuffle(p.DrawPile);
+            Log.State(BattleEventType.PileShuffled, BattleEvent.NoEntity, p.DrawPile.Count);
+            Log.Add(BattleEventType.Shuffled, "弃牌堆洗回抽牌堆");
+        }
+
+        /// <summary>召唤 / 生成敌人：追加在列表末尾，已有敌人的下标不变。生命按定义随机（misc 流）。</summary>
+        public EnemyState SpawnEnemy(string defId, bool minion, string name = null)
+        {
+            var def = EnemyLibrary.Get(defId);
+            int hp = Rng.Misc.Range(def.HpMin, def.HpMax);
+            var en = new EnemyState
+            {
+                Index = State.Enemies.Count,
+                Def = def,
+                Name = name ?? def.Name,
+                Behaviour = EnemyLibrary.CreateBehaviour(def),
+                MaxHp = hp,
+                Hp = hp,
+                Will = def.Will,
+                Mindless = def.Will <= 0,
+                Minion = minion,
+            };
+            State.Enemies.Add(en);
+            // Value = 生命，Value2 = 最大生命，Amount = 意志，Actor = 显示名，Flag = 召唤物
+            var ev = Log.State(BattleEventType.EnemySpawned, en.Index, hp, def.Id, en.MaxHp);
+            ev.Actor = en.Name;
+            ev.Amount = en.Will;
+            ev.Flag = minion;
+            en.Behaviour.OnSpawned(this, en);
+            return en;
         }
 
         // ------------------------------------------------------------------ 结算工具（供动作调用）
 
-        internal void ProcessQueue()
-        {
-            while (Queue.Count > 0)
-            {
-                if (State.Outcome != BattleOutcome.Ongoing)
-                {
-                    Queue.Clear();
-                    return;
-                }
-                Queue.Pop().Execute(this);
-                CheckOutcome();
-            }
-        }
-
-        void CheckOutcome()
-        {
-            if (State.Outcome != BattleOutcome.Ongoing) return;
-            if (Player.IsDead)
-            {
-                State.Outcome = BattleOutcome.Defeat;
-                State.Phase = BattlePhase.Ended;
-                Log.Add(BattleEventType.Defeat, "调查员倒下了……");
-            }
-            else if (State.Enemies.All(x => x.IsDead))
-            {
-                State.Outcome = BattleOutcome.Victory;
-                State.Phase = BattlePhase.Ended;
-                Log.Add(BattleEventType.Victory, $"战斗胜利！剩余生命 {Player.Hp}/{Player.MaxHp}");
-            }
-        }
-
-        internal void Notify(Action<BattleListener> fn)
-        {
-            foreach (var l in _listeners.OrderBy(x => x.Priority).ToList()) fn(l);
-        }
-
-        public Card NewCard(string id) => CardLibrary.Create(id, _nextUid++);
-
         internal void ApplyDamage(Combatant source, Combatant target, int amount)
         {
             int absorbed = Math.Min(target.Block, amount);
-            target.Block -= absorbed;
+            SetBlock(target, target.Block - absorbed);
             int hpLoss = amount - absorbed;
-            target.Hp = Math.Max(0, target.Hp - hpLoss);
+            bool died = SetHp(target, target.Hp - hpLoss);
             string src = source?.Name ?? "效果";
-            Log.Add(BattleEventType.Damage,
+            var ev = Log.Add(BattleEventType.Damage,
                 absorbed > 0
                     ? $"{src} 对 {target.Name} 造成 {amount} 伤害（格挡吸收 {absorbed}）→ 生命 {target.Hp}"
                     : $"{src} 对 {target.Name} 造成 {amount} 伤害 → 生命 {target.Hp}",
                 src, target.Name, amount);
-            if (target is EnemyState && target.IsDead)
-                Log.Add(BattleEventType.EnemyDied, $"{target.Name} 被击倒", target: target.Name);
+            ev.Entity = target.EntityId;
+            ev.Source = source?.EntityId ?? BattleEvent.NoEntity;
+            ev.Value = hpLoss;
+            AfterHpLoss(target, died, hpLoss);
         }
 
         internal void LoseHp(Combatant target, int amount)
         {
             if (amount <= 0 || target.IsDead) return;
-            target.Hp = Math.Max(0, target.Hp - amount);
-            Log.Add(BattleEventType.HpLost, $"{target.Name} 失去 {amount} 生命 → {target.Hp}", target: target.Name, amount: amount);
-            if (target is EnemyState && target.IsDead)
-                Log.Add(BattleEventType.EnemyDied, $"{target.Name} 被击倒", target: target.Name);
+            bool died = SetHp(target, target.Hp - amount);
+            var ev = Log.Add(BattleEventType.HpLost, $"{target.Name} 失去 {amount} 生命 → {target.Hp}", target: target.Name, amount: amount);
+            ev.Entity = target.EntityId;
+            AfterHpLoss(target, died, amount);
+        }
+
+        internal void Heal(Combatant target, int amount)
+        {
+            if (amount <= 0 || target.IsDead) return;
+            int before = target.Hp;
+            SetHp(target, target.Hp + amount);
+            int healed = target.Hp - before;
+            if (healed <= 0) return;
+            var ev = Log.Add(BattleEventType.Healed, $"{target.Name} 恢复 {healed} 生命 → {target.Hp}", target: target.Name, amount: healed);
+            ev.Entity = target.EntityId;
+        }
+
+        void AfterHpLoss(Combatant target, bool died, int hpLoss)
+        {
+            if (!(target is EnemyState en)) return;
+            if (died)
+            {
+                Log.Add(BattleEventType.EnemyDied, $"{en.Name} 被击倒", target: en.Name).Entity = en.Index;
+                SetStunned(en, false);
+                foreach (var other in State.Enemies.ToList())
+                    if (!other.IsDead) other.Behaviour.OnEnemyDied(this, other, en);
+                Notify(l => l.OnEnemyDied(this, en));
+            }
+            else if (hpLoss > 0) en.Behaviour.OnDamaged(this, en);
         }
 
         /// <summary>抽一张牌；抽牌堆空了就洗弃牌堆。手牌满时这张牌直接进弃牌堆。没有牌可抽时返回 null。</summary>
@@ -334,19 +720,15 @@ namespace Deeptide.Core
             if (p.DrawPile.Count == 0)
             {
                 if (p.DiscardPile.Count == 0) return null;
-                p.DrawPile.AddRange(p.DiscardPile);
-                p.DiscardPile.Clear();
-                Rng.Shuffle.Shuffle(p.DrawPile);
-                Log.Add(BattleEventType.Shuffled, "弃牌堆洗回抽牌堆");
+                ShuffleDiscardIntoDraw();
             }
             var card = p.DrawPile[p.DrawPile.Count - 1];
-            p.DrawPile.RemoveAt(p.DrawPile.Count - 1);
             if (p.Hand.Count >= Config.HandLimit)
             {
-                p.DiscardPile.Add(card);
-                Log.Add(BattleEventType.CardDiscarded, $"手牌已满，{card.Name} 进入弃牌堆", target: card.Name);
+                MoveCard(card, PileKind.Discard);
+                Log.Add(BattleEventType.CardDiscarded, $"手牌已满，{card.Name} 进入弃牌堆", target: card.Name).CardUid = card.Uid;
             }
-            else p.Hand.Add(card);
+            else MoveCard(card, PileKind.Hand);
             return card;
         }
 
@@ -355,32 +737,44 @@ namespace Deeptide.Core
         public IntentView GetIntent(EnemyState en)
         {
             var m = en.Intent;
+            bool hidden = en.Behaviour.IntentHidden(this, en);
             var view = new IntentView
             {
-                Type = m?.Intent ?? IntentType.Unknown,
-                MoveName = m?.Name ?? "?",
-                Hits = m?.Hits ?? 0,
-                SanityDamage = m?.SanityDamage ?? 0,
-                Block = m?.Block ?? 0,
-                Note = m?.Note,
+                Type = hidden ? IntentType.Unknown : m?.Intent ?? IntentType.Unknown,
+                MoveName = hidden ? "?" : m?.Name ?? "?",
+                Note = hidden ? null : m?.Note,
                 Stunned = en.Stunned,
+                Hidden = hidden,
                 Blurred = IntentsBlurred,
             };
-            if (m != null && m.Damage > 0) view.Damage = DamageCalculator.Compute(this, en, Player, m.Damage);
+            if (m != null && !hidden)
+            {
+                view.Hits = en.Behaviour.IntentHits(this, en, m);
+                view.SanityDamage = m.SanityDamage;
+                view.Block = m.Block;
+                int dmg = en.Behaviour.IntentDamage(this, en, m);
+                if (dmg > 0 && view.Hits > 0) view.Damage = DamageCalculator.Compute(this, en, Player, dmg);
+            }
             return view;
         }
 
-        /// <summary>本回合敌人预计造成的攻击伤害总和（不含被震慑的敌人）。</summary>
+        /// <summary>本回合敌人预计造成的攻击伤害总和（不含被震慑的敌人；意图隐藏的敌人也按真实招式算）。</summary>
         public int IncomingDamage()
         {
             int sum = 0;
             foreach (var en in State.AliveEnemies)
             {
-                if (en.Stunned || en.Intent == null || en.Intent.Damage <= 0) continue;
-                sum += DamageCalculator.Compute(this, en, Player, en.Intent.Damage) * en.Intent.Hits;
+                if (en.Stunned || en.Intent == null) continue;
+                int dmg = en.Behaviour.IntentDamage(this, en, en.Intent);
+                if (dmg <= 0) continue;
+                sum += DamageCalculator.Compute(this, en, Player, dmg) * en.Behaviour.IntentHits(this, en, en.Intent);
             }
             return sum;
         }
+
+        /// <summary>某个实体当前的显示名（事件里只有编号时用）。</summary>
+        public string NameOf(int entity) =>
+            entity == BattleEvent.PlayerEntity ? Player.Name : entity >= 0 && entity < State.Enemies.Count ? State.Enemies[entity].Name : "";
     }
 
     public sealed class IntentView
@@ -393,6 +787,9 @@ namespace Deeptide.Core
         public int Block;
         public string Note;
         public bool Stunned;
+        /// <summary>癫狂导致的模糊：只显示类型。</summary>
         public bool Blurred;
+        /// <summary>敌人自身的隐藏（无面修女）：连类型都看不到，显示「?」。</summary>
+        public bool Hidden;
     }
 }

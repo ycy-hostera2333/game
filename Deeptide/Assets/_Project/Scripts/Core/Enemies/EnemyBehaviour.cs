@@ -137,12 +137,38 @@ namespace Deeptide.Core.Enemies
 
         public abstract void Perform(BattleEngine e, EnemyState self, EnemyMove move);
 
+        // ---------------- 扩展点（策划/09 M1.5）。通知类钩子要产生效果时往队列里加动作；计数器可以直接用 e.SetCounter 改
+
+        /// <summary>刚生成时（开场或被召唤）。</summary>
+        public virtual void OnSpawned(BattleEngine e, EnemyState self) { }
+        /// <summary>玩家回合开始时（光环类被动：灯塔守望者、深海之歌）。在侵蚀之后入队。</summary>
+        public virtual void OnPlayerTurnStart(BattleEngine e, EnemyState self) { }
+        /// <summary>自己的回合结束、决定下回合意图之前（无论这回合是否被震慑）。</summary>
+        public virtual void OnOwnTurnEnd(BattleEngine e, EnemyState self) { }
+        /// <summary>任意敌人倒下时，活着的敌人各收到一次（Boss 的潮位）。</summary>
+        public virtual void OnEnemyDied(BattleEngine e, EnemyState self, EnemyState dead) { }
+        /// <summary>自己受到伤害、失去生命且还活着时（阶段转换）。</summary>
+        public virtual void OnDamaged(BattleEngine e, EnemyState self) { }
+        /// <summary>自己被震慑时（无面修女现形）。</summary>
+        public virtual void OnStunned(BattleEngine e, EnemyState self) { }
+
+        /// <summary>意图对玩家完全隐藏（显示「?」，连类型都看不到）。</summary>
+        public virtual bool IntentHidden(BattleEngine e, EnemyState self) => false;
+        /// <summary>招式的每段基础伤害；随场面变化的招式（收网）重写。</summary>
+        public virtual int IntentDamage(BattleEngine e, EnemyState self, EnemyMove move) => move.Damage;
+        public virtual int IntentHits(BattleEngine e, EnemyState self, EnemyMove move) => move.Hits;
+        /// <summary>强制招式（固定循环、计数器触发），返回 null 表示走正常的招式表。首回合固定招式之后检查。</summary>
+        protected virtual string ForcedMove(BattleEngine e, EnemyState self) => null;
+
         public EnemyMove ChooseNext(BattleEngine e, EnemyState self)
         {
             if (self.MoveHistory.Count == 0 && FirstMove != null) return _moves[FirstMove];
+            var forced = ForcedMove(e, self);
+            if (forced != null) return _moves[forced];
 
-            var candidates = _options.Where(o => Allowed(o, e, self, true)).ToList();
-            if (candidates.Count == 0) candidates = _options.Where(o => Allowed(o, e, self, false)).ToList();
+            var candidates = _options.Where(o => Allowed(o, e, self, true, true)).ToList();
+            if (candidates.Count == 0) candidates = _options.Where(o => Allowed(o, e, self, false, true)).ToList();
+            if (candidates.Count == 0) candidates = _options.Where(o => Allowed(o, e, self, false, false)).ToList();
             if (candidates.Count == 0) candidates = _options;
 
             int roll = e.Rng.Ai.NextInt(candidates.Sum(o => o.Weight));
@@ -154,30 +180,55 @@ namespace Deeptide.Core.Enemies
             return _moves[candidates[candidates.Count - 1].MoveId];
         }
 
-        static bool Allowed(MoveOption o, BattleEngine e, EnemyState self, bool checkRepeat)
+        static bool Allowed(MoveOption o, BattleEngine e, EnemyState self, bool checkRepeat, bool checkUses)
         {
             if (o.Condition != null && !o.Condition(e, self)) return false;
-            if (o.MaxUses > 0 && self.UsesOf(o.MoveId) >= o.MaxUses) return false;
+            if (checkUses && o.MaxUses > 0 && self.UsesOf(o.MoveId) >= o.MaxUses) return false;
             if (checkRepeat && TrailingCount(self.MoveHistory, o.MoveId) >= o.MaxConsecutive) return false;
             return true;
         }
 
-        static int TrailingCount(List<string> history, string moveId)
+        protected static int TrailingCount(List<string> history, string moveId)
         {
             int n = 0;
             for (int i = history.Count - 1; i >= 0 && history[i] == moveId; i--) n++;
             return n;
         }
 
+        /// <summary>固定循环：按 cycle 顺序轮流（历史长度对 cycle 取余）。</summary>
+        protected static string Cycle(EnemyState self, params string[] cycle) => cycle[self.MoveHistory.Count % cycle.Length];
+
         // ---------------- 常用效果
 
-        protected static void Attack(BattleEngine e, EnemyState self, EnemyMove m) =>
-            e.Queue.AddToBottom(new DealDamageAction(self, e.Player, m.Damage, m.Hits));
+        /// <summary>按当前（可能随场面变化的）伤害和段数攻击玩家。</summary>
+        protected void Attack(BattleEngine e, EnemyState self, EnemyMove m) =>
+            e.Queue.AddToBottom(new DealDamageAction(self, e.Player, IntentDamage(e, self, m), IntentHits(e, self, m)));
 
         protected static void MindAttack(BattleEngine e, int amount) =>
             e.Queue.AddToBottom(new LoseSanityAction(amount, SanitySource.Enemy));
 
+        /// <summary>光环：敌方来源的理智损失，心防可以抵消，祝圣银铃不改写。</summary>
+        protected static void Aura(BattleEngine e, int amount) =>
+            e.Queue.AddToBottom(new LoseSanityAction(amount, SanitySource.Aura));
+
         protected static void GainBlock(BattleEngine e, EnemyState self, int amount) =>
             e.Queue.AddToBottom(new GainBlockAction(self, amount, false));
+
+        protected static void Debuff(BattleEngine e, StatusId status, int amount) =>
+            e.Queue.AddToBottom(new ApplyStatusAction(e.Player, status, amount));
+
+        protected static void Buff(BattleEngine e, EnemyState self, StatusId status, int amount) =>
+            e.Queue.AddToBottom(new ApplyStatusAction(self, status, amount));
+
+        protected static void Heal(BattleEngine e, EnemyState self, int amount) =>
+            e.Queue.AddToBottom(new HealAction(self, amount));
+
+        protected static void Summon(BattleEngine e, EnemyState self, string enemyId) =>
+            e.Queue.AddToBottom(new SummonAction(self, enemyId));
+
+        protected static void AddCards(BattleEngine e, string cardId, PileKind pile, int count)
+        {
+            for (int i = 0; i < count; i++) e.Queue.AddToBottom(new AddCardToPileAction(cardId, pile));
+        }
     }
 }

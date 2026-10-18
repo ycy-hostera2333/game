@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Deeptide.Core.Random;
@@ -15,10 +16,13 @@ namespace Deeptide.Core
         public int Hp = 70;
         public int MaxSanity = 10;
         public List<string> Relics = new List<string> { RelicIds.InvestigatorNotes };
+        /// <summary>药水栏的内容，null = 空位。长度不足 PotionSlots 时补空位。</summary>
+        public List<string> Potions = new List<string>();
+        public int PotionSlots = 3;
         public BattleConfig Config = new BattleConfig();
     }
 
-    /// <summary>战斗内的独立随机流：洗牌、敌人 AI、其他（随机目标、随机弃牌、敌人生命）。</summary>
+    /// <summary>战斗内的独立随机流：洗牌、敌人 AI、其他（随机目标、随机弃牌、敌人生命、战斗中生成的牌）。</summary>
     public sealed class BattleRng
     {
         public readonly Pcg32 Shuffle;
@@ -47,8 +51,26 @@ namespace Deeptide.Core
         public int ClarityTurns;
         public int MinSanity;
         public int CardsPlayed;
+        public int PotionsUsed;
         /// <summary>按卡牌 ID 统计的打出次数（记录表「打得最多的牌」、遥测「每张牌打出次数」）。</summary>
         public readonly Dictionary<string, int> PlaysByCard = new Dictionary<string, int>();
+    }
+
+    /// <summary>需要玩家做选择时的提示（策划/08 §3.1）。表现层弹出选项，玩家用 BattleCommand.Choose 回答。</summary>
+    public sealed class PendingChoice
+    {
+        public string Prompt;
+        public readonly List<ChoiceOption> Options = new List<ChoiceOption>();
+        internal Action<BattleEngine, int> OnChosen;
+    }
+
+    public sealed class ChoiceOption
+    {
+        public string Label;
+        /// <summary>选项对应的卡牌（选手牌 / 发现），0 = 不是牌。</summary>
+        public int CardUid;
+        /// <summary>选项对应的卡牌 ID（带 + 表示升级），表现层用来画卡面。</summary>
+        public string CardId;
     }
 
     public sealed class BattleState
@@ -60,6 +82,12 @@ namespace Deeptide.Core
         public BattleOutcome Outcome = BattleOutcome.Ongoing;
         /// <summary>正在结算敌人回合（此时获得的能量顺延到下回合）。</summary>
         public bool EnemyTurn;
+        /// <summary>本回合已经打出的牌数（左轮射击等「本回合第一张」判定）。</summary>
+        public int CardsPlayedThisTurn;
+        /// <summary>本回合敌人意图不受癫狂模糊（点亮提灯）。</summary>
+        public bool IntentsRevealedThisTurn;
+        /// <summary>Phase = WaitingForChoice 时的选择内容。</summary>
+        public PendingChoice Choice;
         public readonly BattleStats Stats = new BattleStats();
 
         public IEnumerable<EnemyState> AliveEnemies => Enemies.Where(e => !e.IsDead);

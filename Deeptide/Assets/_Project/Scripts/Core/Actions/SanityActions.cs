@@ -3,7 +3,7 @@ using System;
 namespace Deeptide.Core.Actions
 {
     /// <summary>
-    /// 失去理智（策划/02 §3.3）。来自敌人的损失先被心防抵消。
+    /// 失去理智（策划/02 §3.3）。精神攻击先过祝圣银铃，再过心防；光环只过心防。
     /// 进入癫狂时通知触发器；归 0 时把崩溃插到队首——「先完整结算崩溃，再继续」。
     /// </summary>
     public sealed class LoseSanityAction : GameAction
@@ -22,22 +22,27 @@ namespace Deeptide.Core.Actions
             var p = e.Player;
             if (_amount <= 0) return;
 
-            if (_source == SanitySource.Enemy && p.Statuses.Get(StatusId.Ward) > 0)
+            if (_source == SanitySource.Enemy)
+                foreach (var l in e.Listeners)
+                    if (l.InterceptMindAttack(e, _amount)) return;
+
+            if ((_source == SanitySource.Enemy || _source == SanitySource.Aura) && p.Statuses.Get(StatusId.Ward) > 0)
             {
-                p.Statuses.Add(StatusId.Ward, -1);
+                e.AddStatus(p, StatusId.Ward, -1);
                 e.Log.Add(BattleEventType.WardConsumed, $"心防抵消了 {_amount} 点理智损失（剩余心防 {p.Statuses.Get(StatusId.Ward)}）");
                 return;
             }
 
             bool wasLunatic = p.IsLunatic;
             int before = p.Sanity;
-            p.Sanity = Math.Max(0, before - _amount);
+            e.SetSanity(before - _amount);
             int lost = before - p.Sanity;
             if (lost <= 0) return;
 
             var stats = e.State.Stats;
             stats.MinSanity = Math.Min(stats.MinSanity, p.Sanity);
-            e.Log.Add(BattleEventType.SanityLost, $"失去 {lost} 理智（{SourceName(_source)}）→ {p.Sanity}/{p.MaxSanity}", amount: lost);
+            var ev = e.Log.Add(BattleEventType.SanityLost, $"失去 {lost} 理智（{SourceName(_source)}）→ {p.Sanity}/{p.MaxSanity}", amount: lost);
+            ev.Value = p.Sanity;
             e.Notify(l => l.OnSanityLost(e, lost, _source));
 
             if (!wasLunatic && p.IsLunatic)
@@ -57,6 +62,7 @@ namespace Deeptide.Core.Actions
             {
                 case SanitySource.Card: return "代价";
                 case SanitySource.Enemy: return "精神攻击";
+                case SanitySource.Aura: return "光环";
                 case SanitySource.Erosion: return "侵蚀";
                 case SanitySource.Curse: return "疯语";
                 default: return "效果";
@@ -64,7 +70,7 @@ namespace Deeptide.Core.Actions
         }
     }
 
-    /// <summary>恢复理智。恢复量按牌面计（含溢出），实际理智不超过上限。</summary>
+    /// <summary>恢复理智。恢复量按牌面计（含溢出，先经过遗物修正），实际理智不超过上限。</summary>
     public sealed class RestoreSanityAction : GameAction
     {
         readonly int _amount;
@@ -74,20 +80,42 @@ namespace Deeptide.Core.Actions
         public override void Execute(BattleEngine e)
         {
             var p = e.Player;
-            if (_amount <= 0) return;
+            int amount = _amount;
+            foreach (var l in e.Listeners) amount = l.ModifyRestore(e, amount);
+            if (amount <= 0) return;
             bool wasLunatic = p.IsLunatic;
-            int actual = Math.Min(_amount, p.MaxSanity - p.Sanity);
-            int overflow = _amount - actual;
-            p.Sanity += actual;
-            e.Log.Add(BattleEventType.SanityRestored,
+            int actual = Math.Min(amount, p.MaxSanity - p.Sanity);
+            int overflow = amount - actual;
+            e.SetSanity(p.Sanity + actual);
+            var ev = e.Log.Add(BattleEventType.SanityRestored,
                 overflow > 0 ? $"恢复 {actual} 理智（溢出 {overflow}）→ {p.Sanity}/{p.MaxSanity}" : $"恢复 {actual} 理智 → {p.Sanity}/{p.MaxSanity}",
                 amount: actual);
-            e.Notify(l => l.OnSanityRestored(e, _amount, overflow));
+            ev.Value = p.Sanity;
+            ev.Value2 = overflow;
+            e.Notify(l => l.OnSanityRestored(e, amount, overflow));
             if (wasLunatic && !p.IsLunatic)
             {
                 e.Log.Add(BattleEventType.LunacyLeft, "离开癫狂：双面牌翻回清醒面");
                 e.Notify(l => l.OnLunacyChanged(e, false));
             }
+        }
+    }
+
+    /// <summary>
+    /// 把理智直接设成某个值（迷幻剂）：高于目标就按「效果」失去，低于目标就恢复。
+    /// 走失去 / 恢复两条正常路径，所以癫狂切换、崩溃和相关触发器都照常结算。
+    /// </summary>
+    public sealed class SetSanityAction : GameAction
+    {
+        readonly int _value;
+
+        public SetSanityAction(int value) { _value = value; }
+
+        public override void Execute(BattleEngine e)
+        {
+            int diff = e.Player.Sanity - _value;
+            if (diff > 0) e.Queue.AddToTop(new LoseSanityAction(diff, SanitySource.Effect));
+            else if (diff < 0) e.Queue.AddToTop(new RestoreSanityAction(-diff));
         }
     }
 
@@ -98,17 +126,19 @@ namespace Deeptide.Core.Actions
         {
             var p = e.Player;
             var cfg = e.Config;
-            int hpLoss = p.MaxHp * cfg.CollapseHpPercent / 100;
+            var cost = new CollapseCost { HpLoss = p.MaxHp * cfg.CollapseHpPercent / 100 };
+            foreach (var l in e.Listeners) l.ModifyCollapse(e, cost);
             var stats = e.State.Stats;
             stats.Collapses++;
-            stats.CursesGained++;
+            if (cost.AddCurse) stats.CursesGained++;
 
-            e.Log.Add(BattleEventType.Collapse, $"理智崩溃！失去 {hpLoss} 生命，1 张疯语永久加入牌组，理智重置为 {cfg.CollapseSanityReset}", amount: hpLoss);
-            e.LoseHp(p, hpLoss);
-            p.DiscardPile.Add(e.NewCard(Cards.CardIds.Whispers));
+            string curse = cost.AddCurse ? "1 张疯语永久加入牌组" : "没有获得疯语";
+            e.Log.Add(BattleEventType.Collapse, $"理智崩溃！失去 {cost.HpLoss} 生命，{curse}，理智重置为 {cfg.CollapseSanityReset}", amount: cost.HpLoss);
+            e.LoseHp(p, cost.HpLoss);
+            if (cost.AddCurse) e.MoveCard(e.NewCard(Cards.CardIds.Whispers), PileKind.Discard);
 
             bool wasLunatic = p.IsLunatic;
-            p.Sanity = Math.Min(cfg.CollapseSanityReset, p.MaxSanity);
+            e.SetSanity(Math.Min(cfg.CollapseSanityReset, p.MaxSanity));
             if (wasLunatic && !p.IsLunatic)
             {
                 e.Log.Add(BattleEventType.LunacyLeft, "离开癫狂：双面牌翻回清醒面");

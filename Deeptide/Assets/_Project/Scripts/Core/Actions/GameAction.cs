@@ -2,7 +2,7 @@ using System;
 
 namespace Deeptide.Core.Actions
 {
-    /// <summary>所有游戏效果的最小单位，由 ActionQueue 按顺序执行。</summary>
+    /// <summary>所有游戏效果的最小单位，由 ActionQueue 按顺序执行。需要玩家输入时调用 engine.RequestChoice，队列会原地暂停。</summary>
     public abstract class GameAction
     {
         public abstract void Execute(BattleEngine e);
