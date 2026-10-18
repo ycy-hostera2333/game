@@ -2,15 +2,15 @@ id,name,hp_min,hp_max,will,moves,vars
 # 敌人表（策划/04）。will 填 0 表示无心智（免疫恐惧）；moves 是「招式ID=显示名」，必须和代码里搭建的招式表一一对应
 # ---------------- 普通
 acolyte,教团侍僧,46,50,8,Prayer=狂热祷文;Dagger=血祭匕首;Heavy=献祭重击,Dagger=6;Heavy=11;PrayerStrength=2
-drowned,溺尸,38,42,12,Soak=积水;Embrace=溺水拥抱,Soak=9;Embrace=14
-scaleling,鳞民幼体,20,24,6,Bite=撕咬;Spines=刺鳞,Bite=6;Spines=4;SpinesVulnerable=1
+drowned,溺尸,38,42,12,Soak=积水;Embrace=溺水拥抱,Soak=9;Embrace=11
+scaleling,鳞民幼体,20,24,6,Bite=撕咬;Spines=刺鳞,Bite=5;Spines=3;SpinesVulnerable=1
 whisperer,呓语者,23,27,5,Whisper=低语;Shriek=尖啸;Confuse=惑乱,Whisper=2;Shriek=3
-crows,腐鸦群,30,34,6,Peck=群啄;Caw=聒噪,Peck=2;PeckHits=4;CawMind=1;CawWeak=1
+crows,腐鸦群,32,36,6,Peck=群啄;Caw=聒噪,Peck=2;PeckHits=3;CawMind=1;CawWeak=1
 townsfolk,失魂镇民,28,32,10,Hoe=挥锄;Smash=猛砸;Wail=哀嚎,Hoe=9;Smash=12;WailMind=1;WailBlock=5;ScentBonus=4
-tentacle,海底触须,14,17,0,Entangle=缠绕;Lash=抽打,Entangle=5;EntangleBound=1;Lash=8
-rat,疫鼠,10,12,3,Gnaw=啮咬;Frenzy=乱咬,Gnaw=4;Frenzy=2;FrenzyHits=2
+tentacle,海底触须,14,17,0,Entangle=缠绕;Lash=抽打,Entangle=4;EntangleBound=1;Lash=5
+rat,疫鼠,9,11,3,Gnaw=啮咬;Frenzy=乱咬,Gnaw=3;Frenzy=2;FrenzyHits=2
 # ---------------- 精英
-lighthouse,灯塔守望者,84,88,18,OilSplash=灯油泼洒;Sweep=旋转灯臂;Relight=重新点亮,Glare=1;Oil=12;OilFrail=1;Sweep=7;SweepHits=2;RelightBlock=15;RelightStrength=2
+lighthouse,灯塔守望者,84,88,18,OilSplash=灯油泼洒;Sweep=旋转灯臂;Relight=重新点亮,Glare=1;Oil=10;OilFrail=1;Sweep=6;SweepHits=2;RelightBlock=15;RelightStrength=2
 nun,无面修女,70,74,15,Rosary=荆棘念珠;Kiss=慈悲之吻;Absolution=赦罪,Rosary=10;RosaryWeak=2;Kiss=3;Heal=10;HealBlock=8;HealBelowPercent=80
 fisherman,网缚渔夫,90,95,20,Cast=抛网;Harpoon=鱼叉;Haul=收网,Webs=2;Harpoon=16;HaulPer=3
 # ---------------- Boss

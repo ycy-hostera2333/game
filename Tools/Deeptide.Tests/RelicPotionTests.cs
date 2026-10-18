@@ -144,8 +144,8 @@ namespace Deeptide.Tests
         public void FearMask_EnergyOnStun_CarriesOverWhenStunnedAfterTurnEnd()
         {
             var e = With("fear_mask", new[] { EnemyIds.Whisperer });
-            SetHand(e, "C11", "U11");
-            Play(e, 0);   // 4 恐惧
+            SetHand(e, "C12", "U11");
+            Play(e, 0);   // 4 恐惧（呓语者意志 5）
             Assert.That(e.Player.Energy, Is.EqualTo(2));
             Play(e, 0, -1);   // 恐惧之源：回合结束时 +2 → 6 ≥ 5 震慑
             EndTurn(e);

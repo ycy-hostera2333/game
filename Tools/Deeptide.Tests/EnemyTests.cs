@@ -19,7 +19,7 @@ namespace Deeptide.Tests
 
             SetHand(e, "C11", "C11");
             Play(e, 0);
-            Assert.That(acolyte.Fear, Is.EqualTo(4));
+            Assert.That(acolyte.Fear, Is.EqualTo(5));
             Assert.That(acolyte.Stunned, Is.False);
             Play(e, 0);
             Assert.That(acolyte.Stunned, Is.True);

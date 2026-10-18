@@ -49,7 +49,7 @@ namespace Deeptide.Tests
             SetIntent(e, 0, "Spines");
             SetHand(e);
             EndTurn(e);
-            Assert.That(e.Player.Hp, Is.EqualTo(66));
+            Assert.That(e.Player.Hp, Is.EqualTo(67));
             Assert.That(e.Player.Statuses.Get(StatusId.Vulnerable), Is.EqualTo(1));
         }
 
@@ -58,11 +58,11 @@ namespace Deeptide.Tests
         {
             var e = Battle(new[] { EnemyIds.Crows });
             SetIntent(e, 0, "Peck");
-            Assert.That(e.GetIntent(e.State.Enemies[0]).Hits, Is.EqualTo(4));
+            Assert.That(e.GetIntent(e.State.Enemies[0]).Hits, Is.EqualTo(3));
             SetHand(e, "B02");
             Play(e, 0, -1);
             EndTurn(e);
-            Assert.That(e.Player.Hp, Is.EqualTo(70 - 3), "5 格挡挡住前两段半");
+            Assert.That(e.Player.Hp, Is.EqualTo(70 - 1), "5 格挡挡住 2×3 里的 5 点");
             SetIntent(e, 0, "Caw");
             SetHand(e);
             EndTurn(e);

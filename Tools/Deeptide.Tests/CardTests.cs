@@ -32,10 +32,10 @@ namespace Deeptide.Tests
             var e = Battle();
             SetHand(e, "C12", "C12");
             Play(e, 0);
-            Assert.That(e.State.Enemies[0].Fear, Is.EqualTo(3));
+            Assert.That(e.State.Enemies[0].Fear, Is.EqualTo(4));
             e.Player.Sanity = 4;
             Play(e, 0);
-            Assert.That(e.State.Enemies[0].Fear, Is.EqualTo(9), "癫狂面 6 恐惧");
+            Assert.That(e.State.Enemies[0].Stunned, Is.True, "4 + 癫狂面 8 ≥ 意志 10 → 震慑");
             Assert.That(e.State.Enemies[0].Hp, Is.EqualTo(188));
             Assert.That(e.Player.Hp, Is.EqualTo(68));
         }
@@ -124,7 +124,7 @@ namespace Deeptide.Tests
             e.State.Enemies[0].Fear = 6;
             SetHand(e, "U12");
             Play(e, 0);
-            Assert.That(e.State.Enemies[0].Hp, Is.EqualTo(200 - 12));
+            Assert.That(e.State.Enemies[0].Hp, Is.EqualTo(200 - 18));
             Assert.That(e.State.Enemies[0].Fear, Is.EqualTo(6));
         }
 
