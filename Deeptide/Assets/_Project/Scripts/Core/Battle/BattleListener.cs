@@ -19,6 +19,9 @@ namespace Deeptide.Core
     {
         public virtual int Priority => 0;
 
+        /// <summary>复制战斗时用：遗物 / 能力的字段都是值类型或只读引用，浅复制就够了。</summary>
+        internal BattleListener CloneListener() => (BattleListener)MemberwiseClone();
+
         // ---------------- 通知
         public virtual void OnCombatStart(BattleEngine e) { }
         public virtual void OnPlayerTurnStart(BattleEngine e) { }

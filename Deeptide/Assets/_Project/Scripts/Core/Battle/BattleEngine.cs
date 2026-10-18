@@ -20,7 +20,7 @@ namespace Deeptide.Core
     /// 所有状态修改都经过本类的 Set... / MoveCard 等方法，它们会写出状态事件，
     /// 表现层只读事件流就能重建整个战斗状态（策划/09 M1.7）。
     /// </summary>
-    public sealed class BattleEngine
+    public sealed partial class BattleEngine
     {
         public readonly BattleSetup Setup;
         public readonly BattleConfig Config;
@@ -45,11 +45,13 @@ namespace Deeptide.Core
         public bool IntentsBlurred =>
             Player.IsLunatic && !State.IntentsRevealedThisTurn && !_listeners.Any(l => l.RevealsIntents(this));
 
-        BattleEngine(BattleSetup setup)
+        BattleEngine(BattleSetup setup) : this(setup, new BattleRng(setup.Seed)) { }
+
+        BattleEngine(BattleSetup setup, BattleRng rng)
         {
             Setup = setup;
             Config = setup.Config ?? new BattleConfig();
-            Rng = new BattleRng(setup.Seed);
+            Rng = rng;
         }
 
         public static BattleEngine Start(BattleSetup setup)

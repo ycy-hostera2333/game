@@ -203,7 +203,7 @@ namespace Deeptide.Tests
             e.Player.Sanity = 7;
             SetHand(e, "R05");
             Play(e, 0);
-            Assert.That(e.State.Enemies[0].Hp, Is.EqualTo(200 - 21));
+            Assert.That(e.State.Enemies[0].Hp, Is.EqualTo(200 - 7 * CardLibrary.Get("R05").Vars["Mult"]));
         }
 
         [Test]

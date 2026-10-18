@@ -163,20 +163,22 @@ namespace Deeptide.Tests
 
         static BattleEngine Boss(ulong seed = 1) => Battle(new[] { EnemyIds.Priest }, seed: seed);
 
+        static int PriestVar(string key) => EnemyLibrary.Get(EnemyIds.Priest).Vars[key];
+
         [Test]
-        public void Priest_SummonsTwoTentaclesFirst_AsMinions()
+        public void Priest_SummonsTentaclesFirst_AsMinions()
         {
             var e = Boss();
             var boss = e.State.Enemies[0];
-            Assert.That(boss.Hp, Is.EqualTo(240));
+            Assert.That(boss.Hp, Is.EqualTo(EnemyLibrary.Get(EnemyIds.Priest).HpMax));
             Assert.That(boss.Intent.Id, Is.EqualTo("Summon"));
             Assert.That(e.GetIntent(boss).Type, Is.EqualTo(IntentType.Summon));
             SetHand(e);
             EndTurn(e);
             var tentacles = e.State.Enemies.Skip(1).ToList();
-            Assert.That(tentacles.Count, Is.EqualTo(2));
+            Assert.That(tentacles.Count, Is.EqualTo(PriestVar("MaxTentacles")));
             Assert.That(tentacles.All(t => t.Minion && t.Def.Id == EnemyIds.Tentacle && t.Intent != null), Is.True);
-            Assert.That(tentacles.Select(t => t.Index), Is.EqualTo(new[] { 1, 2 }), "召唤物追加在末尾，下标稳定");
+            Assert.That(tentacles.Select(t => t.Index), Is.EqualTo(Enumerable.Range(1, tentacles.Count)), "召唤物追加在末尾，下标稳定");
             Assert.That(boss.Counter(DrownedPriest.Tide), Is.EqualTo(1));
         }
 
@@ -195,27 +197,28 @@ namespace Deeptide.Tests
         }
 
         [Test]
-        public void Priest_HighTideForcedAtFive_ResetsToZero_StunKeepsTide()
+        public void Priest_HighTideForcedAtMax_ResetsToZero_StunKeepsTide()
         {
             var e = Boss();
             var boss = e.State.Enemies[0];
+            int max = PriestVar("TideMax");
             SetHand(e);
             EndTurn(e);
-            e.SetCounter(boss, DrownedPriest.Tide, 4);
+            e.SetCounter(boss, DrownedPriest.Tide, max - 1);
             boss.Intent = boss.Behaviour.GetMove("Baptism");
             e.Player.Statuses.Add(StatusId.Ward, 5);
             SetHand(e);
-            EndTurn(e);   // 回合结束潮位 → 5，下回合强制大潮
-            Assert.That(boss.Counter(DrownedPriest.Tide), Is.EqualTo(5));
+            EndTurn(e);   // 回合结束潮位到顶，下回合强制大潮
+            Assert.That(boss.Counter(DrownedPriest.Tide), Is.EqualTo(max));
             Assert.That(boss.Intent.Id, Is.EqualTo("HighTide"));
-            Assert.That(e.IncomingDamage(), Is.GreaterThanOrEqualTo(28));
+            Assert.That(e.IncomingDamage(), Is.GreaterThanOrEqualTo(PriestVar("HighTide")));
 
             boss.Fear = 29;
             SetHand(e, "C11");
             Play(e, 0, 0);   // 震慑掉大潮
             SetHand(e);
             EndTurn(e);
-            Assert.That(boss.Counter(DrownedPriest.Tide), Is.EqualTo(5), "大潮被取消，潮位不变");
+            Assert.That(boss.Counter(DrownedPriest.Tide), Is.EqualTo(max), "大潮被取消，潮位不变");
             Assert.That(boss.Intent.Id, Is.EqualTo("HighTide"), "下回合再试");
 
             e.Player.Hp = 70;
@@ -235,9 +238,9 @@ namespace Deeptide.Tests
             int before = e.State.Enemies.Count;
             boss.Statuses.Add(StatusId.Vulnerable, 2);
             boss.Statuses.Add(StatusId.Weak, 1);
-            boss.Hp = 125;
+            boss.Hp = boss.MaxHp / 2 + 5;
             SetHand(e, "B01");
-            Play(e, 0, 0);   // 125 − 9 → 116 ≤ 120
+            Play(e, 0, 0);   // 易伤：6 × 1.5 = 9 → 掉到一半以下
             Assert.That(boss.Counter(DrownedPriest.Phase), Is.EqualTo(2));
             Assert.That(boss.Statuses.Get(StatusId.Vulnerable), Is.EqualTo(0));
             Assert.That(boss.Statuses.Get(StatusId.Weak), Is.EqualTo(0));
@@ -258,7 +261,7 @@ namespace Deeptide.Tests
             var e = Boss();
             SetHand(e);
             EndTurn(e);
-            Assert.That(e.State.AliveEnemies.Count(), Is.EqualTo(3));
+            Assert.That(e.State.AliveEnemies.Count(), Is.EqualTo(1 + PriestVar("MaxTentacles")));
             e.State.Enemies[0].Hp = 5;
             SetHand(e, "B01");
             Play(e, 0, 0);

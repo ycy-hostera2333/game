@@ -16,7 +16,7 @@ namespace Deeptide.Sim
     ///   hp       所有遭遇的敌人生命倍率    hpHard   只对困难池（遭遇 2、3）生效的生命倍率
     ///   starter  base = 打击5 防御4 一瞥1；prayer = 用 1 张祷告换掉 1 张防御
     ///   clarity  清明余量（清明 = 理智 ≥ 上限 − 余量）
-    ///   卡牌ID.变量名  改卡牌数值（只改未升级版）    敌人ID.hp=最小-最大  改某种敌人的生命区间
+    ///   卡牌ID.变量名  改卡牌数值（只改未升级版）；卡牌ID.cost / 卡牌ID.cost_up 改费用    敌人ID.hp=最小-最大  改某种敌人的生命区间
     ///   敌人ID.数值名  改敌人招式数值，如 acolyte.Dagger=6
     /// 只在本进程内生效，不改源码。
     /// </summary>
@@ -68,10 +68,27 @@ namespace Deeptide.Sim
                         }
                         var def = CardLibrary.Get(key.Substring(0, dot));
                         string name = key.Substring(dot + 1);
+                        if (name == "cost") { def.Cost = int.Parse(val); break; }
+                        if (name == "cost_up") { def.UpgradedCost = int.Parse(val); break; }
                         if (!def.Vars.ContainsKey(name)) throw new ArgumentException($"{def.Id} 没有变量 {name}");
                         def.Vars[name] = int.Parse(val);
                         break;
                 }
+            }
+        }
+
+        /// <summary>整局模式：生命覆盖（敌人ID.hp=…）和倍率对所有敌人生效（简单池用 hp 倍率，其余用 hpHard）。</summary>
+        public static void ApplyHpForRuns()
+        {
+            foreach (var d in EnemyLibrary.All)
+            {
+                if (d.Id == EnemyIds.Dummy) continue;
+                var (min, max) = OriginalHp[d.Id];
+                bool easy = EncounterLibrary.InPool(EncounterPool.Easy).Any(x => x.Enemies.Contains(d.Id)) &&
+                            !EncounterLibrary.All.Any(x => x.Pool != EncounterPool.Easy && x.Enemies.Contains(d.Id));
+                double scale = easy ? HpEasy : HpHard;
+                d.HpMin = (int)Math.Round(min * scale);
+                d.HpMax = (int)Math.Round(max * scale);
             }
         }
 

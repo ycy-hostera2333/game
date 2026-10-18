@@ -96,6 +96,9 @@ namespace Deeptide.Core.Enemies
 
         protected EnemyDef Def { get; private set; }
 
+        /// <summary>复制战斗时用：招式表搭好后不再变化，可以共享；子类自己的字段都是值类型，浅复制就够了。</summary>
+        internal EnemyBehaviour CloneBehaviour() => (EnemyBehaviour)MemberwiseClone();
+
         /// <summary>由引擎在创建后调用：记住定义，再按定义里的数值搭建招式表。</summary>
         internal void Init(EnemyDef def)
         {

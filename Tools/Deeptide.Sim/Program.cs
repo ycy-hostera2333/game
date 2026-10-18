@@ -34,6 +34,9 @@ namespace Deeptide.Sim
             }
             if (opts.TryGetValue("set", out var spec)) Tuning.Apply(spec);
             if (opts.TryGetValue("peek", out var peek) && peek == "1") Autoplayer.IgnoreBlur = true;
+            if (opts.TryGetValue("ai", out var aiKind)) Autoplayer.UseBeam = aiKind != "greedy";
+            if (opts.TryGetValue("battle-style", out var bs))
+                RunAutoplayer.BattleStyleOverride = bs == "sane" ? PlayStyle.Sane : bs == "mad" ? PlayStyle.Mad : PlayStyle.Mixed;
             try
             {
                 switch (mode)
@@ -43,6 +46,11 @@ namespace Deeptide.Sim
                     case "batch": return Batch(opts);
                     case "replay": return Replay(opts);
                     case "tune": return Tune(opts);
+                    case "map": return RunModes.Map(opts);
+                    case "run": return RunModes.Run(opts);
+                    case "runreplay": return RunModes.RunReplay(opts);
+                    case "runauto": return RunModes.RunAuto(opts);
+                    case "runbatch": return RunModes.RunBatch(opts);
                     default:
                         PrintHelp();
                         return 0;
@@ -64,7 +72,12 @@ namespace Deeptide.Sim
             Console.WriteLine("  replay --deck X --enc N --seed N --cmds \"play 4 1, end, ...\"   重放一局，输出完整日志");
             Console.WriteLine("  tune  [--n 150] [--top 5] [--confirm 500] [--grid \"erosion=3,4;U09.PerPoint=2,3\"]   网格搜索最优参数");
             Console.WriteLine("所有模式都支持 --set \"erosion=3;lunacy=5;hp=1.15;U09.PerPoint=3\" 临时覆盖参数；batch / auto 支持 --style sane|mad|mixed");
-            Console.WriteLine("遭遇：1 = 教团侍僧，2 = 侍僧 + 呓语者，3 = 失魂镇民 ×2");
+            Console.WriteLine("  map   [--seed N] | [--n 1000]   预览一张地图 / 批量生成统计房间分布和约束违规");
+            Console.WriteLine("  run   [--seed N] [--load run_save.json] [--save run_save.json] [--arch mixed]   文字版完整一局（进入节点时自动存档）");
+            Console.WriteLine("  runreplay --seed N --cmds-file run_commands.txt   重放整局");
+            Console.WriteLine("  runauto [--seed N] [--arch mixed] [--log boss|elite|all|none]   AI 打一局，打印每个节点的选择和战斗日志");
+            Console.WriteLine("  runbatch [--n 200] [--arch watch,fall,contagion,mixed] [--cards 1]   批量跑整局，输出生命账本、各项指标和拾取率");
+            Console.WriteLine("遭遇：1 = 教团侍僧，2 = 侍僧 + 呓语者，3 = 失魂镇民 ×2，或遭遇表里的 ID");
         }
 
         static Dictionary<string, string> ParseOptions(string[] args)

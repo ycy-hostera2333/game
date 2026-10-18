@@ -23,7 +23,32 @@ namespace Deeptide.Core.Random
             NextUInt();
         }
 
+        Pcg32(ulong state, ulong increment, bool raw)
+        {
+            _state = state;
+            _increment = increment;
+        }
+
+        /// <summary>从存档里的原始状态恢复（State / Increment 两个值）。</summary>
+        public static Pcg32 FromRaw(ulong state, ulong increment) => new Pcg32(state, increment, true);
+
         public ulong State => _state;
+        public ulong Increment => _increment;
+
+        /// <summary>SplitMix64：从一个种子派生出互不相关的子种子（每场战斗的种子 = 派生(局种子, 战斗序号)）。</summary>
+        public static ulong Mix(ulong seed, ulong salt)
+        {
+            ulong z = unchecked(seed + 0x9E3779B97F4A7C15UL * (salt + 1));
+            z = unchecked((z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL);
+            z = unchecked((z ^ (z >> 27)) * 0x94D049BB133111EBUL);
+            return z ^ (z >> 31);
+        }
+
+        /// <summary>[0, 100) 内的整数，用于百分比判定。</summary>
+        public int Percent() => NextInt(100);
+
+        /// <summary>从列表里等概率挑一个。</summary>
+        public T Pick<T>(IReadOnlyList<T> list) => list[NextInt(list.Count)];
 
         public uint NextUInt()
         {

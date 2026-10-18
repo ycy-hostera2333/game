@@ -1,0 +1,10 @@
+id,name,min_floor,vars,text,options
+# 事件表（策划/05 §3）。options 是「选项ID=文本」，用 | 分隔，必须和代码里事件类处理的选项一一对应；文本里的 {变量} 来自 vars
+forbidden_book,禁书,1,ReadSanity=2;CopySanity=1;Upgrades=2;Heal=15,一本潮湿的皮面书摊开在礁石上，书页上的字在你看它的时候慢慢移动。,Read=研读：理智上限 −{ReadSanity}，获得 1 张随机稀有牌|Copy=摘抄：理智上限 −{CopySanity}，随机升级 {Upgrades} 张牌|Burn=焚毁取暖：恢复 {Heal} 生命
+drowning_sailor,溺水的水手,1,HpCost=8;Gold=75;Choices=3,浪里有人在挣扎，他的手指上缠着海草，口袋鼓鼓囊囊。,Rescue=施救：失去 {HpCost} 生命，从 {Choices} 张罕见牌中选 1 张|Loot=搜刮尸体：获得 {Gold} 金币，牌组加入 1 张疯语|Leave=离开
+seaside_altar,海边祭坛,1,HpCost=12;GoldCost=80,退潮后露出一座石坛，坛上的凹槽还是湿的。,Blood=献血：失去 {HpCost} 生命，获得 1 件随机遗物|Gold=献金：支付 {GoldCost} 金币，移除 1 张牌|Leave=离开
+mirror,镜中倒影,1,Sanity=1;Upgrades=2;HpCost=6,废屋里立着一面落地镜，镜中的你比你慢半拍。,Gaze=凝视：理智上限 −{Sanity}，随机升级 {Upgrades} 张牌|Shatter=打碎：失去 {HpCost} 生命，移除 1 张牌|Leave=离开
+asylum_ward,疯人院病房,1,GoldCost=50;Sanity=1;Choices=3,值班的护士冲你点头，好像早就在等你。,Treat=接受治疗：支付 {GoldCost} 金币，理智上限 +{Sanity} 或移除 1 张疯语|Steal=偷取病历：理智上限 −{Sanity}，从 {Choices} 张双面牌中选 1 张|Leave=离开
+cult_gathering,教团集会,1,Gold=100;Chance=50,火堆边围着一圈戴兜帽的人，低声念着你听不懂的祷文。,Mingle=混入人群：{Chance}% 获得 {Gold} 金币；否则被识破，打一场困难战斗|Sneak=悄悄离开
+fog_peddler,雾中商贩,1,MaxHp=5;Choices=3;Strikes=2,雾里传来铃声，一个看不清脸的商贩推着车停在你面前。,Blood=以血易物：失去 {MaxHp} 最大生命，从 {Choices} 张稀有牌中选 1 张|Barter=以物易物：交出 {Strikes} 张打击，获得 1 件普通遗物|Leave=离开
+dream_mentor,梦中的导师,9,Sanity=10;Heal=10,你梦见了带你入行的老调查员。他的眼睛是两个空洞，里面有海水在流。,Follow=追随梦境：将 1 张打击变为梦魇之刃|Wake=惊醒：理智上限恢复到 {Sanity}，恢复 {Heal} 生命

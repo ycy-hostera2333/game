@@ -35,6 +35,16 @@ namespace Deeptide.Core
             Ai = new Pcg32(seed, 2);
             Misc = new Pcg32(seed, 3);
         }
+
+        BattleRng(Pcg32 shuffle, Pcg32 ai, Pcg32 misc)
+        {
+            Shuffle = shuffle;
+            Ai = ai;
+            Misc = misc;
+        }
+
+        internal BattleRng Copy() => new BattleRng(
+            Pcg32.FromRaw(Shuffle.State, Shuffle.Increment), Pcg32.FromRaw(Ai.State, Ai.Increment), Pcg32.FromRaw(Misc.State, Misc.Increment));
     }
 
     /// <summary>战斗统计，供记录表 / 遥测 / 模拟器使用（策划/07 §6.2）。</summary>

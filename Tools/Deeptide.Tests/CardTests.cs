@@ -12,6 +12,9 @@ namespace Deeptide.Tests
     {
         static readonly string[] TwoDummies = { EnemyIds.Dummy, EnemyIds.Dummy };
 
+        /// <summary>读卡表里的数值（调参后测试不用跟着改）。</summary>
+        static int Var(string card, string key) => CardLibrary.Get(card).Vars[key];
+
         // ---------------- 3.1 守夜 + 传染
 
         [TestCase(10, 1)]
@@ -32,11 +35,11 @@ namespace Deeptide.Tests
             var e = Battle();
             SetHand(e, "C12", "C12");
             Play(e, 0);
-            Assert.That(e.State.Enemies[0].Fear, Is.EqualTo(4));
+            Assert.That(e.State.Enemies[0].Fear, Is.EqualTo(Var("C12", "Fear")));
             e.Player.Sanity = 4;
             Play(e, 0);
             Assert.That(e.State.Enemies[0].Stunned, Is.True, "4 + 癫狂面 8 ≥ 意志 10 → 震慑");
-            Assert.That(e.State.Enemies[0].Hp, Is.EqualTo(188));
+            Assert.That(e.State.Enemies[0].Hp, Is.EqualTo(200 - 2 * Var("C12", "Damage")));
             Assert.That(e.Player.Hp, Is.EqualTo(68));
         }
 
@@ -70,8 +73,8 @@ namespace Deeptide.Tests
             Assert.That(e.Player.DiscardPile.Concat(e.Player.ExhaustPile).Any(c => c.Id == "U01"), Is.False, "能力牌打出后移出战斗");
         }
 
-        [TestCase(10, 24)]
-        [TestCase(7, 15)]
+        [TestCase(10, 28)]
+        [TestCase(7, 16)]
         public void Dispel_ClarityRaisesDamage(int sanity, int expected)
         {
             var e = Battle();
@@ -124,7 +127,7 @@ namespace Deeptide.Tests
             e.State.Enemies[0].Fear = 6;
             SetHand(e, "U12");
             Play(e, 0);
-            Assert.That(e.State.Enemies[0].Hp, Is.EqualTo(200 - 18));
+            Assert.That(e.State.Enemies[0].Hp, Is.EqualTo(200 - 6 * Var("U12", "Mult")));
             Assert.That(e.State.Enemies[0].Fear, Is.EqualTo(6));
         }
 
@@ -159,8 +162,8 @@ namespace Deeptide.Tests
             e.Player.Statuses.Add(StatusId.Strength, 5);
             SetHand(e, "R02", "C04");
             Play(e, 0, -1);
-            Play(e, 0, -1);   // 满理智恢复 2：溢出 2 → 8 伤害，不吃力量
-            Assert.That(e.State.Enemies.Select(x => x.Hp), Is.All.EqualTo(192));
+            Play(e, 0, -1);   // 满理智恢复 2：溢出 2 → 2 × 5 伤害，不吃力量
+            Assert.That(e.State.Enemies.Select(x => x.Hp), Is.All.EqualTo(190));
         }
 
         [Test]
@@ -317,7 +320,7 @@ namespace Deeptide.Tests
             Play(e, 0, -1);
             Assert.That(e.UsesMadFace(e.Player.Hand[0]), Is.True);
             Play(e, 0);
-            Assert.That(e.State.Enemies[0].Hp, Is.EqualTo(186));
+            Assert.That(e.State.Enemies[0].Hp, Is.EqualTo(200 - Var("C06", "MadDamage")));
             Assert.That(e.Player.Hp, Is.EqualTo(68));
             Assert.That(e.Player.Sanity, Is.EqualTo(10), "癫狂面没有代价时不掉理智");
         }
@@ -330,10 +333,11 @@ namespace Deeptide.Tests
             Play(e, 0, -1);
             Assert.That(e.Player.Energy, Is.EqualTo(0));
             Assert.That(e.Player.Sanity, Is.EqualTo(7));
-            Assert.That(e.State.Enemies.Select(x => x.Hp), Is.All.EqualTo(200 - 21));
+            int hp = 200 - 3 * Var("R03", "Damage");
+            Assert.That(e.State.Enemies.Select(x => x.Hp), Is.All.EqualTo(hp));
             Play(e, 0, -1);   // X = 0：能打出，什么都不发生
             Assert.That(e.Player.Sanity, Is.EqualTo(7));
-            Assert.That(e.State.Enemies.Select(x => x.Hp), Is.All.EqualTo(179));
+            Assert.That(e.State.Enemies.Select(x => x.Hp), Is.All.EqualTo(hp));
         }
 
         [Test]
@@ -437,7 +441,7 @@ namespace Deeptide.Tests
             SetHand(e, "B01", "B02", "R05");
             Assert.That(e.Player.Hand[0].Describe(e), Is.EqualTo("造成 8 伤害。"));
             Assert.That(e.Player.Hand[1].Describe(e), Is.EqualTo("获得 3 格挡。"));
-            Assert.That(e.Player.Hand[2].Describe(e), Does.EndWith("（当前 32）"));
+            Assert.That(e.Player.Hand[2].Describe(e), Does.EndWith($"（当前 {10 * Var("R05", "Mult") + 2}）"));
             Assert.That(e.Player.Hand[0].Describe(false), Is.EqualTo("造成 6 伤害。"), "图鉴文本不带修正");
         }
     }
