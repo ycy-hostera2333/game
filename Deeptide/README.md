@@ -1,16 +1,37 @@
 # Deeptide（Unity 工程）
 
-目前有内核源码（`Assets/_Project/Scripts/Core/`）、内容数据（`Assets/_Project/Data/*.csv`）和一个空的表现层程序集（`Scripts/View/Game.View.asmdef`），还没有场景。
+内核源码（`Assets/_Project/Scripts/Core/`）、内容数据（`Assets/_Project/Data/*.csv`），以及阶段 2 的灰盒战斗：`Scenes/Battle_Greybox.unity`，打击 + 防御对教团侍僧。
 
 ## 第一次打开
 
-本机已装 **Unity 6.3 LTS**（6000.3.26f1，含 Windows Build Support (IL2CPP) 和简体中文）。`Packages/manifest.json` 已经写好，不用再走模板建工程。
+本机已装 **Unity 6.3 LTS**（6000.3.26f1，含 Windows Build Support (IL2CPP) 和简体中文），Personal 许可已激活，工程设置都已提交。换一台电脑时：
 
 1. 在 Unity Hub 登录，到「偏好设置 → 许可证」添加免费的 Personal 许可。没有许可证时连 batchmode 都打不开（`No valid Unity Editor license found`）
 2. Hub 里选「Add → Add project from disk」，选中本目录 `Deeptide/`，编辑器版本选 6000.3.26f1
-3. 输入后端已设为 Input System（`ProjectSettings.asset` 的 `activeInputHandler: 1`）。第一次用到 TextMeshPro 时会提示导入 TMP Essential Resources，点 Import
-4. URP 2D：Assets → Create → Rendering → URP Asset (with 2D Renderer)，再到 Project Settings → Graphics 把它设为 Default Render Pipeline
-5. Unity 会生成 `Library/`、`ProjectSettings/`、`Packages/packages-lock.json` 和所有文件的 `.meta`。`Library/` 已在 `.gitignore`，其余都要提交
+3. 第一次打开要下载包、导入资源，几分钟
+
+已经设好、不用再动的：输入后端 = Input System（`activeInputHandler: 1`）；默认渲染管线 = `Settings/URP-2D.asset`（2D 渲染器）；TMP 基础资源已导入（`Assets/TextMesh Pro/`）。这几项都可以用菜单「Deeptide → 工程设置」重做，脚本是 `Scripts/Editor/ProjectSetup.cs`，已经设好的会跳过。
+
+## 灰盒战斗
+
+打开 `Assets/_Project/Scenes/Battle_Greybox.unity`，点 Play。
+
+- 拖牌出牌：打击要拖到敌人身上（会画瞄准线），防御拖过手牌上方就打出；能量不够会提示
+- 右下「结束回合」，右上「重开」换一个种子重来
+- 牌组、敌人、种子在场景里 `BattleBootstrap` 的 Inspector 上改（敌人 ID 见 `Data/enemies.csv`）
+- 中文用系统字体（微软雅黑）动态生成，字体文件不进仓库；正式版按 策划/10 换思源字体
+
+结构按 策划/08 §2：`BattleController` 把输入变成 `BattleCommand` 交给内核，内核瞬时结算；`BattleDirector` 逐条回放这次新产生的事件，`BattleScreen` 把事件分发给 `HandView` / `CardView` / `EnemyView` / `PlayerView`；一批事件播完后再按内核状态对一次账。界面目前全部由代码搭出来（`View/Common/Ui.cs`），换美术时再做成预制体。
+
+## 测试
+
+PlayMode 测试在 `Assets/_Project/Tests/PlayMode/`：通过表现层入口出牌，检查界面显示和内核状态一致，包括一路打到胜利；关键节点把画面存成 `Logs/Screenshots/*.png`（不进仓库）。
+
+```bash
+"C:/Program Files/Unity/Hub/Editor/6000.3.26f1/Editor/Unity.exe" -batchmode -projectPath Deeptide -runTests -testPlatform PlayMode -testResults Logs/playmode.xml -logFile Logs/playmode.log
+```
+
+编辑器里打开着这个工程时，batchmode 会因为工程被占用而失败，先关掉编辑器，或者直接用 Window → General → Test Runner。
 
 ## 包（`Packages/manifest.json`）
 
@@ -21,11 +42,13 @@
 | `com.unity.inputsystem` | 1.20.0 | 拖拽出牌、悬停 |
 | `com.kyrylokuzyk.primetween` | 1.4.11 | 补间动画，走 npm 作用域注册表。1.5.0 于 2026-10-14 发布，稳定后再升 |
 | `com.unity.nuget.newtonsoft-json` | 3.2.2 | 存档、遥测。DLL 自动引用，asmdef 里不用写 |
-| `com.unity.test-framework` | 1.6.0 | EditMode 集成测试 |
+| `com.unity.test-framework` | 1.6.0 | PlayMode / EditMode 测试 |
 | `com.unity.2d.sprite` | 1.0.0 | Sprite Editor |
 | `com.unity.ide.visualstudio` | 2.0.26 | VS Code / Visual Studio 集成 |
 
 内置模块只开了 2D 卡牌用得到的（animation、audio、imageconversion、imgui、jsonserialize、particlesystem、physics2d、ui、uielements、unitywebrequest）；3D 相关的没加，需要时在 Package Manager → Built-in 里启用。
+
+注意：工程没有 `ProjectSettings/` 时第一次打开，Unity 会往 manifest 里自动塞一批默认包（Purchasing、Analytics 等）；改了 manifest 之后用 batchmode `-quit` 打开可能因为走缓存而取消解析（exit 1），删掉 `Library/PackageManager` 再跑就好。
 
 ## 程序集
 
@@ -33,17 +56,22 @@
 |---|---|---|
 | `Game.Core` | `Scripts/Core/` | 无（`noEngineReferences`） |
 | `Game.View` | `Scripts/View/` | `Game.Core`、`Unity.InputSystem`、`Unity.TextMeshPro`、`UnityEngine.UI`、`PrimeTween.Runtime` |
+| `Game.Editor` | `Scripts/Editor/` | `Game.Core`、`Game.View`、`Unity.InputSystem`、URP Runtime（只在编辑器） |
+| `Game.View.Tests` | `Tests/PlayMode/` | `Game.Core`、`Game.View`、Test Runner（`UNITY_INCLUDE_TESTS`） |
 
 ## 目录约定（策划/08 §8）
 
 ```
 Assets/_Project/
 ├─ Scripts/
-│  ├─ Core/    ← Game.Core.asmdef（noEngineReferences）：纯逻辑，不能引用 UnityEngine
-│  ├─ View/    ← 阶段 2：表现层（MonoBehaviour）
-│  └─ Editor/  ← 数据校验、卡牌预览等编辑器工具
-├─ Data/       ← 阶段 3：cards.csv / enemies.csv …
-└─ Art/ Audio/ Prefabs/ Shaders/ Scenes/
+│  ├─ Core/      ← Game.Core.asmdef（noEngineReferences）：纯逻辑，不能引用 UnityEngine
+│  ├─ View/      ← Game.View.asmdef：Battle/（战斗界面）、Common/（UI 搭建、字体、配色）
+│  └─ Editor/    ← Game.Editor.asmdef：工程设置，以后放数据校验、卡牌预览
+├─ Data/         ← cards.csv / enemies.csv …（场景里 BattleBootstrap 引用这些 TextAsset）
+├─ Scenes/       ← Battle_Greybox（阶段 2 灰盒）；以后 Boot、MainMenu、Run
+├─ Settings/     ← URP-2D 渲染管线资源
+├─ Tests/        ← PlayMode 测试
+└─ Art/ Audio/ Prefabs/ Shaders/
 ```
 
 Core 的测试和模拟器在 `../Tools/`，不需要打开 Unity 就能运行。
