@@ -16,16 +16,21 @@
 
 打开 `Assets/_Project/Scenes/Battle_Greybox.unity`，点 Play。
 
-- 拖牌出牌：打击要拖到敌人身上（会画瞄准线），防御拖过手牌上方就打出；能量不够会提示
-- 右下「结束回合」，右上「重开」换一个种子重来
-- 牌组、敌人、种子在场景里 `BattleBootstrap` 的 Inspector 上改（敌人 ID 见 `Data/enemies.csv`）
+- 拖牌出牌：指向型的牌拖到敌人身上（会画瞄准线），其余的拖过手牌上方就打出；能量不够会提示
+- 顶栏（策划/10 §6.1）：生命、药水栏、遗物、回合。点药水使用，需要目标的药水再点一个敌人（点别处取消）；遗物悬停看说明，触发时会跳一下
+- 需要选择的牌（查阅资料、禁书残页、心灵之锚）弹出选择面板，和牌有关的选项画成卡牌
+- 右下「结束回合」；顶栏右侧「重开」用同样的配置换下一个种子，「选择对局」打开启动面板：测试牌组（起始 / A 守夜 / B 堕落 / C 混合 / D 传染）× 全部 15 组遭遇 × 遗物 × 药水（最多 3 瓶）× 种子，任意组合都能直接开打
+- 默认配置在场景里 `BattleBootstrap` 的 Inspector 上改：`DeckName` / `Encounter` 留空时用下面的 `Deck` / `Enemies`（ID 见 `Data/`）
 - 中文用系统字体（微软雅黑）动态生成，字体文件不进仓库；正式版按 策划/10 换思源字体
 
 结构按 策划/08 §2：`BattleController` 把输入变成 `BattleCommand` 交给内核，内核瞬时结算；`BattleDirector` 逐条回放这次新产生的事件，`BattleScreen` 把事件分发给 `HandView` / `CardView` / `EnemyView` / `PlayerView`；一批事件播完后再按内核状态对一次账。界面目前全部由代码搭出来（`View/Common/Ui.cs`），换美术时再做成预制体。
 
 ## 测试
 
-PlayMode 测试在 `Assets/_Project/Tests/PlayMode/`：通过表现层入口出牌，检查界面显示和内核状态一致，包括一路打到胜利；关键节点把画面存成 `Logs/Screenshots/*.png`（不进仓库）。
+PlayMode 测试在 `Assets/_Project/Tests/PlayMode/`：通过表现层入口出牌，检查界面显示和内核状态一致；关键节点把画面存成 `Logs/Screenshots/*.png`（不进仓库）。
+
+- `BattleGreyboxTests`：打击 + 防御的基本流程、能量不足被拒、一路打到胜利
+- `BattleContentTests`：15 组遭遇用混合牌组逐个打到分出胜负，每一步核对手牌、牌堆、能量、生命、格挡、每个敌人、药水栏和选择面板；启动面板换成 Boss 战；药水选目标；查阅资料的选择面板
 
 ```bash
 "C:/Program Files/Unity/Hub/Editor/6000.3.26f1/Editor/Unity.exe" -batchmode -projectPath Deeptide -runTests -testPlatform PlayMode -testResults Logs/playmode.xml -logFile Logs/playmode.log

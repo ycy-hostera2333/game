@@ -40,6 +40,7 @@ namespace Deeptide.View.Battle
         public bool Play(int handIndex, int targetIndex = -1) => Run(BattleCommand.Play(handIndex, targetIndex));
         public bool EndTurn() => Run(BattleCommand.End());
         public bool Choose(int option) => Run(BattleCommand.Choose(option));
+        public bool UsePotion(int slot, int targetIndex = -1) => Run(BattleCommand.Potion(slot, targetIndex));
 
         bool Run(BattleCommand cmd)
         {

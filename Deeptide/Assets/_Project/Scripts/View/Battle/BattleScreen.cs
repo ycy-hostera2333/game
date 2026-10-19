@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Deeptide.Core;
+using Deeptide.Core.Cards;
 using PrimeTween;
 using TMPro;
 using UnityEngine;
@@ -23,23 +24,35 @@ namespace Deeptide.View.Battle
         public int DrawCount => _drawCount;
         public int DiscardCount => _discardCount;
         public int Energy => _energy;
+        public TopBar TopBar => _topBar;
+        public ChoicePanel Choice => _choice;
+        /// <summary>正在等待选目标的药水栏，-1 = 没有。</summary>
+        public int PendingPotion => _pendingPotion;
 
-        System.Action _restart;
+        const float EnemyGap = 30;
+
+        System.Action _restart, _openLauncher;
         RectTransform _root, _overlay, _floats;
+        TopBar _topBar;
+        ChoicePanel _choice;
+        Image _potionCatcher;
+        TextMeshProUGUI _hint;
+        int _pendingPotion = -1;
+        bool _started;
+        readonly HashSet<EnemyView> _placed = new HashSet<EnemyView>();
         HandView _hand;
         PlayerView _player;
         readonly List<EnemyView> _enemies = new List<EnemyView>();
         RectTransform _enemyRow;
-        TextMeshProUGUI _turn, _log, _energyText, _drawText, _discardText, _exhaustText, _toast, _banner;
+        TextMeshProUGUI _log, _energyText, _drawText, _discardText, _exhaustText, _toast, _banner;
         Button _endTurn;
-        RectTransform _choicePanel;
         Image _arrow;
         readonly Queue<string> _logLines = new Queue<string>();
         int _energy, _drawCount, _discardCount, _exhaustCount;
 
         // ------------------------------------------------------------------ 搭建
 
-        public static BattleScreen Create(Camera camera, BattleSetup setup, System.Action restart)
+        public static BattleScreen Create(Camera camera, BattleSetup setup, System.Action restart, System.Action openLauncher = null)
         {
             var go = new GameObject("BattleScreen", typeof(RectTransform)) { layer = Ui.Layer };
             var canvas = go.AddComponent<Canvas>();
@@ -55,11 +68,13 @@ namespace Deeptide.View.Battle
             var screen = go.AddComponent<BattleScreen>();
             screen.Camera = camera;
             screen._restart = restart;
+            screen._openLauncher = openLauncher;
             screen.Director = go.AddComponent<BattleDirector>();
             screen.Director.Bind(screen);
             screen.Build();
             screen.Controller = new BattleController(setup, screen.Director);
             screen.Controller.Rejected += screen.Toast;
+            screen._topBar.Bind(screen.Controller.Engine);
             screen.Controller.Begin();
             return screen;
         }
@@ -69,15 +84,15 @@ namespace Deeptide.View.Battle
             _root = (RectTransform)transform;
             Ui.Box("Background", _root, Palette.Background).rectTransform.Fill();
 
-            // 顶部：回合、日志、重开
-            _turn = Ui.Text("Turn", _root, "", 34, Palette.Text);
-            _turn.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0, -40), new Vector2(400, 50));
-            var logBox = Ui.Box("Log", _root, new Color(0, 0, 0, 0.35f));
-            logBox.rectTransform.Place(new Vector2(0, 1), new Vector2(340, -110), new Vector2(640, 180));
-            _log = Ui.Text("Text", logBox.transform, "", 19, Palette.TextDim, TextAlignmentOptions.BottomLeft);
+            // 顶部：顶栏（生命、药水、遗物、回合、选择对局 / 重开），日志框挪到顶栏下面
+            // 日志是调试用的，默认收起，点顶栏「日志」展开（阶段 2 验收要求不看日志也能打完一场）
+            var logBox = Ui.Box("Log", _root, Palette.Panel);
+            logBox.rectTransform.Place(new Vector2(0, 1), new Vector2(340, -TopBar.Height - 106), new Vector2(640, 180));
+            _log = Ui.Text("Text", logBox.transform, "", 19, Palette.Text, TextAlignmentOptions.BottomLeft);
             _log.rectTransform.Fill(12);
-            Ui.TextButton("Restart", _root, "重开", Palette.PanelLight, () => _restart?.Invoke())
-                .GetComponent<RectTransform>().Place(new Vector2(1, 1), new Vector2(-110, -50), new Vector2(160, 60));
+            logBox.gameObject.SetActive(false);
+            _topBar = TopBar.Create(_root, PotionClicked, () => _openLauncher?.Invoke(), () => _restart?.Invoke(),
+                () => logBox.gameObject.SetActive(!logBox.gameObject.activeSelf));
 
             // 战场：原点在底边中点
             var field = Ui.Rect("Field", _root).Fill();
@@ -95,7 +110,8 @@ namespace Deeptide.View.Battle
             _drawText = PileLabel(field, "Draw", new Vector2(-860, 80));
             _discardText = PileLabel(field, "Discard", new Vector2(860, 80));
             _exhaustText = PileLabel(field, "Exhaust", new Vector2(860, 210));
-            _endTurn = Ui.TextButton("EndTurn", field, "结束回合", Palette.AccentDark, () => Controller.EndTurn());
+            _endTurn = Ui.TextButton("EndTurn", field, "结束回合", Palette.PanelLight, () => Controller.EndTurn());
+            Ui.Border((Image)_endTurn.targetGraphic, Palette.Accent, 3);
             _endTurn.GetComponent<RectTransform>().Place(new Vector2(0.5f, 0), new Vector2(740, 330), new Vector2(220, 80));
 
             // 手牌层、箭头 / 飘字 / 提示层
@@ -116,8 +132,21 @@ namespace Deeptide.View.Battle
             _banner.fontStyle = FontStyles.Bold;
             _banner.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 180), new Vector2(1000, 110));
 
-            _choicePanel = Ui.Box("Choice", _root, new Color(0, 0, 0, 0.85f), true).rectTransform.Fill();
-            _choicePanel.gameObject.SetActive(false);
+            // 药水选目标：全屏透明遮罩接住点击，点到敌人就用药水，点别处取消
+            _potionCatcher = Ui.Box("PotionTarget", _root, new Color(0, 0, 0, 0), true);
+            _potionCatcher.rectTransform.Fill();
+            _potionCatcher.gameObject.AddComponent<ClickHandler>().OnClick = e =>
+            {
+                var enemy = EnemyUnder(e);
+                if (enemy != null) EnemyClicked(enemy.Index);
+                else CancelPotion();
+            };
+            _potionCatcher.gameObject.SetActive(false);
+            _hint = Ui.Text("Hint", _root, "", 30, Palette.Accent);
+            _hint.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 250), new Vector2(1200, 50));
+
+            _choice = ChoicePanel.Create(_root);
+            Tooltip.Create(_root);
         }
 
         static TextMeshProUGUI PileLabel(Transform parent, string name, Vector2 pos)
@@ -141,22 +170,28 @@ namespace Deeptide.View.Battle
             {
                 case BattleEventType.PlayerInit:
                     _player.SetHp(e.Value, e.Value2);
+                    _topBar.SetHp(e.Value, e.Value2);
                     _player.SetSanity(e.Amount, e.Amount, engine.Config.LunacyThreshold);
                     return 0;
 
                 case BattleEventType.EnemySpawned:
                 {
                     var view = EnemyView.Create(_enemyRow, e.Entity, e.Actor);
-                    ((RectTransform)view.transform).Place(new Vector2(0, 0.5f), new Vector2(160 + e.Entity * 320, 0), new Vector2(300, 470));
+                    // 尺寸由 EnemyView 自己按档位定，这里只管水平排位（中心对齐，y 在敌人行中线）
+                    var rt = (RectTransform)view.transform;
+                    rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+                    rt.anchoredPosition = Vector2.zero;
                     _enemies.Add(view);
                     view.SetHp(e.Value, e.Value2);
-                    return 0.05f;
+                    LayoutEnemies(_started ? 0.25f : 0);
+                    return _started ? 0.3f : 0.05f;
                 }
 
                 case BattleEventType.HpChanged:
                 {
                     var view = ViewOf(e.Entity);
                     int delta = view.SetHp(e.Value, e.Value2);
+                    if (e.Entity == BattleEvent.PlayerEntity) _topBar.SetHp(e.Value, e.Value2);
                     if (delta < 0)
                     {
                         Float(view, delta.ToString(), Palette.Bad);
@@ -215,7 +250,8 @@ namespace Deeptide.View.Battle
                     return 0;
 
                 case BattleEventType.TurnStarted:
-                    _turn.text = $"第 {e.Value} 回合";
+                    _started = true;
+                    _topBar.SetTurn(e.Value);
                     ShowBanner($"第 {e.Value} 回合", 0.7f);
                     return 0.45f;
 
@@ -224,8 +260,23 @@ namespace Deeptide.View.Battle
                     return 0.3f;
 
                 case BattleEventType.EnemyDied:
-                    if (e.Entity >= 0 && e.Entity < _enemies.Count) _enemies[e.Entity].Die();
+                    if (e.Entity >= 0 && e.Entity < _enemies.Count)
+                    {
+                        var dead = _enemies[e.Entity];
+                        dead.Die();
+                        // 淡出后收起来，剩下的敌人重新排开（Boss 会反复召唤触须，下标一直往后加）
+                        Tween.Delay(dead, 0.6f, () => dead.gameObject.SetActive(false), warnIfTargetDestroyed: false);
+                        LayoutEnemies(0.35f);
+                    }
                     return 0.35f;
+
+                case BattleEventType.PotionChanged:
+                    _topBar.SyncPotions();
+                    return 0;
+
+                case BattleEventType.RelicTriggered:
+                    _topBar.FlashRelic(e.Id);
+                    return 0.15f;
 
                 case BattleEventType.CardPlayed:
                     return 0.05f;
@@ -268,6 +319,9 @@ namespace Deeptide.View.Battle
             var engine = Controller.Engine;
             var p = engine.Player;
             _player.SetHp(p.Hp, p.MaxHp);
+            _topBar.SetHp(p.Hp, p.MaxHp);
+            _topBar.SetTurn(engine.State.Turn);
+            _topBar.SyncPotions();
             _player.SetBlock(p.Block);
             _player.SetSanity(p.Sanity, p.MaxSanity, p.LunacyThreshold);
             _energy = p.Energy;
@@ -291,7 +345,95 @@ namespace Deeptide.View.Battle
         {
             RefreshCards();
             _endTurn.interactable = Controller.AcceptsInput;
-            if (Controller.AwaitingChoice) ShowChoice(Controller.Engine.State.Choice);
+            if (Controller.AwaitingChoice) _choice.Show(Controller.Engine.State.Choice, Controller.Engine, option => Controller.Choose(option));
+            else if (_choice.IsOpen) _choice.Hide();
+        }
+
+        // ------------------------------------------------------------------ 敌人排位
+
+        /// <summary>活着的敌人按下标顺序在敌人行里居中排开，宽度用各自的 sizeDelta.x（尺寸档由 EnemyView 决定）。只改 x。</summary>
+        void LayoutEnemies(float duration)
+        {
+            var live = new List<EnemyView>();
+            float total = 0;
+            foreach (var v in _enemies)
+            {
+                if (v.IsDead) continue;
+                live.Add(v);
+                total += ((RectTransform)v.transform).sizeDelta.x;
+            }
+            if (live.Count == 0) return;
+            float gap = live.Count > 1 ? Mathf.Min(EnemyGap, (_enemyRow.rect.width - total) / (live.Count - 1)) : 0;
+            float x = -(total + gap * (live.Count - 1)) / 2;
+            foreach (var v in live)
+            {
+                var rt = (RectTransform)v.transform;
+                float w = rt.sizeDelta.x;
+                float target = x + w / 2;
+                x += w + gap;
+                bool first = _placed.Add(v);
+                if (duration <= 0 || first) rt.anchoredPosition = new Vector2(target, rt.anchoredPosition.y);
+                else Tween.UIAnchoredPositionX(rt, target, duration, Ease.OutCubic);
+            }
+        }
+
+        // ------------------------------------------------------------------ 药水
+
+        /// <summary>点顶栏的药水：不需要目标的直接用；需要目标的进入选目标状态（只剩一个敌人时直接用在它身上）。</summary>
+        public void PotionClicked(int slot)
+        {
+            if (_pendingPotion == slot)
+            {
+                CancelPotion();
+                return;
+            }
+            CancelPotion();
+            if (!Controller.AcceptsInput) return;
+            var engine = Controller.Engine;
+            if (!engine.CanUsePotion(slot, out var error))
+            {
+                Toast(error);
+                return;
+            }
+            var potion = engine.Player.Potions[slot];
+            if (potion.Def.Target != CardTarget.Enemy)
+            {
+                Controller.UsePotion(slot);
+                return;
+            }
+            int count = 0, only = -1;
+            foreach (var en in engine.State.AliveEnemies)
+            {
+                count++;
+                only = en.Index;
+            }
+            if (count == 1)
+            {
+                Controller.UsePotion(slot, only);
+                return;
+            }
+            _pendingPotion = slot;
+            _topBar.HighlightPotion(slot);
+            _hint.text = $"点击一个敌人使用{potion.Name}（点别处取消）";
+            _potionCatcher.gameObject.SetActive(true);
+            _potionCatcher.transform.SetAsLastSibling();
+        }
+
+        /// <summary>选目标状态下点了敌人。</summary>
+        public void EnemyClicked(int index)
+        {
+            if (_pendingPotion < 0) return;
+            int slot = _pendingPotion;
+            CancelPotion();
+            Controller.UsePotion(slot, index);
+        }
+
+        public void CancelPotion()
+        {
+            _pendingPotion = -1;
+            _topBar.HighlightPotion(-1);
+            _hint.text = "";
+            _potionCatcher.gameObject.SetActive(false);
         }
 
         void RefreshStatuses()
@@ -307,28 +449,6 @@ namespace Deeptide.View.Battle
         }
 
         public void RefreshCard(CardView card) => card.Refresh(Controller.Engine, _energy, Controller.AcceptsInput);
-
-        // ------------------------------------------------------------------ 选择
-
-        void ShowChoice(PendingChoice choice)
-        {
-            foreach (Transform child in _choicePanel) Destroy(child.gameObject);
-            _choicePanel.gameObject.SetActive(true);
-            Ui.Text("Prompt", _choicePanel, choice.Prompt, 40, Palette.Text)
-                .rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 200), new Vector2(1200, 60));
-            int n = choice.Options.Count;
-            for (int i = 0; i < n; i++)
-            {
-                int option = i;
-                Ui.TextButton($"Option {i}", _choicePanel, choice.Options[i].Label, Palette.PanelLight, () =>
-                    {
-                        _choicePanel.gameObject.SetActive(false);
-                        Controller.Choose(option);
-                    })
-                    .GetComponent<RectTransform>()
-                    .Place(new Vector2(0.5f, 0.5f), new Vector2((i - (n - 1) / 2f) * 280, 40), new Vector2(260, 90));
-            }
-        }
 
         // ------------------------------------------------------------------ 拖拽瞄准
 
