@@ -30,7 +30,7 @@ U03,驱散,Attack,Uncommon,守夜,2,,Enemy,,,,Damage=16;ClarityDamage=28,Damage=
 U04,默祷,Skill,Uncommon,守夜,1,0,None,,exhaust,,,,将理智恢复至上限。消耗。,,,
 U05,守夜人之誓,Power,Uncommon,守夜,1,0,None,,,,Strength=1,,回合结束时，若清明，获得 {Strength} 力量。,,,
 U06,深渊献礼,Skill,Uncommon,堕落,1,,None,,exhaust,,Sanity=3;Strength=2,Strength=3,代价{Sanity}。获得 {Strength} 力量。消耗。,,,
-U07,疯狂本能,Power,Uncommon,堕落,1,,None,,,,Hit=3,Hit=4,每失去 1 点理智，对随机敌人造成 {Hit} 伤害。,,,
+U07,疯狂本能,Power,Uncommon,堕落,1,,None,,,,Hit=3,Hit=4,每因代价或自身效果失去 1 点理智，对随机敌人造成 {Hit} 伤害。,,,
 U08,触须鞭笞,Attack,Uncommon,堕落,2,,Enemy,1,,,Damage=12;Vulnerable=2;SelfHp=4,Damage=15,造成 {Damage} 伤害，施加 {Vulnerable} 层易伤。,对所有敌人造成 {Damage} 伤害并施加 {Vulnerable} 层易伤，失去 {SelfHp} 生命。,,
 U09,崩坏边缘,Attack,Uncommon,堕落,1,,Enemy,,,,Damage=4;PerPoint=2,PerPoint=3,造成 {Damage} 伤害。你每缺失 1 点理智，伤害 +{PerPoint}。,,,
 U10,狂笑,Skill,Uncommon,堕落,0,,None,1,exhaust,,Energy=1;Draw=0;MadSanity=1;MadEnergy=2,Draw=1,获得 {Energy} 能量。消耗。,代价{MadSanity}。获得 {MadEnergy} 能量。消耗。,获得 {Energy} 能量，抽 {Draw} 张牌。消耗。,

@@ -426,7 +426,10 @@ namespace Deeptide.Core.Cards
         public override void Play(PlayContext c) => c.Status(c.Player, StatusId.Strength, V("Strength"));
     }
 
-    /// <summary>U07 疯狂本能（能力）：每失去 1 点理智，对随机敌人造成效果伤害（每点单独选目标）。</summary>
+    /// <summary>
+    /// U07 疯狂本能（能力）：每因代价或自身效果失去 1 点理智，对随机敌人造成效果伤害（每点单独选目标）。
+    /// 敌人、光环、侵蚀、疯语造成的理智损失不触发，否则削理智的敌人反而在替堕落流打伤害（策划/07 §8.5）。
+    /// </summary>
     public sealed class MadInstinct : Card
     {
         public override void Play(PlayContext c) => c.ApplyPower(new MadInstinctPower(), V("Hit"));
@@ -436,6 +439,7 @@ namespace Deeptide.Core.Cards
     {
         public override void OnSanityLost(BattleEngine e, int amount, SanitySource source)
         {
+            if (source != SanitySource.Card && source != SanitySource.Effect) return;
             var hits = Enumerable.Range(0, amount)
                 .Select(_ => (GameAction)new DamageRandomEnemyAction(e.Player, Amount, DamageKind.Effect)).ToArray();
             e.Queue.AddToTop(hits);

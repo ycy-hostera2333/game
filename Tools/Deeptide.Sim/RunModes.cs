@@ -24,7 +24,7 @@ namespace Deeptide.Sim
         static RunConfig Config()
         {
             Tuning.ApplyHpForRuns();
-            return new RunConfig { Battle = Tuning.Config };
+            return new RunConfig { Battle = Tuning.Config, Map = Tuning.Map };
         }
 
         // ------------------------------------------------------------ map
@@ -35,7 +35,7 @@ namespace Deeptide.Sim
             if (n <= 1)
             {
                 ulong seed = ulong.Parse(Opt(o, "seed", "1"));
-                var map = MapGenerator.Generate(new Pcg32(seed, 11));
+                var map = MapGenerator.Generate(new Pcg32(seed, 11), Tuning.Map);
                 Console.WriteLine($"种子 {seed}（和 run 模式同一种子的地图一样）");
                 Console.Write(MapGenerator.Render(map));
                 Console.WriteLine(MapGenerator.Legend);
@@ -49,7 +49,7 @@ namespace Deeptide.Sim
             var examples = new List<string>();
             for (int i = 1; i <= n; i++)
             {
-                var map = MapGenerator.Generate(new Pcg32((ulong)i, 11));
+                var map = MapGenerator.Generate(new Pcg32((ulong)i, 11), Tuning.Map);
                 nodes += map.Nodes.Count;
                 foreach (var node in map.Nodes.Where(x => x.Floor != 1 && x.Floor != 9 && x.Floor != map.Height))
                 {
@@ -67,7 +67,8 @@ namespace Deeptide.Sim
             Console.WriteLine($"每张图上一条路线最多能打 {maxElites / (double)n:F2} 个精英，最少 {minElites / (double)n:F2} 个（目标每局 1–3 场）");
             Console.WriteLine($"{n} 张地图：平均 {nodes / (double)n:F1} 个节点，硬约束违规 {violations} 次，抽不到合适房间退回普通战斗 {fallbacks} 次，兄弟节点同类型 {siblings} 对");
             foreach (var e in examples) Console.WriteLine("  " + e);
-            Console.WriteLine("非固定层的房间占比（权重：战斗 53 / 事件 22 / 篝火 12 / 精英 8 / 商店 5；第 2–5 层不出精英和篝火、第 14 层不出篝火、不和父节点同类，所以实际会偏离）：");
+            var w = Tuning.Map.Weights;
+            Console.WriteLine($"非固定层的房间占比（权重：战斗 {w[RoomType.Battle]} / 事件 {w[RoomType.Event]} / 篝火 {w[RoomType.Campfire]} / 精英 {w[RoomType.Elite]} / 商店 {w[RoomType.Shop]}；第 2–5 层不出精英和篝火、第 14 层不出篝火、不和父节点同类，所以实际会偏离）：");
             foreach (var room in new[] { RoomType.Battle, RoomType.Event, RoomType.Campfire, RoomType.Elite, RoomType.Shop })
                 Console.WriteLine($"  {RunEngine.RoomName(room),-6} {(counts.TryGetValue(room, out var x) ? x : 0) / (double)weighted:P1}");
             return violations == 0 ? 0 : 1;

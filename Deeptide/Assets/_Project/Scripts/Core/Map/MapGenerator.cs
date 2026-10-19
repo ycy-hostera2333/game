@@ -49,7 +49,7 @@ namespace Deeptide.Core.Map
             [RoomType.Battle] = 53,
             [RoomType.Event] = 22,
             [RoomType.Campfire] = 12,
-            [RoomType.Elite] = 8,
+            [RoomType.Elite] = 14,
             [RoomType.Shop] = 5,
         };
         public int TreasureFloor = 9;

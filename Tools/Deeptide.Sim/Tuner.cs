@@ -7,6 +7,7 @@ using Deeptide.Core;
 using Deeptide.Core.Cards;
 using Deeptide.Core.Content;
 using Deeptide.Core.Enemies;
+using Deeptide.Core.Map;
 
 namespace Deeptide.Sim
 {
@@ -18,11 +19,13 @@ namespace Deeptide.Sim
     ///   clarity  清明余量（清明 = 理智 ≥ 上限 − 余量）
     ///   卡牌ID.变量名  改卡牌数值（只改未升级版）；卡牌ID.cost / 卡牌ID.cost_up 改费用    敌人ID.hp=最小-最大  改某种敌人的生命区间
     ///   敌人ID.数值名  改敌人招式数值，如 acolyte.Dagger=6
+    ///   map.房间类型  改地图房间权重（Battle / Event / Campfire / Elite / Shop），如 map.Elite=12
     /// 只在本进程内生效，不改源码。
     /// </summary>
     static class Tuning
     {
         public static readonly BattleConfig Config = new BattleConfig();
+        public static readonly MapConfig Map = new MapConfig();
         public static double HpEasy = 1.0;
         public static double HpHard = 1.0;
 
@@ -52,6 +55,13 @@ namespace Deeptide.Sim
                         int dot = key.IndexOf('.');
                         if (dot < 0) throw new ArgumentException($"未知参数：{key}");
                         string owner = key.Substring(0, dot);
+                        if (owner == "map")
+                        {
+                            if (!Enum.TryParse<RoomType>(key.Substring(dot + 1), out var room) || !Map.Weights.ContainsKey(room))
+                                throw new ArgumentException($"没有这种房间权重：{key}");
+                            Map.Weights[room] = int.Parse(val);
+                            break;
+                        }
                         if (key.EndsWith(".hp", StringComparison.Ordinal))
                         {
                             var range = val.Split('-');

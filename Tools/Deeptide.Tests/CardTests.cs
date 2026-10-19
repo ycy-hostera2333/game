@@ -259,6 +259,19 @@ namespace Deeptide.Tests
         }
 
         [Test]
+        public void MadInstinct_IgnoresSanityLostToEnemiesAndCurses()
+        {
+            var e = Battle(new[] { EnemyIds.Whisperer });
+            SetHand(e, "U07", "S01");
+            Play(e, 0, -1);
+            SetIntent(e, 0, "Whisper");
+            int hp = e.State.Enemies[0].Hp;
+            EndTurn(e);   // 回合结束疯语 −1（Curse），呓语者精神攻击（Enemy）
+            Assert.That(e.Player.Sanity, Is.LessThan(9));
+            Assert.That(e.State.Enemies[0].Hp, Is.EqualTo(hp));
+        }
+
+        [Test]
         public void TentacleLash_MadFaceHitsAllAndHurtsSelf()
         {
             var e = Battle(TwoDummies);

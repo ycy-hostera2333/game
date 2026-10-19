@@ -57,7 +57,7 @@ dotnet run --project Deeptide.Sim -c Release -- tune --n 150 --top 5 --confirm 5
 
 统计每个「牌组 × 遭遇」的胜率、平均回合、掉血、崩溃次数、癫狂 / 清明回合占比。`--style sane|mad|mixed` 指定 AI 打法。
 
-`--set` 临时改参数（只在这一次运行中生效，不改文件），所有模式都支持：`erosion`（侵蚀起始回合）、`lunacy`（癫狂线）、`clarity`（清明余量）、`hp` / `hpHard`（生命倍率）、`starter=base|prayer`、`卡牌ID.变量名=值`、`卡牌ID.cost=N` / `卡牌ID.cost_up=N`、`敌人ID.数值名=值`、`敌人ID.hp=最小-最大`。例：`--set "drowned_priest.hp=200-200;U05.cost=1"`。
+`--set` 临时改参数（只在这一次运行中生效，不改文件），所有模式都支持：`erosion`（侵蚀起始回合）、`lunacy`（癫狂线）、`clarity`（清明余量）、`hp` / `hpHard`（生命倍率）、`starter=base|prayer`、`卡牌ID.变量名=值`、`卡牌ID.cost=N` / `卡牌ID.cost_up=N`、`敌人ID.数值名=值`、`敌人ID.hp=最小-最大`、`map.房间类型=权重`（`Battle` / `Event` / `Campfire` / `Elite` / `Shop`，整局和 `map` 模式生效）。例：`--set "drowned_priest.hp=200-200;U05.cost=1"`。
 
 ## 整局
 

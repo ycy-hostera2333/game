@@ -10,9 +10,9 @@ townsfolk,失魂镇民,28,32,10,Hoe=挥锄;Smash=猛砸;Wail=哀嚎,Hoe=9;Smash=
 tentacle,海底触须,14,17,0,Entangle=缠绕;Lash=抽打,Entangle=4;EntangleBound=1;Lash=5
 rat,疫鼠,9,11,3,Gnaw=啮咬;Frenzy=乱咬,Gnaw=3;Frenzy=2;FrenzyHits=2
 # ---------------- 精英
-lighthouse,灯塔守望者,84,88,18,OilSplash=灯油泼洒;Sweep=旋转灯臂;Relight=重新点亮,Glare=1;Oil=10;OilFrail=1;Sweep=6;SweepHits=2;RelightBlock=15;RelightStrength=2
-nun,无面修女,70,74,15,Rosary=荆棘念珠;Kiss=慈悲之吻;Absolution=赦罪,Rosary=10;RosaryWeak=2;Kiss=3;Heal=10;HealBlock=8;HealBelowPercent=80
-fisherman,网缚渔夫,90,95,20,Cast=抛网;Harpoon=鱼叉;Haul=收网,Webs=2;Harpoon=16;HaulPer=3
+lighthouse,灯塔守望者,100,105,18,OilSplash=灯油泼洒;Sweep=旋转灯臂;Relight=重新点亮,Glare=1;Oil=9;OilFrail=1;Sweep=6;SweepHits=2;RelightBlock=15;RelightStrength=2
+nun,无面修女,84,88,15,Rosary=荆棘念珠;Kiss=慈悲之吻;Absolution=赦罪,Rosary=9;RosaryWeak=2;Kiss=3;Heal=10;HealBlock=8;HealBelowPercent=80
+fisherman,网缚渔夫,108,114,20,Cast=抛网;Harpoon=鱼叉;Haul=收网,Webs=2;Harpoon=14;HaulPer=3
 # ---------------- Boss
 drowned_priest,溺亡司祭,180,180,30,Summon=召唤;TidePrayer=潮汐祷文;Baptism=浸礼;HighTide=大潮;Devour=吞噬;SeaCurse=海之诅咒;HighTide2=大潮,TideMax=7;MaxTentacles=1;PrayerBlock=12;Baptism=9;BaptismMind=1;HighTide=20;HighTideMind=3;Devour=6;DevourHits=3;CurseCards=2;CurseBlock=10;HighTide2=28;Song=1;ShedStrength=2
 # ---------------- 调试
