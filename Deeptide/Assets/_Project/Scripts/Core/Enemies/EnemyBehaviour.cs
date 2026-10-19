@@ -138,6 +138,12 @@ namespace Deeptide.Core.Enemies
         /// <summary>被动能力的说明（显示在敌人身上），没有返回 null。</summary>
         public virtual string Passive => null;
 
+        /// <summary>计数器的显示文本（如溺亡司祭的潮位），表现层显示在敌人名字下面；没有返回 null。</summary>
+        public virtual string CounterText(EnemyState self) => null;
+
+        /// <summary>下个玩家回合开始时这个敌人的光环会让你失去的理智（理智条的预告用，不含心防抵消）。</summary>
+        public virtual int TurnStartSanityLoss(EnemyState self) => 0;
+
         /// <summary>攻击伤害的额外加值（如失魂镇民的「嗅到疯狂」），在伤害公式的「加法」阶段生效。</summary>
         public virtual int BonusAttackDamage(BattleEngine e, EnemyState self) => 0;
 

@@ -86,6 +86,18 @@ namespace Deeptide.View
         {
             fill.anchorMax = new Vector2(Mathf.Clamp01(ratio), 1);
         }
+
+        /// <summary>给图形加一圈描边（uGUI Outline，灰盒用来画边框）。</summary>
+        public static Outline Border(Graphic g, Color color, float width = 2)
+        {
+            var o = g.gameObject.AddComponent<Outline>();
+            o.effectColor = color;
+            o.effectDistance = new Vector2(width, -width);
+            return o;
+        }
+
+        /// <summary>颜色转成 TMP 富文本用的 #RRGGBBAA。</summary>
+        public static string Hex(Color c) => "#" + ColorUtility.ToHtmlStringRGBA(c);
     }
 
     /// <summary>
@@ -126,6 +138,14 @@ namespace Deeptide.View
         public static readonly Color TextDim = new Color32(0x9A, 0x96, 0x8C, 0xFF);
         public static readonly Color Accent = new Color32(0x2F, 0xB8, 0xA6, 0xFF);
         public static readonly Color AccentDark = new Color32(0x15, 0x5E, 0x56, 0xFF);
+        /// <summary>癫狂段点亮时的发光青（策划/10 §6.2）。</summary>
+        public static readonly Color Lunacy = new Color32(0x6F, 0xF5, 0xE0, 0xFF);
+        /// <summary>癫狂段的底色（abyss）。</summary>
+        public static readonly Color Abyss = new Color32(0x08, 0x26, 0x24, 0xFF);
+        /// <summary>清明（gold）：理智条的清明段描边、卡面「清明：」句。</summary>
+        public static readonly Color Gold = new Color32(0xD8, 0xB4, 0x4A, 0xFF);
+        /// <summary>恐惧（dread）。</summary>
+        public static readonly Color Dread = new Color32(0x7A, 0x52, 0x9E, 0xFF);
 
         public static readonly Color Hp = new Color32(0xB0, 0x3A, 0x2E, 0xFF);
         public static readonly Color HpBack = new Color32(0x3A, 0x1A, 0x17, 0xFF);

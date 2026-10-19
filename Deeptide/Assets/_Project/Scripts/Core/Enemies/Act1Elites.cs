@@ -25,6 +25,8 @@ namespace Deeptide.Core.Enemies
 
         public override void OnPlayerTurnStart(BattleEngine e, EnemyState self) => Aura(e, V("Glare"));
 
+        public override int TurnStartSanityLoss(EnemyState self) => V("Glare");
+
         public override void Perform(BattleEngine e, EnemyState self, EnemyMove m)
         {
             switch (m.Id)
@@ -125,8 +127,8 @@ namespace Deeptide.Core.Enemies
     }
 
     /// <summary>
-    /// Boss 溺亡司祭（策划/04 §5）。计数器：Tide = 潮位 0–5，Phase = 阶段 1 / 2。
-    /// 潮位：自己回合结束 +1（大潮那回合除外）；每有一只海底触须倒下 −1；到 5 时下一次行动强制大潮，大潮后清零；
+    /// Boss 溺亡司祭（策划/04 §5）。计数器：Tide = 潮位 0–TideMax，Phase = 阶段 1 / 2。
+    /// 潮位：自己回合结束 +1（大潮那回合除外）；每有一只海底触须倒下 −1；到 TideMax 时下一次行动强制大潮，大潮后清零；
     /// 大潮被震慑取消时潮位不变，下回合再试。生命 ≤ 50% 时褪去人形进入第二阶段：清除负面状态、+2 力量、召唤 1 只触须，
     /// 之后常驻「深海之歌」（每回合开始你额外失去 1 理智，光环）。
     /// </summary>
@@ -159,6 +161,11 @@ namespace Deeptide.Core.Enemies
         }
 
         public override string Passive => $"潮位到 {V("TideMax")} 时必定大潮；击杀触须潮位 −1。第二阶段：深海之歌（每回合开始你额外失去 {V("Song")} 理智）";
+
+        public override string CounterText(EnemyState self) =>
+            $"潮位 {self.Counter(Tide)}/{V("TideMax")}" + (self.Counter(Phase) == 2 ? " · 第二阶段" : "");
+
+        public override int TurnStartSanityLoss(EnemyState self) => self.Counter(Phase) == 2 ? V("Song") : 0;
 
         static int AliveTentacles(BattleEngine e) => e.State.Enemies.Count(x => !x.IsDead && x.Def.Id == EnemyIds.Tentacle);
 

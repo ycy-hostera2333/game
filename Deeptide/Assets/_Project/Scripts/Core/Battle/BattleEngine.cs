@@ -791,6 +791,18 @@ namespace Deeptide.Core
             return sum;
         }
 
+        /// <summary>
+        /// 下个玩家回合开始时预计失去的理智：侵蚀 + 敌人光环（刺目强光、深海之歌）。理智条的「侵蚀预告」用（策划/10 §6.2），
+        /// 不扣心防：心防能不能挡住光环要到时才知道，预告按最坏情况显示。
+        /// </summary>
+        public (int Erosion, int Aura) UpcomingSanityLoss()
+        {
+            int erosion = State.Turn + 1 >= Config.ErosionStartTurn ? Config.ErosionAmount : 0;
+            int aura = 0;
+            foreach (var en in State.AliveEnemies) aura += en.Behaviour.TurnStartSanityLoss(en);
+            return (erosion, aura);
+        }
+
         /// <summary>某个实体当前的显示名（事件里只有编号时用）。</summary>
         public string NameOf(int entity) =>
             entity == BattleEvent.PlayerEntity ? Player.Name : entity >= 0 && entity < State.Enemies.Count ? State.Enemies[entity].Name : "";

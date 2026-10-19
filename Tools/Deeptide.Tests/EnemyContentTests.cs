@@ -183,6 +183,19 @@ namespace Deeptide.Tests
         }
 
         [Test]
+        public void Priest_CounterTextAndSongPreview()
+        {
+            var e = Boss();
+            var boss = e.State.Enemies[0];
+            Assert.That(boss.Behaviour.CounterText(boss), Is.EqualTo($"潮位 0/{PriestVar("TideMax")}"));
+            Assert.That(e.UpcomingSanityLoss(), Is.EqualTo((0, 0)), "第 1 回合：下回合还没有侵蚀，第一阶段没有深海之歌");
+            e.SetCounter(boss, DrownedPriest.Phase, 2);
+            e.State.Turn = 3;
+            Assert.That(boss.Behaviour.CounterText(boss), Does.EndWith("第二阶段"));
+            Assert.That(e.UpcomingSanityLoss(), Is.EqualTo((1, PriestVar("Song"))));
+        }
+
+        [Test]
         public void Priest_TentacleDeathLowersTide()
         {
             var e = Boss();
