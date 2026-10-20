@@ -26,8 +26,8 @@ namespace Deeptide.View
             var host = Ui.Rect("Tooltip", root).Fill();
             var tip = host.gameObject.AddComponent<Tooltip>();
             tip._root = root;
-            var box = Ui.Box("Box", host, new Color(0.04f, 0.05f, 0.06f, 0.96f));
-            Ui.Border(box, Palette.TextDim, 1.5f);
+            var box = Ui.Box("Box", host, Palette.Paper);
+            Ui.Border(box, Palette.Ink, 2f);
             tip._box = box.rectTransform;
             tip._box.anchorMin = tip._box.anchorMax = new Vector2(0.5f, 0.5f);
             tip._text = Ui.Text("Text", tip._box, "", 20, Palette.Text, TextAlignmentOptions.TopLeft);

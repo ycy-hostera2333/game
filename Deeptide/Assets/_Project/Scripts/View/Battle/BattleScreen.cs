@@ -10,8 +10,9 @@ using UnityEngine.UI;
 namespace Deeptide.View.Battle
 {
     /// <summary>
-    /// 灰盒战斗界面：搭布局、把每条事件分发给对应的视图、播完一批后和内核对账。
-    /// 画布用 Screen Space - Camera，后面的癫狂后处理（URP Volume）才能作用到卡牌上（策划/08 §9）。
+    /// 灰盒战斗界面：搭布局、把每条事件分发给对应的视图、播完一批后和内核对账。布局按 策划/10 §6.1（1920 × 1080，地平线 y = 440）。
+    /// 层级从下到上：背景 → 背景癫狂层 → 战场（角色）→ 癫狂暗角 → 顶栏 / 手牌 / 飘字 / 面板 → 崩溃反相。
+    /// 癫狂效果只作用在暗角以下的舞台层，卡牌和数字不受影响（10 §1.2 支柱 4，实现见 LunacyFx）。
     /// </summary>
     public sealed class BattleScreen : MonoBehaviour
     {
@@ -45,6 +46,7 @@ namespace Deeptide.View.Battle
         readonly List<EnemyView> _enemies = new List<EnemyView>();
         RectTransform _enemyRow;
         TextMeshProUGUI _log, _energyText, _drawText, _discardText, _exhaustText, _toast, _banner;
+        LunacyFx _fx;
         Button _endTurn;
         Image _arrow;
         readonly Queue<string> _logLines = new Queue<string>();
@@ -82,7 +84,48 @@ namespace Deeptide.View.Battle
         void Build()
         {
             _root = (RectTransform)transform;
-            Ui.Box("Background", _root, Palette.Background).rectTransform.Fill();
+            var background = Ui.Box("Background", _root, Palette.Background);
+            background.rectTransform.Fill();
+            var backdrop = Ui.Rect("Backdrop", _root).Fill();
+
+            // 战场：原点在底边中点。角色中心放在 y = 600，脚底（中心下方 160）正好踩在地平线 y = 440 上（10 §6.1）
+            var field = Ui.Rect("Field", _root).Fill();
+            field.pivot = new Vector2(0.5f, 0);
+            _player = PlayerView.Create(field);
+            var playerRt = (RectTransform)_player.transform;
+            playerRt.Place(new Vector2(0.5f, 0), new Vector2(-460, 600), playerRt.sizeDelta);
+            // 敌人区 x = -60..860（10 §6.1、§5.1）
+            _enemyRow = Ui.Rect("Enemies", field).Place(new Vector2(0.5f, 0), new Vector2(400, 600), new Vector2(920, 470));
+
+            // 底部：能量、牌堆、结束回合
+            var orb = Ui.Box("Energy", field, Palette.Energy);
+            orb.sprite = Shapes.Circle;
+            orb.rectTransform.Place(new Vector2(0.5f, 0), new Vector2(-760, 300), new Vector2(110, 110));
+            var orbRing = Ui.Box("Ring", orb.transform, Palette.GoldLight);
+            orbRing.sprite = Shapes.Ring(10);
+            orbRing.rectTransform.Fill(5);
+            _energyText = Ui.Text("Value", orb.transform, "", 38, Palette.Paper);
+            _energyText.font = Fonts.Serif;
+            _energyText.fontStyle = FontStyles.Bold;
+            _energyText.rectTransform.Fill();
+            _drawText = PileLabel(field, "Draw", new Vector2(-860, 80));
+            _discardText = PileLabel(field, "Discard", new Vector2(860, 80));
+            _exhaustText = PileLabel(field, "Exhaust", new Vector2(860, 210));
+            _endTurn = Ui.TextButton("EndTurn", field, "结束回合", Palette.PanelLight, () => Controller.EndTurn());
+            var endTurnBg = (Image)_endTurn.targetGraphic;
+            endTurnBg.sprite = Shapes.RoundRect(14);
+            endTurnBg.type = Image.Type.Sliced;
+            Ui.Border(endTurnBg, Palette.Ink, 3);
+            var endTurnLabel = _endTurn.GetComponentInChildren<TextMeshProUGUI>();
+            endTurnLabel.font = Fonts.Serif;
+            endTurnLabel.fontStyle = FontStyles.Bold;
+            _endTurn.GetComponent<RectTransform>().Place(new Vector2(0.5f, 0), new Vector2(790, 300), new Vector2(220, 80));
+
+            // 癫狂表现：暗角盖在战场上，背景癫狂层垫在战场下（10 §7）
+            _fx = LunacyFx.Create(_root);
+            _fx.BuildBackdrop(backdrop);
+            _fx.SetBackground(background);
+            _fx.AddShakeTarget(field);
 
             // 顶部：顶栏（生命、药水、遗物、回合、选择对局 / 重开），日志框挪到顶栏下面
             // 日志是调试用的，默认收起，点顶栏「日志」展开（阶段 2 验收要求不看日志也能打完一场）
@@ -94,41 +137,23 @@ namespace Deeptide.View.Battle
             _topBar = TopBar.Create(_root, PotionClicked, () => _openLauncher?.Invoke(), () => _restart?.Invoke(),
                 () => logBox.gameObject.SetActive(!logBox.gameObject.activeSelf));
 
-            // 战场：原点在底边中点
-            var field = Ui.Rect("Field", _root).Fill();
-            field.pivot = new Vector2(0.5f, 0);
-            _player = PlayerView.Create(field);
-            ((RectTransform)_player.transform).Place(new Vector2(0.5f, 0), new Vector2(-560, 600), new Vector2(300, 470));
-            _enemyRow = Ui.Rect("Enemies", field).Place(new Vector2(0.5f, 0), new Vector2(480, 600), new Vector2(900, 470));
-
-            // 底部：能量、牌堆、结束回合
-            var orb = Ui.Box("Energy", field, Palette.Energy);
-            orb.rectTransform.Place(new Vector2(0.5f, 0), new Vector2(-760, 300), new Vector2(110, 110));
-            _energyText = Ui.Text("Value", orb.transform, "", 38, Palette.Background);
-            _energyText.fontStyle = FontStyles.Bold;
-            _energyText.rectTransform.Fill();
-            _drawText = PileLabel(field, "Draw", new Vector2(-860, 80));
-            _discardText = PileLabel(field, "Discard", new Vector2(860, 80));
-            _exhaustText = PileLabel(field, "Exhaust", new Vector2(860, 210));
-            _endTurn = Ui.TextButton("EndTurn", field, "结束回合", Palette.PanelLight, () => Controller.EndTurn());
-            Ui.Border((Image)_endTurn.targetGraphic, Palette.Accent, 3);
-            _endTurn.GetComponent<RectTransform>().Place(new Vector2(0.5f, 0), new Vector2(740, 330), new Vector2(220, 80));
-
             // 手牌层、箭头 / 飘字 / 提示层
             _hand = Ui.Rect("Hand", _root).Fill().gameObject.AddComponent<HandView>();
             ((RectTransform)_hand.transform).pivot = new Vector2(0.5f, 0);
             _hand.Init(this);
+            _fx.AddShakeTarget((RectTransform)_hand.transform);
 
             _overlay = Ui.Rect("Overlay", _root).Fill();
             _overlay.pivot = new Vector2(0.5f, 0);
-            _arrow = Ui.Box("Arrow", _overlay, Palette.Accent);
+            _arrow = Ui.Box("Arrow", _overlay, Palette.Ink);
             _arrow.rectTransform.pivot = new Vector2(0, 0.5f);
             _arrow.gameObject.SetActive(false);
             _floats = Ui.Rect("Floats", _root).Fill();
 
-            _toast = Ui.Text("Toast", _root, "", 32, Palette.Bad);
+            _toast = Ui.Text("Toast", _root, "", 32, Palette.Blood);
             _toast.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 80), new Vector2(800, 50));
             _banner = Ui.Text("Banner", _root, "", 72, Palette.Text);
+            _banner.font = Fonts.Serif;
             _banner.fontStyle = FontStyles.Bold;
             _banner.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 180), new Vector2(1000, 110));
 
@@ -147,11 +172,14 @@ namespace Deeptide.View.Battle
 
             _choice = ChoicePanel.Create(_root);
             Tooltip.Create(_root);
+            _fx.BuildOverlay(_root);
         }
 
         static TextMeshProUGUI PileLabel(Transform parent, string name, Vector2 pos)
         {
             var box = Ui.Box(name, parent, Palette.Panel);
+            box.sprite = Shapes.RoundRect(12);
+            box.type = Image.Type.Sliced;
             box.rectTransform.Place(new Vector2(0.5f, 0), pos, new Vector2(120, 110));
             var t = Ui.Text("Value", box.transform, "", 22, Palette.Text);
             t.rectTransform.Fill(6);
@@ -176,7 +204,7 @@ namespace Deeptide.View.Battle
 
                 case BattleEventType.EnemySpawned:
                 {
-                    var view = EnemyView.Create(_enemyRow, e.Entity, e.Actor);
+                    var view = EnemyView.Create(_enemyRow, e.Entity, e.Actor, e.Id);
                     // 尺寸由 EnemyView 自己按档位定，这里只管水平排位（中心对齐，y 在敌人行中线）
                     var rt = (RectTransform)view.transform;
                     rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
@@ -194,11 +222,12 @@ namespace Deeptide.View.Battle
                     if (e.Entity == BattleEvent.PlayerEntity) _topBar.SetHp(e.Value, e.Value2);
                     if (delta < 0)
                     {
-                        Float(view, delta.ToString(), Palette.Bad);
+                        // 10 §2.3：伤害血色 + 墨描边，单次 ≥ 20 时放大
+                        Float(view, delta.ToString(), Palette.Blood, delta <= -20 ? 64 : 48, true);
                         view.Shake();
                         return 0.25f;
                     }
-                    if (delta > 0) Float(view, "+" + delta, Palette.Heal);
+                    if (delta > 0) Float(view, "+" + delta, Palette.Moss);
                     return delta > 0 ? 0.15f : 0;
                 }
 
@@ -207,7 +236,7 @@ namespace Deeptide.View.Battle
                     var view = ViewOf(e.Entity);
                     int delta = view.SetBlock(e.Value);
                     if (delta <= 0) return 0;
-                    Float(view, $"+{delta} 格挡", Palette.Block);
+                    Float(view, $"+{delta} 格挡", Palette.Ink);
                     return 0.12f;
                 }
 
@@ -220,7 +249,8 @@ namespace Deeptide.View.Battle
                 case BattleEventType.SanityChanged:
                 {
                     int delta = _player.SetSanity(e.Value, e.Value2, engine.Config.LunacyThreshold);
-                    Float(_player, delta > 0 ? $"+{delta} 理智" : $"{delta} 理智", Palette.Accent);
+                    // 10 §2.3：失去理智深渊青，恢复理智清明金
+                    if (delta != 0) Float(_player, delta > 0 ? $"+{delta} 理智" : $"{delta} 理智", delta > 0 ? Palette.Gold : Palette.Teal);
                     RefreshCards();
                     return 0.2f;
                 }
@@ -242,8 +272,17 @@ namespace Deeptide.View.Battle
                     foreach (var en in _enemies) en.SetIntent(engine);
                     return 0;
 
-                case BattleEventType.StatusChanged:
                 case BattleEventType.FearChanged:
+                    if (e.Entity >= 0 && e.Entity < _enemies.Count && e.Value > _enemies[e.Entity].Fear)
+                        Float(_enemies[e.Entity], $"+{e.Value - _enemies[e.Entity].Fear} 恐惧", Palette.Dread, 36);
+                    RefreshStatuses();
+                    return 0;
+
+                case BattleEventType.Collapse:
+                    if (_fx != null) _fx.Collapse();
+                    return 0.6f;
+
+                case BattleEventType.StatusChanged:
                 case BattleEventType.StunChanged:
                 case BattleEventType.PowerChanged:
                     RefreshStatuses();
@@ -324,6 +363,7 @@ namespace Deeptide.View.Battle
             _topBar.SyncPotions();
             _player.SetBlock(p.Block);
             _player.SetSanity(p.Sanity, p.MaxSanity, p.LunacyThreshold);
+            _player.RefreshGauge(engine);
             _energy = p.Energy;
             _energyText.text = $"{_energy}/{engine.Config.EnergyPerTurn}";
             _drawCount = p.DrawPile.Count;
@@ -344,6 +384,7 @@ namespace Deeptide.View.Battle
         public void OnDirectorIdle()
         {
             RefreshCards();
+            _player.RefreshGauge(Controller.Engine);
             _endTurn.interactable = Controller.AcceptsInput;
             if (Controller.AwaitingChoice) _choice.Show(Controller.Engine.State.Choice, Controller.Engine, option => Controller.Choose(option));
             else if (_choice.IsOpen) _choice.Hide();
@@ -461,7 +502,7 @@ namespace Deeptide.View.Battle
             rt.anchoredPosition = from;
             rt.sizeDelta = new Vector2(d.magnitude, 10);
             rt.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
-            _arrow.color = target != null ? Palette.Bad : Palette.Accent;
+            _arrow.color = target != null ? Palette.Blood : Palette.Ink;
             _arrow.gameObject.SetActive(true);
         }
 
@@ -504,10 +545,17 @@ namespace Deeptide.View.Battle
             if (hold > 0) Tween.Alpha(_banner, 0, 0.3f, startDelay: hold);
         }
 
-        void Float(CombatantView view, string text, Color color)
+        /// <summary>飘字（10 §2.3）：数字用宋体，伤害加 2px 墨描边。</summary>
+        void Float(CombatantView view, string text, Color color, float size = 40, bool outline = false)
         {
-            var t = Ui.Text("Float", _floats, text, 40, color);
+            var t = Ui.Text("Float", _floats, text, size, color);
+            t.font = Fonts.Serif;
             t.fontStyle = FontStyles.Bold;
+            if (outline)
+            {
+                t.outlineWidth = 0.18f;
+                t.outlineColor = Palette.Ink;
+            }
             var rt = t.rectTransform;
             rt.sizeDelta = new Vector2(300, 60);
             rt.position = view.WorldTop;

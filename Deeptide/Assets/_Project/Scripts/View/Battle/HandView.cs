@@ -8,20 +8,22 @@ using UnityEngine.EventSystems;
 namespace Deeptide.View.Battle
 {
     /// <summary>
-    /// 手牌：扇形布局、悬停让位、拖拽出牌（策划/08 §9）。
+    /// 手牌：扇形布局、悬停让位、拖拽出牌（策划/08 §9）。卡牌尺寸按 策划/10 §4.1：手牌 240 × 336，悬停放大到 1.5 倍。
+    /// 悬停 / 拖动代价牌时让理智条预告要付的理智（10 §6.2）。
     /// 牌的增减只跟着 CardMoved 事件走；每批事件播完后再用 Sync 对一次内核状态，保证不会漂移。
     /// 坐标原点在屏幕底边中点（本节点 pivot = (0.5, 0)），单位是 1920×1080 参考分辨率。
     /// </summary>
     public sealed class HandView : MonoBehaviour
     {
         /// <summary>不需要目标的牌拖过这条线（离底边的高度）就打出。</summary>
-        public const float PlayLine = 330;
+        public const float PlayLine = 400;
+        public const float HoverScale = 1.5f;
 
         static readonly Vector2 DrawPilePos = new Vector2(-860, 80);
         static readonly Vector2 DiscardPilePos = new Vector2(860, 80);
         static readonly Vector2 ExhaustPilePos = new Vector2(860, 210);
-        static readonly Vector2 PlaySpot = new Vector2(0, 470);
-        static readonly Vector2 AimSpot = new Vector2(0, 330);
+        static readonly Vector2 PlaySpot = new Vector2(0, 540);
+        static readonly Vector2 AimSpot = new Vector2(0, 380);
 
         readonly List<CardView> _cards = new List<CardView>();
         readonly List<CardView> _playing = new List<CardView>();
@@ -66,7 +68,7 @@ namespace Deeptide.View.Battle
                 var view = Find(e.CardUid);
                 if (view == null) return 0;
                 _cards.Remove(view);
-                if (_hover == view) _hover = null;
+                if (_hover == view) SetHover(null);
                 if (e.To == PileKind.Play)
                 {
                     _playing.Add(view);
@@ -103,6 +105,7 @@ namespace Deeptide.View.Battle
             for (int i = _cards.Count - 1; i >= 0; i--)
             {
                 if (hand.Exists(c => c.Uid == _cards[i].Uid)) continue;
+                if (_hover == _cards[i]) _hover = null;
                 Destroy(_cards[i].gameObject);
                 _cards.RemoveAt(i);
             }
@@ -121,7 +124,7 @@ namespace Deeptide.View.Battle
         public void Layout(float duration = 0.18f)
         {
             int n = _cards.Count;
-            float spacing = n <= 1 ? 0 : Mathf.Min(165f, 1000f / (n - 1));
+            float spacing = n <= 1 ? 0 : Mathf.Min(185f, 1080f / (n - 1));
             int hover = _hover != null ? _cards.IndexOf(_hover) : -1;
 
             for (int i = 0; i < n; i++)
@@ -129,18 +132,19 @@ namespace Deeptide.View.Battle
                 var view = _cards[i];
                 if (view == _dragging) continue;
                 float off = i - (n - 1) / 2f;
-                var pos = new Vector2(off * spacing, 145 - off * off * 3.5f);
+                var pos = new Vector2(off * spacing, 165 - off * off * 3.5f);
                 float rot = -off * 3f;
                 float scale = 1f;
                 if (hover >= 0)
                 {
                     if (i == hover)
                     {
-                        pos.y = 205;
+                        // 放大后整张牌露出来：底边离屏幕底 10px
+                        pos.y = CardView.Size.y * HoverScale / 2 + 10;
                         rot = 0;
-                        scale = 1.3f;
+                        scale = HoverScale;
                     }
-                    else pos.x += Mathf.Sign(i - hover) * 45;
+                    else pos.x += Mathf.Sign(i - hover) * 70;
                 }
                 view.Rect.SetSiblingIndex(i);
                 MoveTo(view, pos, rot, scale, duration);
@@ -202,9 +206,25 @@ namespace Deeptide.View.Battle
         public void Hover(CardView view, bool on)
         {
             if (_dragging != null || !_cards.Contains(view)) return;
-            if (on) _hover = view;
-            else if (_hover == view) _hover = null;
+            if (on) SetHover(view);
+            else if (_hover == view) SetHover(null);
             Layout(0.12f);
+        }
+
+        /// <summary>悬停的牌：显示双面牌的另一面，理智条预告它的代价。</summary>
+        void SetHover(CardView view)
+        {
+            if (_hover != null && _hover != view) _hover.SetHover(false);
+            _hover = view;
+            if (view != null) view.SetHover(true);
+            PreviewCost(view);
+        }
+
+        void PreviewCost(CardView view)
+        {
+            var engine = _screen.Controller?.Engine;
+            var card = view != null && engine != null ? engine.FindCard(view.Uid) : null;
+            _screen.Player.PreviewCost(engine, card);
         }
 
         public void BeginDrag(CardView view, PointerEventData e)
@@ -219,8 +239,9 @@ namespace Deeptide.View.Battle
                 return;
             }
 
+            SetHover(null);
             _dragging = view;
-            _hover = null;
+            PreviewCost(view);
             _aiming = controller.Engine.FindCard(view.Uid).Def.Target == CardTarget.Enemy;
             view.Group.blocksRaycasts = false;
             view.Rect.SetAsLastSibling();
@@ -243,6 +264,7 @@ namespace Deeptide.View.Battle
             _dragging = null;
             view.Group.blocksRaycasts = true;
             _screen.StopAim();
+            PreviewCost(null);
 
             var controller = _screen.Controller;
             int index = controller.HandIndexOf(view.Uid);

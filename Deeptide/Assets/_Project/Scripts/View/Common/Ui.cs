@@ -101,63 +101,161 @@ namespace Deeptide.View
     }
 
     /// <summary>
-    /// 中文字体：灰盒阶段直接用系统字体动态生成 TMP 字体资源（AtlasPopulationMode.DynamicOS），
-    /// 字体文件不进仓库。正式版按 策划/10 换成思源宋体 / 思源黑体。
+    /// 中文字体：灰盒阶段直接用系统字体动态生成 TMP 字体资源（AtlasPopulationMode.DynamicOS），字体文件不进仓库。
+    /// 策划/10 §6.5：卡名、费用、数字、标题用宋体（Serif），正文用黑体（Main）。正式版换成随包的思源宋体 Heavy / 思源黑体 Medium。
     /// </summary>
     public static class Fonts
     {
-        static readonly string[] Candidates = { "Microsoft YaHei", "Microsoft YaHei UI", "SimHei", "Noto Sans CJK SC", "Source Han Sans SC", "PingFang SC" };
-        static TMP_FontAsset _main;
-        static bool _resolved;
+        static readonly (string Family, string Style)[] SansCandidates =
+        {
+            ("Microsoft YaHei", "Regular"), ("Microsoft YaHei UI", "Regular"), ("SimHei", "Regular"),
+            ("Noto Sans CJK SC", "Regular"), ("Source Han Sans SC", "Regular"), ("PingFang SC", "Regular"),
+        };
+        static readonly (string Family, string Style)[] SerifCandidates =
+        {
+            ("Noto Serif SC", "Bold"), ("Noto Serif SC", "Regular"), ("Source Han Serif SC", "Heavy"), ("Source Han Serif SC", "Bold"),
+            ("Noto Serif CJK SC", "Bold"), ("STSong", "Regular"), ("SimSun", "Regular"),
+        };
+        static TMP_FontAsset _main, _serif;
+        static bool _mainResolved, _serifResolved;
 
         public static TMP_FontAsset Main
         {
             get
             {
-                if (_resolved) return _main;
-                _resolved = true;
-                foreach (var family in Candidates)
+                if (_mainResolved) return _main;
+                _mainResolved = true;
+                _main = Find(SansCandidates);
+                if (_main == null)
                 {
-                    _main = TMP_FontAsset.CreateFontAsset(family, "Regular");
-                    if (_main != null) return _main;
+                    _main = TMP_Settings.defaultFontAsset;
+                    Debug.LogWarning("没有找到中文系统字体，中文会显示成方块");
                 }
-                _main = TMP_Settings.defaultFontAsset;
-                Debug.LogWarning("没有找到中文系统字体，中文会显示成方块");
                 return _main;
             }
         }
+
+        /// <summary>
+        /// 系统字体目录里按文件名找的宋体（思源宋体 / Noto Serif SC）。可变字体（NotoSerifSC-VF）按族名查不到，只能按文件加载。
+        /// </summary>
+        static readonly string[] SerifFiles =
+        {
+            "SourceHanSerifSC-Heavy.otf", "SourceHanSerifSC-Bold.otf", "NotoSerifSC-Bold.otf", "NotoSerifSC-VF.ttf", "NotoSerifSC-Regular.otf",
+        };
+
+        /// <summary>宋体；系统里没有时退回 Main。缺字（× − ◐ 等符号）落到 Main。</summary>
+        public static TMP_FontAsset Serif
+        {
+            get
+            {
+                if (_serifResolved) return _serif;
+                _serifResolved = true;
+                _serif = FromFile(SerifFiles) ?? Find(SerifCandidates);
+                if (_serif == null) return _serif = Main;
+                if (Main != null && Main != _serif) _serif.fallbackFontAssetTable = new System.Collections.Generic.List<TMP_FontAsset> { Main };
+                return _serif;
+            }
+        }
+
+        static TMP_FontAsset FromFile(string[] names)
+        {
+            var dirs = new[]
+            {
+                System.Environment.GetFolderPath(System.Environment.SpecialFolder.Fonts),
+                System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData), "Microsoft", "Windows", "Fonts"),
+            };
+            foreach (var name in names)
+            foreach (var dir in dirs)
+            {
+                if (string.IsNullOrEmpty(dir)) continue;
+                string path = System.IO.Path.Combine(dir, name);
+                if (!System.IO.File.Exists(path)) continue;
+                var asset = TMP_FontAsset.CreateFontAsset(path, 0, 90, 9, UnityEngine.TextCore.LowLevel.GlyphRenderMode.SDFAA, 2048, 2048);
+                if (asset != null) return asset;
+            }
+            return null;
+        }
+
+        static TMP_FontAsset Find((string Family, string Style)[] candidates)
+        {
+            foreach (var (family, style) in candidates)
+            {
+                var asset = TMP_FontAsset.CreateFontAsset(family, style);
+                if (asset != null) return asset;
+            }
+            return null;
+        }
     }
 
-    /// <summary>灰盒配色。强调色用深海青绿（策划/10），只给理智和癫狂相关的元素用。</summary>
+    /// <summary>
+    /// 策划/10 §2.1 色板。亮底 = 纸面（清醒态的卡、面板），暗底 = 深渊（癫狂面的卡、深色弹窗）。
+    /// 深渊青只给理智、癫狂和深海之物用；金 / 血 / 恐惧紫 / 苔绿只用于数字、小图标、徽记（10 §2.2）。
+    /// 上半部分是 10 的色板 token，下半部分是灰盒阶段留下的旧名字，映射到同一套色板。
+    /// </summary>
     public static class Palette
     {
-        public static readonly Color Background = new Color32(0x0E, 0x13, 0x17, 0xFF);
-        public static readonly Color Panel = new Color32(0x1C, 0x24, 0x2A, 0xFF);
-        public static readonly Color PanelLight = new Color32(0x2C, 0x36, 0x3D, 0xFF);
-        public static readonly Color Text = new Color32(0xE8, 0xE2, 0xD6, 0xFF);
-        public static readonly Color TextDim = new Color32(0x9A, 0x96, 0x8C, 0xFF);
-        public static readonly Color Accent = new Color32(0x2F, 0xB8, 0xA6, 0xFF);
-        public static readonly Color AccentDark = new Color32(0x15, 0x5E, 0x56, 0xFF);
-        /// <summary>癫狂段点亮时的发光青（策划/10 §6.2）。</summary>
-        public static readonly Color Lunacy = new Color32(0x6F, 0xF5, 0xE0, 0xFF);
-        /// <summary>癫狂段的底色（abyss）。</summary>
-        public static readonly Color Abyss = new Color32(0x08, 0x26, 0x24, 0xFF);
-        /// <summary>清明（gold）：理智条的清明段描边、卡面「清明：」句。</summary>
-        public static readonly Color Gold = new Color32(0xD8, 0xB4, 0x4A, 0xFF);
-        /// <summary>恐惧（dread）。</summary>
-        public static readonly Color Dread = new Color32(0x7A, 0x52, 0x9E, 0xFF);
+        // ---------------- 10 §2.1 色板
+        public static readonly Color Paper = new Color32(0xE8, 0xE0, 0xCC, 0xFF);
+        public static readonly Color PaperShade = new Color32(0xCF, 0xC6, 0xB0, 0xFF);
+        /// <summary>纸和纸影之间，按钮、格子底用。</summary>
+        public static readonly Color PaperMid = new Color32(0xDC, 0xD3, 0xBE, 0xFF);
+        public static readonly Color Ink = new Color32(0x1C, 0x1A, 0x17, 0xFF);
+        public static readonly Color InkMid = new Color32(0x4A, 0x45, 0x3C, 0xFF);
+        /// <summary>深渊底（屏幕、理智条的癫狂段）。</summary>
+        public static readonly Color Abyss = new Color32(0x0F, 0x1B, 0x1B, 0xFF);
+        /// <summary>深渊底（癫狂面的卡面）。</summary>
+        public static readonly Color AbyssCard = new Color32(0x13, 0x24, 0x23, 0xFF);
+        /// <summary>月白：暗底上的正文。</summary>
+        public static readonly Color Pale = new Color32(0xD8, 0xE4, 0xDF, 0xFF);
+        /// <summary>深渊青（亮底）。</summary>
+        public static readonly Color Teal = new Color32(0x1A, 0x61, 0x5E, 0xFF);
+        /// <summary>深渊青（暗底的发光色）：理智条癫狂段点亮、癫狂面的线条。</summary>
+        public static readonly Color Lunacy = new Color32(0x4F, 0xC2, 0xB0, 0xFF);
+        /// <summary>清明金（亮底）：清明段描边、卡面「清明：」句、理智恢复、守夜徽记。</summary>
+        public static readonly Color Gold = new Color32(0x7D, 0x59, 0x14, 0xFF);
+        public static readonly Color GoldLight = new Color32(0xD9, 0xA8, 0x4A, 0xFF);
+        /// <summary>血：生命、伤害、堕落徽记。</summary>
+        public static readonly Color Blood = new Color32(0x8E, 0x2A, 0x2A, 0xFF);
+        public static readonly Color BloodLight = new Color32(0xE0, 0x73, 0x6A, 0xFF);
+        /// <summary>恐惧紫：恐惧、意志、传染徽记。</summary>
+        public static readonly Color Dread = new Color32(0x5B, 0x4A, 0x6E, 0xFF);
+        public static readonly Color DreadLight = new Color32(0xA8, 0x98, 0xC0, 0xFF);
+        /// <summary>苔绿：只用于被增益修正过的卡面数字。</summary>
+        public static readonly Color Moss = new Color32(0x3D, 0x6B, 0x2E, 0xFF);
+        public static readonly Color MossLight = new Color32(0x8F, 0xC2, 0x7A, 0xFF);
 
-        public static readonly Color Hp = new Color32(0xB0, 0x3A, 0x2E, 0xFF);
-        public static readonly Color HpBack = new Color32(0x3A, 0x1A, 0x17, 0xFF);
-        public static readonly Color Block = new Color32(0x4F, 0x7C, 0xB8, 0xFF);
-        public static readonly Color Energy = new Color32(0xD9, 0xA4, 0x41, 0xFF);
-        public static readonly Color Heal = new Color32(0x6B, 0xC0, 0x6B, 0xFF);
-        public static readonly Color Bad = new Color32(0xE0, 0x55, 0x48, 0xFF);
+        /// <summary>流派色（10 §4.2）：守夜 = 金，堕落 = 血，传染 = 紫，其余淡墨。</summary>
+        public static Color Faction(string archetype, bool dark = false)
+        {
+            switch (archetype)
+            {
+                case "守夜": return dark ? GoldLight : Gold;
+                case "堕落": return dark ? BloodLight : Blood;
+                case "传染": return dark ? DreadLight : Dread;
+                default: return dark ? Pale : InkMid;
+            }
+        }
 
-        public static readonly Color Attack = new Color32(0x6E, 0x2B, 0x26, 0xFF);
-        public static readonly Color Skill = new Color32(0x2A, 0x45, 0x5C, 0xFF);
-        public static readonly Color Power = new Color32(0x6A, 0x56, 0x24, 0xFF);
-        public static readonly Color Curse = new Color32(0x3A, 0x2A, 0x45, 0xFF);
-        public static readonly Color Status = new Color32(0x44, 0x44, 0x44, 0xFF);
+        // ---------------- 旧名字（灰盒第一步），映射到上面的色板
+        public static readonly Color Background = Paper;
+        public static readonly Color Panel = PaperShade;
+        public static readonly Color PanelLight = PaperMid;
+        public static readonly Color Text = Ink;
+        public static readonly Color TextDim = InkMid;
+        public static readonly Color Accent = Teal;
+        public static readonly Color AccentDark = AbyssCard;
+
+        public static readonly Color Hp = Blood;
+        public static readonly Color HpBack = new Color32(0xD8, 0xC9, 0xB6, 0xFF);
+        public static readonly Color Block = Ink;
+        public static readonly Color Energy = Ink;
+        public static readonly Color Heal = Moss;
+        public static readonly Color Bad = Blood;
+
+        public static readonly Color Attack = Blood;
+        public static readonly Color Skill = InkMid;
+        public static readonly Color Power = Gold;
+        public static readonly Color Curse = Dread;
+        public static readonly Color Status = InkMid;
     }
 }
