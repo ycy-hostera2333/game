@@ -34,6 +34,8 @@ namespace Deeptide.View.Battle
         public bool PreviewVisible => _preview != null && _previewRoot.gameObject.activeSelf;
         /// <summary>当前卡面正文（富文本，测试用）。</summary>
         public string FaceText => _face.Text;
+        /// <summary>插图窗里是不是正式卡图（而不是灰盒首字，测试用）。</summary>
+        public bool ShowsArt => _face.HasArt;
 
         HandView _hand;
         CardFace _face, _preview;
@@ -317,13 +319,14 @@ namespace Deeptide.View.Battle
         RectTransform _root;
         Image _fill, _outer, _inner, _strip, _seal, _banner, _bannerBack, _orb, _orbRing, _badge, _badgeRing, _badgeHalf;
         Image _window, _windowLine, _windowDash;
-        RawImage _hatch;
+        RawImage _hatch, _art;
         TextMeshProUGUI _cost, _name, _glyph, _type, _text, _id;
         readonly List<Image> _rivets = new List<Image>();
         readonly List<Image> _barnacles = new List<Image>();
         WindowShape _shape = (WindowShape)(-1);
 
         public string Text => _text.text;
+        public bool HasArt => _art.gameObject.activeSelf;
 
         public static CardFace Create(Transform parent, float scale)
         {
@@ -405,6 +408,12 @@ namespace Deeptide.View.Battle
             _hatch = Ui.Rect("Hatch", _window.transform).Fill().gameObject.AddComponent<RawImage>();
             _hatch.texture = Shapes.HatchTexture;
             _hatch.raycastTarget = false;
+            // 正式卡图（11 §3）：始终按 624 × 432 摆在窗心，圆窗（能力牌）由遮罩裁掉两边
+            _art = Ui.Rect("Art", _window.transform).gameObject.AddComponent<RawImage>();
+            _art.rectTransform.anchorMin = _art.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            _art.rectTransform.sizeDelta = new Vector2(CardArt.Width, CardArt.Height);
+            _art.raycastTarget = false;
+            _art.gameObject.SetActive(false);
             _glyph = Ui.Text("Glyph", _window.transform, "", 260, Palette.Gold);
             _glyph.font = Fonts.Serif;
             _glyph.fontStyle = FontStyles.Bold;
@@ -516,6 +525,17 @@ namespace Deeptide.View.Battle
             _hatch.color = mad ? new Color(Palette.Lunacy.r, Palette.Lunacy.g, Palette.Lunacy.b, 0.14f) : new Color(Palette.PaperShade.r, Palette.PaperShade.g, Palette.PaperShade.b, 0.9f);
             _glyph.text = d.Glyph;
             _glyph.color = mad ? Palette.Lunacy : new Color(faction.r, faction.g, faction.b, 0.85f);
+
+            // 有卡图就换掉灰盒（斜排线 + 首字）；清醒面和癫狂面各用一套材质（CardArt.For）
+            var art = ArtDatabase.Card(d.Id);
+            _art.gameObject.SetActive(art != null);
+            _hatch.gameObject.SetActive(art == null);
+            _glyph.gameObject.SetActive(art == null);
+            if (art != null)
+            {
+                _art.texture = art;
+                _art.material = CardArt.For(mad);
+            }
             _windowLine.gameObject.SetActive(!status);
             _windowDash.gameObject.SetActive(status);
             _windowLine.color = mad ? Palette.Lunacy : Palette.Ink;

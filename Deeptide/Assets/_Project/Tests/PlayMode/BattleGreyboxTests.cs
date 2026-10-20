@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Deeptide.Core;
 using Deeptide.Core.Enemies;
+using Deeptide.View;
 using Deeptide.View.Battle;
 using NUnit.Framework;
 using UnityEngine;
@@ -220,6 +221,90 @@ namespace Deeptide.View.Tests
             Assert.Greater(LunacyFx.Instance.Tide, 0.9f, "潮位满了，水面应该漫上来");
             yield return Shot("08_boss_tide");
         }
+
+        /// <summary>
+        /// 卡图接入（策划/11 §3）：分层图按 CardArt.Pack 打包、登记进 ArtDatabase 后，这张牌的插图窗换成卡图，其他牌保持灰盒；
+        /// 进入癫狂后同一张图换成癫狂面的配色并显现癫狂层。测试图是程序化画的，不进仓库。
+        /// </summary>
+        [UnityTest]
+        public IEnumerator PackedArtReplacesGreybox()
+        {
+            ArtDatabase.SetOverride("C06", TestArt());
+            try
+            {
+                _boot.Deck = new[] { "C06", "C06", "C06", "C06", "C06", "C06", "B01", "B01", "B02", "B02" };
+                _boot.Enemies = new[] { "acolyte" };
+                _boot.Launch(new BattleLaunch { Seed = 7, Potions = { "hallucinogen" } });
+                yield return null;
+                _screen = _boot.Screen;
+                _screen.Director.Speed = 6;
+                yield return WaitIdle();
+
+                var blade = _screen.Hand.Cards.FirstOrDefault(v => v.CardId == "C06");
+                Assert.IsNotNull(blade, "种子 7 的起手应该有梦魇之刃");
+                Assert.IsTrue(blade.ShowsArt, "登记了卡图的牌显示卡图");
+                var plain = _screen.Hand.Cards.FirstOrDefault(v => v.CardId != "C06");
+                if (plain != null) Assert.IsFalse(plain.ShowsArt, "没有卡图的牌保持灰盒");
+                _screen.Hand.Hover(blade, true);
+                yield return Shot("09_card_art_sane");
+                _screen.Hand.Hover(blade, false);
+
+                // 迷幻剂：理智设为 4，直接进入癫狂
+                Assert.IsTrue(_screen.Controller.UsePotion(0));
+                yield return WaitIdle();
+                Assert.IsTrue(Engine.Player.IsLunatic);
+                blade = _screen.Hand.Cards.First(v => v.CardId == "C06");
+                Assert.IsTrue(blade.ShowsMadFace && blade.ShowsArt, "癫狂面也用卡图");
+                _screen.Hand.Hover(blade, true);
+                yield return Shot("10_card_art_mad");
+                _screen.Hand.Hover(blade, false);
+            }
+            finally
+            {
+                ArtDatabase.ClearOverrides();
+            }
+        }
+
+        /// <summary>程序化的测试卡图（半尺寸 312 × 216）：墨层是刀和排线，深渊遮罩是一只眼，癫狂层是刀背上的一排牙。</summary>
+        static Texture2D TestArt()
+        {
+            const int w = CardArt.Width / 2, h = CardArt.Height / 2;
+            var ink = new Color32[w * h];
+            var abyss = new Color32[w * h];
+            var mad = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                int i = y * w + x;
+                // 刀：从左下到右上的一条粗线，刀柄更粗；背景是稀疏的斜排线
+                float blade = Segment(x, y, 70, 40, 250, 170) - 9;
+                float handle = Segment(x, y, 40, 18, 72, 42) - 14;
+                float hatch = Mathf.Abs(Mathf.Repeat(x - y, 14f) - 7f) - 5.6f;
+                float c = Mathf.Max(Cov(Mathf.Min(blade, handle)), Cov(hatch) * 0.55f);
+                ink[i] = new Color32(0, 0, 0, Byte(c));
+                abyss[i] = new Color32(0, 0, 0, Byte(Cov(Mathf.Sqrt((x - 250f) * (x - 250f) + (y - 60f) * (y - 60f)) - 12)));
+                // 牙：沿刀背每隔 18px 一颗
+                float teeth = 99;
+                for (int k = 0; k < 9; k++)
+                {
+                    float t = (k + 0.5f) / 9f;
+                    float tx = Mathf.Lerp(70, 250, t) - 10, ty = Mathf.Lerp(40, 170, t) + 14;
+                    teeth = Mathf.Min(teeth, Mathf.Sqrt((x - tx) * (x - tx) + (y - ty) * (y - ty)) - 5);
+                }
+                mad[i] = new Color32(0, 0, 0, Byte(Cov(teeth)));
+            }
+            return CardArt.ToTexture(CardArt.Pack(ink, abyss, mad, null), w, h, "test_C06");
+        }
+
+        static float Segment(float x, float y, float ax, float ay, float bx, float by)
+        {
+            float px = x - ax, py = y - ay, dx = bx - ax, dy = by - ay;
+            float t = Mathf.Clamp01((px * dx + py * dy) / (dx * dx + dy * dy));
+            return Mathf.Sqrt((px - dx * t) * (px - dx * t) + (py - dy * t) * (py - dy * t));
+        }
+
+        static float Cov(float d) => Mathf.Clamp01(0.5f - d);
+        static byte Byte(float v) => (byte)Mathf.RoundToInt(Mathf.Clamp01(v) * 255);
 
         IEnumerator WaitIdle(float timeout = 30)
         {
