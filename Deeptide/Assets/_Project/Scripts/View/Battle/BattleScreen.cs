@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using System.Linq;
 using Deeptide.Core;
 using Deeptide.Core.Cards;
+using Deeptide.Core.Enemies;
 using PrimeTween;
 using TMPro;
 using UnityEngine;
@@ -11,7 +13,7 @@ namespace Deeptide.View.Battle
 {
     /// <summary>
     /// 灰盒战斗界面：搭布局、把每条事件分发给对应的视图、播完一批后和内核对账。布局按 策划/10 §6.1（1920 × 1080，地平线 y = 440）。
-    /// 层级从下到上：背景 → 背景癫狂层 → 战场（角色）→ 癫狂暗角 → 顶栏 / 手牌 / 飘字 / 面板 → 崩溃反相。
+    /// 层级从下到上：背景 → 背景癫狂层 → 战场（角色）→ 癫狂暗角 / 潮水 / 强光 → 能量 / 牌堆 / 结束回合 → 顶栏 / 手牌 / 飘字 / 面板 → 崩溃反相。
     /// 癫狂效果只作用在暗角以下的舞台层，卡牌和数字不受影响（10 §1.2 支柱 4，实现见 LunacyFx）。
     /// </summary>
     public sealed class BattleScreen : MonoBehaviour
@@ -97,8 +99,10 @@ namespace Deeptide.View.Battle
             // 敌人区 x = -60..860（10 §6.1、§5.1）
             _enemyRow = Ui.Rect("Enemies", field).Place(new Vector2(0.5f, 0), new Vector2(400, 600), new Vector2(920, 470));
 
-            // 底部：能量、牌堆、结束回合
-            var orb = Ui.Box("Energy", field, Palette.Energy);
+            // 底部：能量、牌堆、结束回合。它们是数字和按钮，属于 UI 层，搭好后挪到癫狂效果层之上（10 §1.2 支柱 4）
+            var controls = Ui.Rect("Controls", _root).Fill();
+            controls.pivot = new Vector2(0.5f, 0);
+            var orb = Ui.Box("Energy", controls, Palette.Energy);
             orb.sprite = Shapes.Circle;
             orb.rectTransform.Place(new Vector2(0.5f, 0), new Vector2(-760, 300), new Vector2(110, 110));
             var orbRing = Ui.Box("Ring", orb.transform, Palette.GoldLight);
@@ -108,10 +112,10 @@ namespace Deeptide.View.Battle
             _energyText.font = Fonts.Serif;
             _energyText.fontStyle = FontStyles.Bold;
             _energyText.rectTransform.Fill();
-            _drawText = PileLabel(field, "Draw", new Vector2(-860, 80));
-            _discardText = PileLabel(field, "Discard", new Vector2(860, 80));
-            _exhaustText = PileLabel(field, "Exhaust", new Vector2(860, 210));
-            _endTurn = Ui.TextButton("EndTurn", field, "结束回合", Palette.PanelLight, () => Controller.EndTurn());
+            _drawText = PileLabel(controls, "Draw", new Vector2(-860, 80));
+            _discardText = PileLabel(controls, "Discard", new Vector2(860, 80));
+            _exhaustText = PileLabel(controls, "Exhaust", new Vector2(860, 210));
+            _endTurn = Ui.TextButton("EndTurn", controls, "结束回合", Palette.PanelLight, () => Controller.EndTurn());
             var endTurnBg = (Image)_endTurn.targetGraphic;
             endTurnBg.sprite = Shapes.RoundRect(14);
             endTurnBg.type = Image.Type.Sliced;
@@ -126,6 +130,8 @@ namespace Deeptide.View.Battle
             _fx.BuildBackdrop(backdrop);
             _fx.SetBackground(background);
             _fx.AddShakeTarget(field);
+            controls.SetAsLastSibling();
+            _fx.AddShakeTarget(controls);
 
             // 顶部：顶栏（生命、药水、遗物、回合、选择对局 / 重开），日志框挪到顶栏下面
             // 日志是调试用的，默认收起，点顶栏「日志」展开（阶段 2 验收要求不看日志也能打完一场）
@@ -283,6 +289,21 @@ namespace Deeptide.View.Battle
                     return 0.6f;
 
                 case BattleEventType.StatusChanged:
+                {
+                    // 10 §2.3：施加状态时淡墨飘字（心防用深渊青）；层数减少（回合衰减、被消耗）不飘
+                    var view = e.Entity == BattleEvent.PlayerEntity || (e.Entity >= 0 && e.Entity < _enemies.Count) ? ViewOf(e.Entity) : null;
+                    if (view != null && e.Value > view.StatusAmount(e.Status))
+                        Float(view, $"+{e.Value - view.StatusAmount(e.Status)} {StatusSet.NameOf(e.Status)}",
+                            e.Status == StatusId.Ward ? Palette.Teal : Palette.InkMid, 28);
+                    RefreshStatuses();
+                    return 0;
+                }
+
+                case BattleEventType.CounterChanged:
+                    if (e.Entity >= 0 && e.Entity < _enemies.Count) _enemies[e.Entity].SetStatuses(engine.State.Enemies[e.Entity]);
+                    RefreshBossFx();
+                    return 0;
+
                 case BattleEventType.StunChanged:
                 case BattleEventType.PowerChanged:
                     RefreshStatuses();
@@ -292,6 +313,8 @@ namespace Deeptide.View.Battle
                     _started = true;
                     _topBar.SetTurn(e.Value);
                     ShowBanner($"第 {e.Value} 回合", 0.7f);
+                    // 灯塔守望者的刺目强光：每回合开始过曝一下（10 §7.3）
+                    if (_fx != null && engine.State.AliveEnemies.Any(en => en.Def.Id == EnemyIds.Lighthouse)) _fx.Glare();
                     return 0.45f;
 
                 case BattleEventType.EnemyMove:
@@ -378,7 +401,23 @@ namespace Deeptide.View.Battle
                 view.SetIntent(engine);
             }
             RefreshStatuses();
+            RefreshBossFx();
             _hand.Sync(engine);
+        }
+
+        /// <summary>Boss 的全屏效果（10 §7.3）：潮位满了漫潮水，第二阶段深海之歌让背景癫狂层常驻。</summary>
+        void RefreshBossFx()
+        {
+            if (_fx == null) return;
+            bool full = false, song = false;
+            foreach (var en in Controller.Engine.State.AliveEnemies)
+            {
+                if (en.Counters.ContainsKey(DrownedPriest.Tide) && en.Def.Vars.TryGetValue("TideMax", out int max) && en.Counter(DrownedPriest.Tide) >= max)
+                    full = true;
+                if (en.Def.Id == EnemyIds.Priest && en.Counter(DrownedPriest.Phase) == 2) song = true;
+            }
+            _fx.SetTide(full);
+            _fx.SetSong(song);
         }
 
         public void OnDirectorIdle()

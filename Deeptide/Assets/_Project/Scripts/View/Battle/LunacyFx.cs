@@ -24,17 +24,23 @@ namespace Deeptide.View.Battle
         /// <summary>当前（补间中的）癫狂强度，0 = 清醒。</summary>
         public static float Current => Instance != null ? Instance._current : 0;
 
-        /// <summary>设置里的「降低癫狂特效」（10 §7.4）：强度 × 0.3，关掉波纹和崩溃反相。</summary>
+        const string ReducedPref = "Deeptide.ReduceLunacyFx";
+
+        /// <summary>设置里的「降低癫狂特效」（10 §7.4）：强度 × 0.3，关掉波纹和崩溃反相。记在 PlayerPrefs 里。</summary>
         public static bool Reduced
         {
             get => _reduced;
             set
             {
                 _reduced = value;
+                PlayerPrefs.SetInt(ReducedPref, value ? 1 : 0);
                 Shader.SetGlobalFloat(ReduceId, value ? 1 : 0);
             }
         }
         static bool _reduced;
+
+        /// <summary>Boss 潮位满时水面漫上来的高度（参考分辨率，约占屏幕 22%：盖过手牌的边缘，停在角色血条下面）。</summary>
+        const float TideHeight = 240;
 
         float _current, _target, _pulse;
         bool _clarity;
@@ -44,6 +50,10 @@ namespace Deeptide.View.Battle
         readonly List<float> _shadowRot = new List<float>();
         readonly List<RectTransform> _shakeTargets = new List<RectTransform>();
         readonly List<Vector2> _shakeHome = new List<Vector2>();
+        Image _glare, _waterFill, _wave;
+        RectTransform _water;
+        float _tide, _tideTarget;
+        bool _song;
 
         /// <summary>
         /// 理智 → 强度（10 §7.2）：理智高于癫狂线为 0；癫狂线上 0.4，每低 1 点 +0.15（4 → 0.4，3 → 0.55，2 → 0.7，1 → 0.85）。
@@ -62,6 +72,7 @@ namespace Deeptide.View.Battle
             var rt = Ui.Rect("LunacyFx", parent).Fill();
             var fx = rt.gameObject.AddComponent<LunacyFx>();
             Instance = fx;
+            _reduced = PlayerPrefs.GetInt(ReducedPref, 0) == 1;
             Shader.SetGlobalFloat(LunacyId, 0);
             Shader.SetGlobalFloat(ReduceId, _reduced ? 1 : 0);
 
@@ -80,7 +91,50 @@ namespace Deeptide.View.Battle
                 Debug.LogWarning("找不到着色器 Deeptide/UI/InkVignette，癫狂暗角不显示");
                 fx._vignette.enabled = false;
             }
+
+            // 潮水（10 §7.3）：Boss 潮位满时从屏幕底部漫上来，直到大潮结算
+            fx._water = Ui.Rect("Tide", rt);
+            fx._water.anchorMin = Vector2.zero;
+            fx._water.anchorMax = new Vector2(1, 0);
+            fx._water.pivot = new Vector2(0.5f, 0);
+            fx._water.sizeDelta = Vector2.zero;
+            fx._waterFill = Ui.Box("Water", fx._water, new Color(Palette.Teal.r, Palette.Teal.g, Palette.Teal.b, 0.3f));
+            fx._waterFill.rectTransform.Fill();
+            fx._wave = Ui.Box("Wave", fx._water, new Color(Palette.Teal.r, Palette.Teal.g, Palette.Teal.b, 0.45f));
+            fx._wave.sprite = Shapes.Wave;
+            fx._wave.type = Image.Type.Tiled;
+            var wave = fx._wave.rectTransform;
+            wave.anchorMin = new Vector2(0, 1);
+            wave.anchorMax = new Vector2(1, 1);
+            wave.pivot = new Vector2(0.5f, 0);
+            wave.offsetMin = new Vector2(-64, 0);
+            wave.offsetMax = new Vector2(64, 24);
+            fx._water.gameObject.SetActive(false);
+
+            // 刺目强光（10 §7.3）：回合开始时纸色过曝，和癫狂的「变暗」方向相反
+            fx._glare = Ui.Box("Glare", rt, new Color(1, 1, 1, 0));
+            fx._glare.rectTransform.Fill();
+            fx._glare.gameObject.SetActive(false);
             return fx;
+        }
+
+        /// <summary>Boss 潮位满了（水面漫上来）或者退了。</summary>
+        public void SetTide(bool full) => _tideTarget = full ? 1 : 0;
+
+        /// <summary>深海之歌（Boss 第二阶段）：背景癫狂层至少显现一半，不受理智影响。</summary>
+        public void SetSong(bool on) => _song = on;
+
+        /// <summary>当前潮水高度（测试用，0–1）。</summary>
+        public float Tide => _tide;
+
+        /// <summary>灯塔守望者的刺目强光：0.3 秒过曝。</summary>
+        public void Glare()
+        {
+            if (_glare == null) return;
+            _glare.gameObject.SetActive(true);
+            Tween.StopAll(_glare);
+            Tween.Alpha(_glare, _reduced ? 0.2f : 0.6f, 0, 0.3f, Ease.OutQuad)
+                .OnComplete(_glare, g => g.gameObject.SetActive(false), warnIfTargetDestroyed: false);
         }
 
         /// <summary>背景癫狂层：几条只在癫狂时显现的触须影子（10 §1.2 支柱 3），放在背景之上、角色之下。</summary>
@@ -172,6 +226,7 @@ namespace Deeptide.View.Battle
         {
             _current = Mathf.MoveTowards(_current, _target, Time.deltaTime * 1.2f);
             _pulse = Mathf.MoveTowards(_pulse, 0, Time.deltaTime / 0.6f);
+            _tide = Mathf.MoveTowards(_tide, _tideTarget, Time.deltaTime * 1.5f);
             Apply();
         }
 
@@ -191,7 +246,9 @@ namespace Deeptide.View.Battle
                 if (rect.height > 0) _vignetteMat.SetFloat(AspectId, rect.width / rect.height);
             }
 
-            float shadowAlpha = Mathf.Clamp01((_current - 0.3f) / 0.55f) * 0.2f * (_reduced ? 0.5f : 1f);
+            float shadowAlpha = Mathf.Clamp01((_current - 0.3f) / 0.55f) * 0.2f;
+            if (_song) shadowAlpha = Mathf.Max(shadowAlpha, 0.1f);
+            if (_reduced) shadowAlpha *= 0.5f;
             float sway = _current >= 0.84f && !_reduced ? Mathf.Sin(Time.time * 0.7f) * 3f : 0;
             for (int i = 0; i < _shadows.Count; i++)
             {
@@ -199,6 +256,16 @@ namespace Deeptide.View.Battle
                 c.a = shadowAlpha;
                 _shadows[i].color = c;
                 _shadows[i].rectTransform.localRotation = Quaternion.Euler(0, 0, _shadowRot[i] + sway * (i % 2 == 0 ? 1 : -1));
+            }
+
+            if (_water != null)
+            {
+                _water.gameObject.SetActive(_tide > 0.001f);
+                float bob = _reduced ? 0 : Mathf.Sin(Time.time * 1.3f) * 6;
+                _water.sizeDelta = new Vector2(0, Mathf.Max(0, TideHeight * _tide + bob * _tide));
+                // 波纹向左流动：上沿每 64px 一个波，平移量取模
+                float shift = _reduced ? 0 : Mathf.Repeat(Time.time * 40, 64);
+                _wave.rectTransform.anchoredPosition = new Vector2(-shift, 0);
             }
 
             if (_background != null)

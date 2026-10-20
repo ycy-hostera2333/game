@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Deeptide.Core;
+using Deeptide.Core.Enemies;
 using Deeptide.View.Battle;
 using NUnit.Framework;
 using UnityEngine;
@@ -198,6 +199,26 @@ namespace Deeptide.View.Tests
             }
             Assert.IsTrue(checkedLunacy, "这套牌第 1 回合应该能打进癫狂");
             Assert.IsTrue(collapsed, "这套牌第 1 回合应该能打到崩溃");
+        }
+
+        /// <summary>Boss 的全屏效果（策划/10 §7.3）：潮位满了水面从底部漫上来；第二阶段深海之歌。顺带截一张 Boss 第二阶段的图。</summary>
+        [UnityTest]
+        public IEnumerator BossTideFloodsTheScreen()
+        {
+            _boot.Launch(new BattleLaunch { Encounter = "boss_priest", Seed = 3 });
+            yield return null;
+            _screen = _boot.Screen;
+            _screen.Director.Speed = 6;
+            yield return WaitIdle();
+            var boss = Engine.State.Enemies.First(en => en.Def.Id == EnemyIds.Priest);
+            Assert.AreEqual(0f, LunacyFx.Instance.Tide, 0.001f, "开场潮位 0，没有潮水");
+
+            Engine.SetCounter(boss, DrownedPriest.Tide, boss.Def.Vars["TideMax"]);
+            Engine.SetCounter(boss, DrownedPriest.Phase, 2);
+            _screen.SyncAll();
+            yield return new WaitForSeconds(1f);
+            Assert.Greater(LunacyFx.Instance.Tide, 0.9f, "潮位满了，水面应该漫上来");
+            yield return Shot("08_boss_tide");
         }
 
         IEnumerator WaitIdle(float timeout = 30)

@@ -19,7 +19,7 @@ namespace Deeptide.View.Battle
     {
         public const float Height = 64;
         const float SlotSize = 50, RelicSize = 46;
-        const float RelicsLeft = -420, RelicsRight = 300;
+        const float RelicsLeft = -420, RelicsRight = 250;
 
         TextMeshProUGUI _hp, _turn;
         RectTransform _relicRow;
@@ -51,20 +51,33 @@ namespace Deeptide.View.Battle
             bar._relicRow = Ui.Rect("Relics", rt).Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(0, Height));
 
             bar._turn = Ui.Text("Turn", rt, "", 28, Palette.Text);
-            bar._turn.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(420, 0), new Vector2(170, 50));
+            bar._turn.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(335, 0), new Vector2(150, 50));
 
-            Button(rt, "日志", new Vector2(580, 0), new Vector2(100, 50), toggleLog);
+            // 「降低癫狂特效」（策划/10 §7.4）：设置界面还没有，先放在顶栏，选择记在 PlayerPrefs 里
+            TextMeshProUGUI fxLabel = null;
+            fxLabel = Button(rt, FxLabel(), new Vector2(470, 0), new Vector2(130, 50), () =>
+            {
+                LunacyFx.Reduced = !LunacyFx.Reduced;
+                fxLabel.text = FxLabel();
+            });
+            TooltipTrigger.Add(fxLabel.transform.parent.GetComponent<Image>(), () => "降低癫狂特效：暗角、色差强度 × 0.3，关掉波纹和崩溃时的反相闪烁");
+
+            Button(rt, "日志", new Vector2(590, 0), new Vector2(90, 50), toggleLog);
             Button(rt, "选择对局", new Vector2(720, 0), new Vector2(160, 50), openLauncher);
             Button(rt, "重开", new Vector2(870, 0), new Vector2(110, 50), restart);
             return bar;
         }
 
-        static void Button(Transform parent, string label, Vector2 pos, Vector2 size, Action click)
+        static TextMeshProUGUI Button(Transform parent, string label, Vector2 pos, Vector2 size, Action click)
         {
             var btn = Ui.TextButton(label, parent, label, Palette.PanelLight, () => click?.Invoke());
             btn.GetComponent<RectTransform>().Place(new Vector2(0.5f, 0.5f), pos, size);
-            btn.GetComponentInChildren<TextMeshProUGUI>().fontSize = 24;
+            var text = btn.GetComponentInChildren<TextMeshProUGUI>();
+            text.fontSize = 24;
+            return text;
         }
+
+        static string FxLabel() => LunacyFx.Reduced ? "特效：减弱" : "特效：标准";
 
         /// <summary>开场时按内核建药水栏和遗物栏。</summary>
         public void Bind(BattleEngine engine)

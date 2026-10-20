@@ -9,12 +9,12 @@ namespace Deeptide.View.Battle
 {
     /// <summary>
     /// 战斗中的选择（策划/09 M1.1）：查阅资料弃牌、禁书残页三选一、心灵之锚二选一等。
-    /// 选项对应一张牌时（ChoiceOption.CardUid / CardId）画成卡牌，否则画成文字按钮。
-    /// 卡牌用的是简化卡面（名字、费用、类型、正文），等 CardView 有了展示模式再换成正式卡面。
+    /// 选项对应一张牌时（ChoiceOption.CardUid / CardId）画成卡牌（和手牌同一套 CardFace，策划/10 §4），否则画成文字按钮。
     /// </summary>
     public sealed class ChoicePanel : MonoBehaviour
     {
-        static readonly Vector2 CardSize = new Vector2(200, 280);
+        /// <summary>选择面板里的卡最大比手牌大一号（手牌 240 × 336 的 1.25 倍）；选项多时按屏幕宽度缩小，保证不重叠。</summary>
+        const float MaxCardWidth = 300, RowWidth = 1760, CardGap = 16;
 
         RectTransform _root;
         Action<int> _choose;
@@ -46,6 +46,11 @@ namespace Deeptide.View.Battle
             int n = choice.Options.Count;
             OptionCount = n;
             CardOptions = 0;
+            int cards = 0;
+            foreach (var option in choice.Options)
+                if (CardOf(option, engine) != null) cards++;
+            float w = Mathf.Min(MaxCardWidth, (RowWidth - (cards - 1) * CardGap) / Mathf.Max(1, cards));
+            var size = new Vector2(w, w * CardFace.H / CardFace.W);
             for (int i = 0; i < n; i++)
             {
                 int index = i;
@@ -55,12 +60,12 @@ namespace Deeptide.View.Battle
                 if (card != null)
                 {
                     CardOptions++;
-                    float x = (i - (n - 1) / 2f) * Mathf.Min(240, 1600f / Mathf.Max(1, n - 1));
-                    MiniCard(card, engine, new Vector2(x, 40), click);
+                    float x = (i - (n - 1) / 2f) * (w + CardGap);
+                    CardOption(card, engine, new Vector2(x, 20), size, click);
                     if (option.Label != card.Name)
                     {
                         var label = Ui.Text($"Label {i}", _root, option.Label, 22, Color.white);
-                        label.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(x, -130), new Vector2(230, 60));
+                        label.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(x, 20 - size.y / 2 - 30), new Vector2(w, 50));
                     }
                 }
                 else
@@ -88,45 +93,19 @@ namespace Deeptide.View.Battle
             return CardLibrary.Create(option.CardId.TrimEnd('+'), 0);
         }
 
-        void MiniCard(Card card, BattleEngine engine, Vector2 pos, Action click)
+        /// <summary>一张可点的卡：透明的点击区 + 正式卡面。战斗中的牌按当前生效的那一面画，发现出来的新牌（不在战斗里）画清醒面。</summary>
+        void CardOption(Card card, BattleEngine engine, Vector2 pos, Vector2 size, Action click)
         {
-            var frame = Ui.Box($"Card {card.Id}", _root, Palette.PanelLight, true);
-            frame.rectTransform.Place(new Vector2(0.5f, 0.5f), pos, CardSize);
-            var btn = frame.gameObject.AddComponent<Button>();
-            btn.targetGraphic = frame;
+            var hit = Ui.Box($"Card {card.Id}", _root, new Color(0, 0, 0, 0), true);
+            hit.rectTransform.Place(new Vector2(0.5f, 0.5f), pos, size);
+            var btn = hit.gameObject.AddComponent<Button>();
+            btn.targetGraphic = hit;
             btn.onClick.AddListener(() => click());
-
-            var body = Ui.Box("Body", frame.transform, Palette.Panel);
-            body.rectTransform.Fill(5);
-            var name = Ui.Text("Name", body.transform, card.Name, 24, Palette.Text);
-            name.fontStyle = FontStyles.Bold;
-            name.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(12, -28), new Vector2(150, 34));
 
             bool inBattle = card.Uid != 0;
             bool mad = inBattle && engine.UsesMadFace(card);
-            string type = TypeName(card.Def.Type) + (card.Def.Dual ? (mad ? " · 癫狂面" : " · 清醒面") : "");
-            Ui.Text("Type", body.transform, type, 17, Palette.TextDim).rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0, -66), new Vector2(170, 24));
-            var text = Ui.Text("Text", body.transform, inBattle ? card.Describe(engine) : card.Describe(false), 19, Palette.Text, TextAlignmentOptions.Top);
-            text.rectTransform.Place(new Vector2(0.5f, 0), new Vector2(0, 85), new Vector2(176, 150));
-
-            var orb = Ui.Box("Cost", frame.transform, Palette.Energy);
-            orb.rectTransform.Place(new Vector2(0, 1), new Vector2(20, -20), new Vector2(42, 42));
-            string cost = card.Def.XCost ? "X" : card.Playable ? (inBattle ? engine.CostOf(card) : card.Cost).ToString() : "-";
-            var c = Ui.Text("Value", orb.transform, cost, 26, Palette.Background);
-            c.fontStyle = FontStyles.Bold;
-            c.rectTransform.Fill();
-        }
-
-        static string TypeName(CardType t)
-        {
-            switch (t)
-            {
-                case CardType.Attack: return "攻击";
-                case CardType.Skill: return "技能";
-                case CardType.Power: return "能力";
-                case CardType.Curse: return "诅咒";
-                default: return "状态";
-            }
+            var face = CardFace.Create(hit.transform, size.x / CardFace.W);
+            face.Apply(CardView.Describe(card, engine, mad, engine.Player.Energy, inBattle));
         }
     }
 }

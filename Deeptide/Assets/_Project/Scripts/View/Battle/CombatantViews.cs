@@ -38,6 +38,16 @@ namespace Deeptide.View.Battle
         TextMeshProUGUI _hpText, _blockText;
         protected TextMeshProUGUI NameText;
         readonly List<GameObject> _chips = new List<GameObject>();
+        readonly Dictionary<StatusId, int> _statusAmounts = new Dictionary<StatusId, int>();
+
+        /// <summary>界面上记着的某个状态层数（飘字算差值用）。</summary>
+        public int StatusAmount(StatusId id) => _statusAmounts.TryGetValue(id, out var v) ? v : 0;
+
+        protected void RememberStatuses(Combatant c)
+        {
+            _statusAmounts.Clear();
+            foreach (var kv in c.Statuses.Ordered()) _statusAmounts[kv.Key] = kv.Value;
+        }
 
         public int Hp { get; private set; }
         public int MaxHp { get; private set; }
@@ -170,6 +180,8 @@ namespace Deeptide.View.Battle
         /// <summary>状态行：每个状态一枚小牌（几何 + 汉字，10 §10），层数写在右下角，悬停显示名字。</summary>
         protected void SetChips(IEnumerable<(string Glyph, int Amount, string Tip, Color Color)> chips)
         {
+            // 死掉的敌人淡出后会被隐藏；对隐藏的 TMP 设描边会空引用，也没必要再画
+            if (!gameObject.activeInHierarchy) return;
             foreach (var c in _chips) Destroy(c);
             _chips.Clear();
             foreach (var (glyph, amount, tip, color) in chips)
@@ -391,6 +403,44 @@ namespace Deeptide.View.Battle
             SetCounter(en);
         }
 
+        readonly List<Image> _tideCells = new List<Image>();
+
+        /// <summary>潮位水位计（10 §5.3「旁边是 5 格水位计」）：身体左侧一列格子，满格时变成发光青。只有带潮位计数器的敌人（溺亡司祭）才有。</summary>
+        void SetTide(EnemyState en)
+        {
+            if (!en.Counters.ContainsKey(DrownedPriest.Tide) || !en.Def.Vars.TryGetValue("TideMax", out int max) || max <= 0) return;
+            if (_tideCells.Count != max)
+            {
+                foreach (var c in _tideCells) Destroy(c.gameObject);
+                _tideCells.Clear();
+                const float height = 220, gap = 4;
+                float h = (height - gap * (max - 1)) / max;
+                var column = Ui.Rect("TideGauge", transform);
+                column.Place(new Vector2(0.5f, 0.5f), new Vector2(-BodyWidth / 2 - 40, FeetY + 14 + height / 2), new Vector2(22, height));
+                var label = Ui.Text("Label", column, "潮位", 15, Palette.Teal);
+                label.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0, 14), new Vector2(60, 20));
+                for (int i = 0; i < max; i++)
+                {
+                    var cell = Ui.Box($"Tide {i + 1}", column, Palette.PaperShade);
+                    cell.sprite = Shapes.RoundRect(4);
+                    cell.type = Image.Type.Sliced;
+                    var rt = cell.rectTransform;
+                    rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0);
+                    rt.pivot = new Vector2(0.5f, 0);
+                    rt.anchoredPosition = new Vector2(0, i * (h + gap));
+                    rt.sizeDelta = new Vector2(22, h);
+                    var ring = Ui.Box("Ring", rt, Palette.Teal);
+                    ring.sprite = Shapes.RoundRect(4, 2);
+                    ring.type = Image.Type.Sliced;
+                    ring.rectTransform.Fill();
+                    _tideCells.Add(cell);
+                }
+            }
+            int tide = en.Counter(DrownedPriest.Tide);
+            for (int i = 0; i < _tideCells.Count; i++)
+                _tideCells[i].color = i < tide ? (tide >= max ? Palette.Lunacy : Palette.Teal) : Palette.PaperShade;
+        }
+
         /// <summary>计数器（Boss 的潮位）接在名字后面，深渊青。</summary>
         void SetCounter(EnemyState en)
         {
@@ -400,6 +450,8 @@ namespace Deeptide.View.Battle
 
         public void SetStatuses(EnemyState en)
         {
+            RememberStatuses(en);
+            SetTide(en);
             var chips = new List<(string, int, string, Color)>(StatusChips(en, false));
             var passive = en.Behaviour.Passive;
             if (!string.IsNullOrEmpty(passive)) chips.Add(("被", 0, passive, Palette.InkMid));
@@ -548,6 +600,7 @@ namespace Deeptide.View.Battle
 
         public void SetStatuses(PlayerState p)
         {
+            RememberStatuses(p);
             var chips = new List<(string, int, string, Color)>(StatusChips(p, true));
             foreach (var power in p.Powers)
                 chips.Add((power.Name.Substring(0, 1), power.Amount, $"能力 · {power.Name} {power.Amount}", Palette.Gold));
