@@ -232,7 +232,7 @@ namespace Deeptide.View.Tests
             ArtDatabase.SetOverride("C06", TestArt());
             try
             {
-                _boot.Deck = new[] { "C06", "C06", "C06", "C06", "C06", "C06", "B01", "B01", "B02", "B02" };
+                _boot.Deck = new[] { "C06", "C06", "C06", "C06", "C06", "C06", "C14", "C14", "C11", "C11" };
                 _boot.Enemies = new[] { "acolyte" };
                 _boot.Launch(new BattleLaunch { Seed = 7, Potions = { "hallucinogen" } });
                 yield return null;
@@ -243,7 +243,8 @@ namespace Deeptide.View.Tests
                 var blade = _screen.Hand.Cards.FirstOrDefault(v => v.CardId == "C06");
                 Assert.IsNotNull(blade, "种子 7 的起手应该有梦魇之刃");
                 Assert.IsTrue(blade.ShowsArt, "登记了卡图的牌显示卡图");
-                var plain = _screen.Hand.Cards.FirstOrDefault(v => v.CardId != "C06");
+                // 打击、防御等已经有正式卡图（ArtDatabase），这里只检查还没画的牌
+                var plain = _screen.Hand.Cards.FirstOrDefault(v => v.CardId != "C06" && ArtDatabase.Card(v.CardId) == null);
                 if (plain != null) Assert.IsFalse(plain.ShowsArt, "没有卡图的牌保持灰盒");
                 _screen.Hand.Hover(blade, true);
                 yield return Shot("09_card_art_sane");
@@ -263,6 +264,83 @@ namespace Deeptide.View.Tests
             {
                 ArtDatabase.ClearOverrides();
             }
+        }
+
+        /// <summary>
+        /// 角色图（策划/10 §5、§11.2）：登记了图的角色（敌人 / 调查员）身体换成打包贴图，没有图的继续用灰盒剪影。
+        /// 测试图是程序化的，用运行时替换，不依赖仓库里有没有画好的角色。
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ActorArtReplacesSilhouette()
+        {
+            var art = TestActor();
+            ArtDatabase.SetActorOverride("acolyte", art);
+            ArtDatabase.SetActorOverride(ArtDatabase.PlayerId, art);
+            try
+            {
+                _boot.Deck = new[] { "B01", "B01", "B01", "B01", "B01", "B02", "B02", "B02", "B02", "B02" };
+                _boot.Enemies = new[] { "acolyte", "dummy" };
+                _boot.Launch(new BattleLaunch { Seed = 3 });
+                yield return null;
+                _screen = _boot.Screen;
+                _screen.Director.Speed = 6;
+                yield return WaitIdle();
+
+                Assert.IsTrue(_screen.Enemies[0].HasArt, "登记了角色图的敌人用角色图");
+                Assert.IsFalse(_screen.Enemies[1].HasArt, "稻草人没有角色图，保持灰盒剪影");
+                Assert.IsTrue(_screen.Player.HasArt, "调查员用角色图");
+            }
+            finally
+            {
+                ArtDatabase.ClearOverrides();
+            }
+        }
+
+        /// <summary>
+        /// 战斗背景和 UI 套件（策划/10 §6、§12.1）：有背景图时换成背景图，Boss 战用沉没礼拜堂；图标、框饰没画好时退回灰盒。
+        /// 不依赖仓库里有没有图：只检查「有图就用图」和场景能正常打一回合。
+        /// </summary>
+        [UnityTest]
+        public IEnumerator BackdropAndUiKitFollowArtDatabase()
+        {
+            _boot.Deck = new[] { "B01", "B01", "B01", "B01", "B01", "B02", "B02", "B02", "B02", "B02" };
+            _boot.Enemies = new[] { "drowned_priest" };
+            _boot.Launch(new BattleLaunch { Seed = 5 });
+            yield return null;
+            _screen = _boot.Screen;
+            _screen.Director.Speed = 6;
+            yield return WaitIdle();
+
+            Assert.AreEqual("chapel", BattleScreen.BackdropFor(new BattleSetup { Enemies = { "drowned_priest" } }));
+            Assert.AreEqual("docks", BattleScreen.BackdropFor(new BattleSetup { Enemies = { "acolyte" } }));
+            Assert.AreEqual(ArtDatabase.Background("chapel") != null, _screen.HasBackdropArt, "有背景图就用背景图");
+
+            // 打一张打击：命中特效、意图图标、格挡框这些路径都要走一遍，不能报错
+            int strike = Engine.Player.Hand.FindIndex(c => c.Id == "B01");
+            Assert.GreaterOrEqual(strike, 0);
+            Assert.IsTrue(_screen.Controller.Play(strike, 0));
+            yield return WaitIdle();
+            _screen.Controller.EndTurn();
+            yield return WaitIdle();
+            yield return Shot("14_backdrop_boss");
+        }
+
+        /// <summary>程序化的测试角色图（64 × 128）：一个椭圆的轮廓，里面一半排线。</summary>
+        static Texture2D TestActor()
+        {
+            const int w = 64, h = 128;
+            var ink = new Color32[w * h];
+            var fill = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                int i = y * w + x;
+                float body = Mathf.Sqrt((x - 32f) * (x - 32f) / (28f * 28f) + (y - 64f) * (y - 64f) / (58f * 58f)) - 1;
+                float a = Cov(body * 28);
+                fill[i] = new Color32(0, 0, 0, Byte(a));
+                ink[i] = new Color32(0, 0, 0, Byte(a * (x > 32 ? 0.8f : 0.2f)));
+            }
+            return CardArt.ToTexture(CardArt.Pack(ink, null, null, fill), w, h, "test_actor");
         }
 
         /// <summary>程序化的测试卡图（半尺寸 312 × 216）：墨层是刀和排线，深渊遮罩是一只眼，癫狂层是刀背上的一排牙。</summary>

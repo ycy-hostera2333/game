@@ -27,7 +27,8 @@ namespace Deeptide.View
             var tip = host.gameObject.AddComponent<Tooltip>();
             tip._root = root;
             var box = Ui.Box("Box", host, Palette.Paper);
-            Ui.Border(box, Palette.Ink, 2f);
+            // UI 套件：卷轴框；没画好时一道墨边
+            if (ArtSprites.Frame(box.transform, "ui_scroll", ArtSprites.ScrollBorder, Palette.Ink, 2f, -4) == null) Ui.Border(box, Palette.Ink, 2f);
             tip._box = box.rectTransform;
             tip._box.anchorMin = tip._box.anchorMax = new Vector2(0.5f, 0.5f);
             tip._text = Ui.Text("Text", tip._box, "", 20, Palette.Text, TextAlignmentOptions.TopLeft);

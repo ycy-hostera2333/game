@@ -76,6 +76,7 @@ namespace Deeptide.View.Battle
             screen.Director = go.AddComponent<BattleDirector>();
             screen.Director.Bind(screen);
             screen.Build();
+            screen.SetBackdropArt(setup);
             screen.Controller = new BattleController(setup, screen.Director);
             screen.Controller.Rejected += screen.Toast;
             screen._topBar.Bind(screen.Controller.Engine);
@@ -83,11 +84,61 @@ namespace Deeptide.View.Battle
             return screen;
         }
 
+        Image _background;
+        Material _backgroundMat;
+
+        /// <summary>战斗背景（10 §12.1）：有 Boss 的战斗是沉没礼拜堂，其余是码头街道。还没有背景图时保持纯纸色（10 §10 灰盒）。</summary>
+        public static string BackdropFor(BattleSetup setup)
+        {
+            if (setup != null && setup.Enemies != null && setup.Enemies.Contains(EnemyIds.Priest)) return "chapel";
+            return "docks";
+        }
+
+        void SetBackdropArt(BattleSetup setup)
+        {
+            var tex = ArtDatabase.Background(BackdropFor(setup));
+            var shader = Shader.Find("Deeptide/UI/Backdrop");
+            if (tex == null || shader == null) return;
+            _backgroundMat = new Material(shader) { hideFlags = HideFlags.DontSave };
+            _backgroundMat.SetColor("_InkColor", Palette.InkMid);
+            _backgroundMat.SetColor("_MadColor", Palette.Teal);
+            // Image 和 RawImage 不能同时挂（Graphic 只能有一个）：先拆掉 Image 再换成 RawImage，纸色仍由 LunacyFx 改
+            var host = _background.gameObject;
+            Object.DestroyImmediate(_background);
+            var raw = host.AddComponent<RawImage>();
+            raw.texture = tex;
+            raw.material = _backgroundMat;
+            raw.color = Palette.Paper;
+            raw.raycastTarget = false;
+            // 背景按 16:9 铺满，宽屏时上下裁一点
+            var fitter = raw.gameObject.AddComponent<AspectRatioFitter>();
+            fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            fitter.aspectRatio = (float)tex.width / tex.height;
+            _fx.SetBackground(raw);
+            _fx.UseArtBackdrop();
+            HasBackdropArt = true;
+        }
+
+        /// <summary>背景用的是正式背景图（测试用）。</summary>
+        public bool HasBackdropArt { get; private set; }
+
+        /// <summary>深海之歌：背景癫狂层至少显现一半（10 §7.3）。</summary>
+        void SetBackdropSong(bool on)
+        {
+            if (_backgroundMat != null) _backgroundMat.SetFloat("_Song", on ? 0.5f : 0f);
+        }
+
+        void OnDestroy()
+        {
+            if (_backgroundMat != null) Destroy(_backgroundMat);
+        }
+
         void Build()
         {
             _root = (RectTransform)transform;
             var background = Ui.Box("Background", _root, Palette.Background);
             background.rectTransform.Fill();
+            _background = background;
             var backdrop = Ui.Rect("Backdrop", _root).Fill();
 
             // 战场：原点在底边中点。角色中心放在 y = 600，脚底（中心下方 160）正好踩在地平线 y = 440 上（10 §6.1）
@@ -108,6 +159,8 @@ namespace Deeptide.View.Battle
             var orbRing = Ui.Box("Ring", orb.transform, Palette.GoldLight);
             orbRing.sprite = Shapes.Ring(10);
             orbRing.rectTransform.Fill(5);
+            // 能量圈外环（UI 套件）：像怀表表圈的刻度环
+            if (ArtSprites.Apply(orbRing, "ui_orb", Palette.GoldLight)) orbRing.rectTransform.Fill(-6);
             _energyText = Ui.Text("Value", orb.transform, "", 38, Palette.Paper);
             _energyText.font = Fonts.Serif;
             _energyText.fontStyle = FontStyles.Bold;
@@ -119,7 +172,8 @@ namespace Deeptide.View.Battle
             var endTurnBg = (Image)_endTurn.targetGraphic;
             endTurnBg.sprite = Shapes.RoundRect(14);
             endTurnBg.type = Image.Type.Sliced;
-            Ui.Border(endTurnBg, Palette.Ink, 3);
+            if (ArtSprites.Frame(endTurnBg.transform, "ui_plaque", ArtSprites.PlaqueBorder, Palette.Ink, 1.2f) == null)
+                Ui.Border(endTurnBg, Palette.Ink, 3);
             var endTurnLabel = _endTurn.GetComponentInChildren<TextMeshProUGUI>();
             endTurnLabel.font = Fonts.Serif;
             endTurnLabel.fontStyle = FontStyles.Bold;
@@ -189,6 +243,18 @@ namespace Deeptide.View.Battle
             box.rectTransform.Place(new Vector2(0.5f, 0), pos, new Vector2(120, 110));
             var t = Ui.Text("Value", box.transform, "", 22, Palette.Text);
             t.rectTransform.Fill(6);
+            // UI 套件：牌匾框 + 牌堆图标（图标在上，文字下移）
+            ArtSprites.Frame(box.transform, "ui_plaque", ArtSprites.PlaqueBorder, Palette.Ink, 1.6f);
+            string iconId = name == "Draw" ? "icon_draw" : name == "Discard" ? "icon_discard" : "icon_exhaust";
+            var icon = Ui.Box("Icon", box.transform, Palette.Ink);
+            if (ArtSprites.Apply(icon, iconId, Palette.Ink))
+            {
+                icon.raycastTarget = false;
+                icon.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0, -26), new Vector2(34, 34));
+                t.rectTransform.offsetMax = new Vector2(t.rectTransform.offsetMax.x, -30);
+                t.fontSize = 19;
+            }
+            else Object.Destroy(icon.gameObject);
             return t;
         }
 
@@ -418,6 +484,7 @@ namespace Deeptide.View.Battle
             }
             _fx.SetTide(full);
             _fx.SetSong(song);
+            SetBackdropSong(song);
         }
 
         public void OnDirectorIdle()

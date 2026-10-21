@@ -318,7 +318,7 @@ namespace Deeptide.View.Battle
 
         RectTransform _root;
         Image _fill, _outer, _inner, _strip, _seal, _banner, _bannerBack, _orb, _orbRing, _badge, _badgeRing, _badgeHalf;
-        Image _window, _windowLine, _windowDash;
+        Image _window, _windowLine, _windowDash, _frameArt, _erosionArt;
         RawImage _hatch, _art;
         TextMeshProUGUI _cost, _name, _glyph, _type, _text, _id;
         readonly List<Image> _rivets = new List<Image>();
@@ -350,6 +350,10 @@ namespace Deeptide.View.Battle
             _inner.rectTransform.Fill(16);
             foreach (var p in new[] { new Vector2(40, 40), new Vector2(W - 40, 40) })
                 _rivets.Add(At(Ui.Box("Rivet", _root, Palette.Ink), p, new Vector2(18, 18), Shapes.Circle));
+            // 正式框饰（ArtSprites 的 frame_*，整张卡的覆盖层）：有就盖在上面、藏掉灰盒的线框和铆钉
+            _frameArt = Ui.Box("FrameArt", _root, Palette.Ink);
+            _frameArt.rectTransform.Fill();
+            _frameArt.gameObject.SetActive(false);
 
             // 侵蚀变体（只在癫狂面）：边框上的藤壶
             var rng = new System.Random(3);
@@ -360,6 +364,9 @@ namespace Deeptide.View.Battle
                 float d = 12 + (float)rng.NextDouble() * 14;
                 _barnacles.Add(At(Ui.Box("Barnacle", _root, Palette.Lunacy), new Vector2(x, y), new Vector2(d, d), Shapes.Circle));
             }
+            _erosionArt = Ui.Box("ErosionArt", _root, Palette.Lunacy);
+            _erosionArt.rectTransform.Fill();
+            _erosionArt.gameObject.SetActive(false);
 
             _strip = Ui.Box("Strip", _root, Palette.InkMid);
             Top(_strip.rectTransform, 40, 12, W - 80, 12);
@@ -450,15 +457,22 @@ namespace Deeptide.View.Battle
             _outer.color = line;
             _outer.sprite = Shapes.RoundRect(36, d.Rarity == Rarity.Rare ? 10 : 6);
             bool doubleFrame = d.Rarity == Rarity.Uncommon || d.Rarity == Rarity.Rare;
-            _inner.gameObject.SetActive(doubleFrame);
+            // 框饰（10 §4.2）：稀有度只靠框饰复杂度区分；诅咒、状态用最朴素的单线框
+            string frameId = special || d.Rarity == Rarity.Basic ? "frame_basic" : $"frame_{d.Rarity.ToString().ToLowerInvariant()}";
+            bool frameArt = ArtSprites.Apply(_frameArt, frameId, line);
+            _frameArt.gameObject.SetActive(frameArt);
+            _outer.gameObject.SetActive(!frameArt);
+            _inner.gameObject.SetActive(doubleFrame && !frameArt);
             _inner.color = line;
             foreach (var r in _rivets)
             {
-                r.gameObject.SetActive(d.Rarity != Rarity.Basic && !special);
+                r.gameObject.SetActive(d.Rarity != Rarity.Basic && !special && !frameArt);
                 r.color = line;
                 r.sprite = d.Rarity == Rarity.Rare ? Shapes.Diamond : Shapes.Circle;
             }
-            foreach (var b in _barnacles) b.gameObject.SetActive(mad);
+            bool erosionArt = mad && ArtSprites.Apply(_erosionArt, "frame_erosion", Palette.Lunacy);
+            _erosionArt.gameObject.SetActive(erosionArt);
+            foreach (var b in _barnacles) b.gameObject.SetActive(mad && !erosionArt);
 
             _strip.color = special ? (mad ? Palette.Pale : Palette.Ink) : faction;
             _banner.gameObject.SetActive(doubleFrame);
@@ -473,13 +487,17 @@ namespace Deeptide.View.Battle
             _cost.text = d.CostText;
             _cost.color = d.Cost == CostState.None ? Palette.InkMid : text;
 
+            // 流派徽记（10 §4.2）：守夜 = 提灯 ／ 堕落 = 裂眼 ／ 传染 = 波纹；没画好时用几何形
+            string sealId = d.Archetype == "守夜" ? "seal_vigil" : d.Archetype == "堕落" ? "seal_fallen" : d.Archetype == "传染" ? "seal_contagion" : null;
+            var sealArt = sealId != null ? ArtSprites.Get(sealId) : null;
             switch (d.Archetype)
             {
-                case "守夜": _seal.sprite = Shapes.Circle; break;
-                case "堕落": _seal.sprite = Shapes.Diamond; break;
-                case "传染": _seal.sprite = Shapes.Ring(40); break;
+                case "守夜": _seal.sprite = sealArt != null ? sealArt : Shapes.Circle; break;
+                case "堕落": _seal.sprite = sealArt != null ? sealArt : Shapes.Diamond; break;
+                case "传染": _seal.sprite = sealArt != null ? sealArt : Shapes.Ring(40); break;
                 default: _seal.sprite = null; break;
             }
+            _seal.rectTransform.sizeDelta = sealArt != null ? new Vector2(54, 54) : new Vector2(44, 44);
             _seal.gameObject.SetActive(_seal.sprite != null);
             _seal.color = faction;
 
@@ -515,7 +533,9 @@ namespace Deeptide.View.Battle
                 float x = (W - size.x) / 2;
                 _window.sprite = Shapes.Window(shape);
                 Top(_window.rectTransform, x, 132, size.x, size.y);
-                _windowLine.sprite = Shapes.Window(shape, 3);
+                // 窗的线脚（10 §4.2 哥特窗）：有正式线脚就用，没有用灰盒的一道细线
+                var moulding = ArtSprites.Get(WindowArtId(shape));
+                _windowLine.sprite = moulding != null ? moulding : Shapes.Window(shape, 3);
                 Top(_windowLine.rectTransform, x, 132, size.x, size.y);
                 Top(_windowDash.rectTransform, x, 132, size.x, size.y);
                 _hatch.uvRect = new Rect(0, 0, size.x / 36f, size.y / 36f);
@@ -540,6 +560,17 @@ namespace Deeptide.View.Battle
             _windowDash.gameObject.SetActive(status);
             _windowLine.color = mad ? Palette.Lunacy : Palette.Ink;
             _windowDash.color = Palette.InkMid;
+        }
+
+        static string WindowArtId(WindowShape shape)
+        {
+            switch (shape)
+            {
+                case WindowShape.Arch: return "window_arch";
+                case WindowShape.Circle: return "window_circle";
+                case WindowShape.Blot: return "window_blot";
+                default: return "window_bevel";
+            }
         }
 
         static Image Sliced(string name, Transform parent, Sprite sprite, float ppu)

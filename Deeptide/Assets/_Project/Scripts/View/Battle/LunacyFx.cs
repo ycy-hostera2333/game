@@ -44,7 +44,8 @@ namespace Deeptide.View.Battle
 
         float _current, _target, _pulse;
         bool _clarity;
-        Image _vignette, _flash, _crack, _background;
+        Image _vignette, _flash, _crack;
+        Graphic _background;
         Material _vignetteMat, _flashMat;
         readonly List<Image> _shadows = new List<Image>();
         readonly List<float> _shadowRot = new List<float>();
@@ -163,6 +164,12 @@ namespace Deeptide.View.Battle
             }
         }
 
+        /// <summary>背景图自带癫狂层（Deeptide/UI/Backdrop 按 _Lunacy 显现），灰盒的触须影子就不要了。</summary>
+        public void UseArtBackdrop()
+        {
+            foreach (var s in _shadows) s.gameObject.SetActive(false);
+        }
+
         /// <summary>崩溃用的反相层和裂纹层：放在最上面。</summary>
         public void BuildOverlay(Transform parent)
         {
@@ -183,7 +190,7 @@ namespace Deeptide.View.Battle
         }
 
         /// <summary>清明时纸色略微提亮（10 §7.2 第一行）。</summary>
-        public void SetBackground(Image background) => _background = background;
+        public void SetBackground(Graphic background) => _background = background;
 
         /// <summary>崩溃时一起震的节点（战场、手牌）。</summary>
         public void AddShakeTarget(RectTransform target)
@@ -307,6 +314,9 @@ namespace Deeptide.View.Battle
         /// <summary>程序化的裂纹：从画面中心偏上的一点向外的几条折线，带分叉。</summary>
         static Sprite CrackSprite()
         {
+            // 正式的裂纹贴图（10 §9：2048 宽，单色精灵）；没有时用下面程序化的
+            var art = ArtSprites.Get("vfx_crack");
+            if (art != null) return art;
             if (_crackSprite != null) return _crackSprite;
             const int w = 960, h = 540;
             var alpha = new float[w * h];

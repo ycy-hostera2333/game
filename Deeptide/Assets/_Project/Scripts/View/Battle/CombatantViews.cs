@@ -13,7 +13,7 @@ namespace Deeptide.View.Battle
     public enum ActorTier { Small, Medium, Elite, Boss }
 
     /// <summary>
-    /// 战斗舞台上的角色：纯墨剪影（10 §10 灰盒）+ 生命条 + 格挡 + 状态，玩家和敌人共用。数值由事件推进，不直接读内核。
+    /// 战斗舞台上的角色：正式角色图（ArtDatabase 角色表，10 §5）或纯墨剪影（10 §10 灰盒）+ 生命条 + 格挡 + 状态，玩家和敌人共用。数值由事件推进，不直接读内核。
     /// 所有子物件以本节点中心为锚，脚底在中心下方 <see cref="FeetY"/>：BattleScreen 只要把同一行的角色中心放在同一高度，脚底就对齐在同一条地平线上。
     /// </summary>
     public class CombatantView : MonoBehaviour
@@ -53,32 +53,40 @@ namespace Deeptide.View.Battle
         public int MaxHp { get; private set; }
         public int Block { get; private set; }
         public ActorTier Tier { get; private set; }
+        /// <summary>身体用的是正式角色图（不是灰盒剪影）。</summary>
+        public bool HasArt { get; private set; }
 
-        /// <summary>按尺寸档和剪影种类算出身体大小（1080p 显示高度，10 §5.1）。</summary>
-        public static Vector2 BodySize(ActorTier tier, SilhouetteKind kind)
+        /// <summary>按尺寸档和剪影种类算出身体大小（1080p 显示高度，10 §5.1）。aspect 给定时用它（角色图的宽高比），否则用剪影的。</summary>
+        public static Vector2 BodySize(ActorTier tier, SilhouetteKind kind, float aspect = 0)
         {
             // Boss 受顶栏限制：地平线 440 + 470 + 意图 ≈ 1000，刚好在顶栏（1016）下面
             float h = tier == ActorTier.Small ? 210 : tier == ActorTier.Medium ? 340 : tier == ActorTier.Elite ? 430 : 470;
-            var sprite = Shapes.Silhouette(kind);
-            float aspect = sprite.rect.width / sprite.rect.height;
+            if (aspect <= 0)
+            {
+                var sprite = Shapes.Silhouette(kind);
+                aspect = sprite.rect.width / sprite.rect.height;
+            }
             // 横向的剪影（兽、鸦群）按「视觉体量」缩一些，否则会比同档的人形宽出一倍
             if (kind == SilhouetteKind.Beast) h *= 0.55f;
             else if (kind == SilhouetteKind.Swarm) h *= 0.72f;
             return new Vector2(h * aspect, h);
         }
 
-        protected void BuildBase(string displayName, ActorTier tier, SilhouetteKind kind)
+        /// <param name="artId">角色图的 ID（敌人定义 ID / player）；ArtDatabase 里没有就用 kind 的剪影。</param>
+        protected void BuildBase(string displayName, ActorTier tier, SilhouetteKind kind, string artId = null)
         {
             Tier = tier;
             var root = (RectTransform)transform;
-            var size = BodySize(tier, kind);
+            var art = ArtDatabase.Actor(artId);
+            HasArt = art != null;
+            var sprite = HasArt ? ActorArt.Sprite(art) : Shapes.Silhouette(kind);
+            var size = BodySize(tier, kind, HasArt ? (float)art.width / art.height : 0);
             BodyWidth = size.x;
             BodyHeight = size.y;
             BarWidth = Mathf.Max(size.x, 180);
             root.sizeDelta = new Vector2(BarWidth + 40, 760);
 
-            var sprite = Shapes.Silhouette(kind);
-            BodyImage = Ui.Box("Body", root, Palette.Ink, true);
+            BodyImage = Ui.Box("Body", root, HasArt ? Color.white : Palette.Ink, true);
             BodyImage.sprite = sprite;
             Body = BodyImage.rectTransform;
             Body.anchorMin = Body.anchorMax = new Vector2(0.5f, 0.5f);
@@ -93,7 +101,9 @@ namespace Deeptide.View.Battle
             if (shader != null)
             {
                 BodyMaterial = new Material(shader) { hideFlags = HideFlags.DontSave };
-                BodyMaterial.SetColor("_FlashColor", Palette.PaperShade);
+                // 受击「墨闪」（10 §5.2）：剪影本身是墨，闪成纸影色才看得见；角色图大半是纸，闪成墨
+                BodyMaterial.SetColor("_FlashColor", HasArt ? Palette.Ink : Palette.PaperShade);
+                if (HasArt) ActorArt.Configure(BodyMaterial);
                 BodyMaterial.SetColor("_FringeA", Palette.Lunacy);
                 BodyMaterial.SetColor("_FringeB", Palette.BloodLight);
                 BodyMaterial.SetFloat(SeedId, Random.value * 10);
@@ -110,8 +120,11 @@ namespace Deeptide.View.Battle
             var bar = Ui.Bar("Hp", root, Palette.HpBack, Palette.Hp, out _hpFill);
             bar.Place(new Vector2(0.5f, 0.5f), new Vector2(0, FeetY - 24), new Vector2(BarWidth, 22));
             _hpFrame = Ui.Box("Frame", bar, Palette.Ink);
-            _hpFrame.sprite = Shapes.RoundRect(4, 2);
-            _hpFrame.type = Image.Type.Sliced;
+            if (!ArtSprites.Apply(_hpFrame, "ui_bar", Palette.Ink, ArtSprites.BarBorder, 2))
+            {
+                _hpFrame.sprite = Shapes.RoundRect(4, 2);
+                _hpFrame.type = Image.Type.Sliced;
+            }
             _hpFrame.rectTransform.Fill(-2);
             _hpText = Ui.Text("Value", bar, "", 18, Palette.Paper);
             _hpText.font = Fonts.Serif;
@@ -121,7 +134,7 @@ namespace Deeptide.View.Battle
             _hpText.rectTransform.Fill();
 
             _blockBadge = Ui.Box("Block", root, Palette.Ink);
-            _blockBadge.sprite = Shapes.Shield;
+            if (!ArtSprites.Apply(_blockBadge, "icon_block", Palette.Ink)) _blockBadge.sprite = Shapes.Shield;
             _blockBadge.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(-BarWidth / 2 - 16, FeetY - 24), new Vector2(40, 45));
             _blockText = Ui.Text("Value", _blockBadge.transform, "", 21, Palette.Paper);
             _blockText.font = Fonts.Serif;
@@ -135,6 +148,15 @@ namespace Deeptide.View.Battle
             layout.spacing = 4;
             layout.childControlWidth = layout.childControlHeight = false;
             layout.childForceExpandWidth = layout.childForceExpandHeight = false;
+        }
+
+        /// <summary>换一张角色图（Boss 换阶段），高度不变，宽度按新图的宽高比。</summary>
+        protected void SwapArt(Texture2D art)
+        {
+            if (art == null || BodyImage == null) return;
+            BodyImage.sprite = ActorArt.Sprite(art);
+            BodyWidth = BodyHeight * art.width / art.height;
+            Body.sizeDelta = new Vector2(BodyWidth, BodyHeight);
         }
 
         protected virtual void OnDestroy()
@@ -169,22 +191,27 @@ namespace Deeptide.View.Battle
         public int SetBlock(int block)
         {
             int delta = block - Block;
+            // 格挡清零（10 §9「格挡被击破」）：盾徽碎成线段飞散
+            if (Block > 0 && block == 0 && _blockBadge != null)
+                Vfx.Play((RectTransform)transform, _blockBadge.rectTransform.anchoredPosition, "vfx_break", 6, 120, Palette.Ink);
             Block = block;
             _blockBadge.gameObject.SetActive(block > 0);
             _blockText.text = block.ToString();
-            // 有格挡时血条外框变粗
-            _hpFrame.sprite = Shapes.RoundRect(4, block > 0 ? 4 : 2);
+            // 有格挡时外框加粗（10 §6.4）
+            if (!ArtSprites.Apply(_hpFrame, block > 0 ? "ui_bar_block" : "ui_bar", Palette.Ink, ArtSprites.BarBorder, 2))
+                _hpFrame.sprite = Shapes.RoundRect(4, block > 0 ? 4 : 2);
             return delta;
         }
 
         /// <summary>状态行：每个状态一枚小牌（几何 + 汉字，10 §10），层数写在右下角，悬停显示名字。</summary>
-        protected void SetChips(IEnumerable<(string Glyph, int Amount, string Tip, Color Color)> chips)
+        /// <param name="chips">Icon 是单色精灵的 ID（status_* / passive_*）；没画好时显示 Glyph 汉字（10 §10 灰盒）。</param>
+        protected void SetChips(IEnumerable<(string Glyph, int Amount, string Tip, Color Color, string Icon)> chips)
         {
             // 死掉的敌人淡出后会被隐藏；对隐藏的 TMP 设描边会空引用，也没必要再画
             if (!gameObject.activeInHierarchy) return;
             foreach (var c in _chips) Destroy(c);
             _chips.Clear();
-            foreach (var (glyph, amount, tip, color) in chips)
+            foreach (var (glyph, amount, tip, color, icon) in chips)
             {
                 var chip = Ui.Box("Status", _statusRow, Palette.PaperMid);
                 chip.sprite = Shapes.RoundRect(6);
@@ -194,8 +221,13 @@ namespace Deeptide.View.Battle
                 ring.sprite = Shapes.RoundRect(6, 2);
                 ring.type = Image.Type.Sliced;
                 ring.rectTransform.Fill();
-                var g = Ui.Text("Glyph", chip.transform, glyph, 18, color);
-                g.rectTransform.Fill();
+                var art = Ui.Box("Art", chip.transform, color);
+                if (ArtSprites.Apply(art, icon, color)) art.rectTransform.Fill(3);
+                else
+                {
+                    Destroy(art.gameObject);
+                    Ui.Text("Glyph", chip.transform, glyph, 18, color).rectTransform.Fill();
+                }
                 if (amount != 0)
                 {
                     var n = Ui.Text("Amount", chip.transform, amount.ToString(), 14, Palette.Ink, TextAlignmentOptions.BottomRight);
@@ -211,13 +243,13 @@ namespace Deeptide.View.Battle
             }
         }
 
-        protected static IEnumerable<(string, int, string, Color)> StatusChips(Combatant c, bool skipWard)
+        protected static IEnumerable<(string, int, string, Color, string)> StatusChips(Combatant c, bool skipWard)
         {
             foreach (var kv in c.Statuses.Ordered())
             {
                 if (skipWard && kv.Key == StatusId.Ward) continue;
                 string name = StatusSet.NameOf(kv.Key);
-                yield return (StatusGlyph(kv.Key), kv.Value, $"{name} {kv.Value}", StatusColor(kv.Key));
+                yield return (StatusGlyph(kv.Key), kv.Value, $"{name} {kv.Value}", StatusColor(kv.Key), $"status_{kv.Key.ToString().ToLowerInvariant()}");
             }
         }
 
@@ -259,6 +291,11 @@ namespace Deeptide.View.Battle
         /// <summary>受击（10 §5.2）：身体闪一下（纸底上的墨剪影闪成纸影色）+ 水平抖动 ±8px、0.15 秒。</summary>
         public void Shake()
         {
+            // 命中（10 §9）：墨点喷溅序列帧，3 种随机 + 随机旋转，溅在身体中间偏上
+            string variant = "abc".Substring(Random.Range(0, 3), 1);
+            var center = new Vector2(0, FeetY + BodyHeight * 0.5f);
+            Vfx.Play((RectTransform)transform, center, $"vfx_hit_{variant}", 6, Mathf.Clamp(BodyWidth * 1.1f, 160, 300), Palette.Ink,
+                Random.Range(0f, 360f));
             ResetBody();
             Tween.ShakeLocalPosition(Body, new Vector3(8, 2, 0), 0.15f, 30);
             if (BodyMaterial != null)
@@ -329,7 +366,7 @@ namespace Deeptide.View.Battle
             view.DefId = defId;
             view._displayName = displayName;
             var (tier, kind) = Look(defId);
-            view.BuildBase(displayName, tier, kind);
+            view.BuildBase(displayName, tier, kind, defId);
             view.BuildEnemy(kind);
             return view;
         }
@@ -364,8 +401,9 @@ namespace Deeptide.View.Battle
             _fearText = Ui.Text("FearText", root, "", 15, Palette.Dread);
             _fearText.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, FeetY - 54), new Vector2(BarWidth + 40, 20));
 
-            // 癫狂层：只在癫狂时显现的眼睛（10 §5.3「眼睛发青光」）
-            foreach (var p in EyeSpots(kind)) _eyes.Add(Dot("Eye", p, Mathf.Clamp(BodyWidth * 0.06f, 7, 14), Palette.Lunacy));
+            // 癫狂层：只在癫狂时显现的眼睛（10 §5.3「眼睛发青光」）。角色图自带癫狂层，不用再点
+            if (!HasArt)
+                foreach (var p in EyeSpots(kind)) _eyes.Add(Dot("Eye", p, Mathf.Clamp(BodyWidth * 0.06f, 7, 14), Palette.Lunacy));
         }
 
         static IEnumerable<Vector2> EyeSpots(SilhouetteKind kind)
@@ -448,13 +486,26 @@ namespace Deeptide.View.Battle
             NameText.text = string.IsNullOrEmpty(counter) ? _displayName : $"{_displayName}  <color={Ui.Hex(Palette.Teal)}>{counter}</color>";
         }
 
+        int _artPhase = 1;
+
+        /// <summary>多阶段的敌人（溺亡司祭）进入第二阶段时换图：角色表里有 &lt;ID&gt;_p2 就换上（10 §5.3「褪去人形」）。</summary>
+        void SetPhaseArt(EnemyState en)
+        {
+            if (!HasArt || !en.Counters.ContainsKey(DrownedPriest.Phase)) return;
+            int phase = en.Counter(DrownedPriest.Phase);
+            if (phase == _artPhase || phase < 2) return;
+            _artPhase = phase;
+            SwapArt(ArtDatabase.Actor($"{DefId}_p{phase}"));
+        }
+
         public void SetStatuses(EnemyState en)
         {
             RememberStatuses(en);
             SetTide(en);
-            var chips = new List<(string, int, string, Color)>(StatusChips(en, false));
+            SetPhaseArt(en);
+            var chips = new List<(string, int, string, Color, string)>(StatusChips(en, false));
             var passive = en.Behaviour.Passive;
-            if (!string.IsNullOrEmpty(passive)) chips.Add(("被", 0, passive, Palette.InkMid));
+            if (!string.IsNullOrEmpty(passive)) chips.Add(("被", 0, passive, PassiveColor(DefId), PassiveIcon(DefId)));
             SetChips(chips);
 
             Fear = en.Fear;
@@ -468,6 +519,22 @@ namespace Deeptide.View.Battle
             _fearText.color = en.Mindless ? Palette.InkMid : Palette.Dread;
             SetCounter(en);
         }
+
+        /// <summary>敌人被动的图标（10 §6.4 表格最后一行）：嗅到疯狂 / 刺目强光 / 不可名状 / 潮位。</summary>
+        static string PassiveIcon(string defId)
+        {
+            switch (defId)
+            {
+                case EnemyIds.Townsfolk: return "passive_scent";
+                case EnemyIds.Lighthouse: return "passive_glare";
+                case EnemyIds.Nun: return "passive_faceless";
+                case EnemyIds.Priest: return "passive_tide";
+                default: return null;
+            }
+        }
+
+        static Color PassiveColor(string defId) =>
+            defId == EnemyIds.Townsfolk || defId == EnemyIds.Priest ? Palette.Teal : Palette.InkMid;
 
         public void Lunge() => LungeToward(-1);
 
@@ -506,7 +573,7 @@ namespace Deeptide.View.Battle
             var rt = Ui.Rect("Player", parent);
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
             var view = rt.gameObject.AddComponent<PlayerView>();
-            view.BuildBase("调查员", ActorTier.Medium, SilhouetteKind.Humanoid);
+            view.BuildBase("调查员", ActorTier.Medium, SilhouetteKind.Humanoid, ArtDatabase.PlayerId);
             view.BuildPlayer();
             return view;
         }
@@ -519,6 +586,8 @@ namespace Deeptide.View.Battle
             ((RectTransform)Gauge.transform).Place(new Vector2(0.5f, 0.5f), new Vector2(-BarWidth / 2 - 150, FeetY + 230),
                 new Vector2(46, SanityGauge.Height));
 
+            // 角色图自带提灯和影子里的触须（癫狂层），下面的灰盒点缀只给剪影用
+            if (HasArt) return;
             // 提灯：清醒时是暖金，癫狂时火焰变青（10 §5.3）
             _lantern = Dot("Lantern", new Vector2(0.8f, 0.42f), 18, Palette.GoldLight);
             // 癫狂层：影子里长出的触须
@@ -540,6 +609,7 @@ namespace Deeptide.View.Battle
         protected override void Update()
         {
             base.Update();
+            if (_lantern == null) return;
             float lun = LunacyFx.Current;
             _lantern.color = Color.Lerp(Palette.GoldLight, Palette.Lunacy, Mathf.Clamp01(lun * 2.5f));
             float a = Mathf.Clamp01((lun - 0.3f) / 0.5f) * 0.55f;
@@ -601,9 +671,9 @@ namespace Deeptide.View.Battle
         public void SetStatuses(PlayerState p)
         {
             RememberStatuses(p);
-            var chips = new List<(string, int, string, Color)>(StatusChips(p, true));
+            var chips = new List<(string, int, string, Color, string)>(StatusChips(p, true));
             foreach (var power in p.Powers)
-                chips.Add((power.Name.Substring(0, 1), power.Amount, $"能力 · {power.Name} {power.Amount}", Palette.Gold));
+                chips.Add((power.Name.Substring(0, 1), power.Amount, $"能力 · {power.Name} {power.Amount}", Palette.Gold, null));
             SetChips(chips);
             Gauge.SetWard(p.Statuses.Get(StatusId.Ward));
         }

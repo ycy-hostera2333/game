@@ -1,5 +1,7 @@
-// 战斗舞台上的剪影（策划/10 §5.2、§7）：癫狂色差、低理智波纹、受击墨闪、死亡时溶解成墨向下流。
+// 战斗舞台上的角色（策划/10 §5.2、§7）：癫狂色差、低理智波纹、受击墨闪、死亡时溶解成墨向下流。
 // 色差和波纹读全局 _Lunacy（0–1，LunacyFx 设置）和 _ReduceFx（「降低癫狂特效」开关）。
+// 两种贴图：灰盒剪影（_Packed = 0，只用 alpha，颜色来自 Image）；正式角色图（_Packed = 1，10 §11.2 的打包贴图：
+// R 墨、G 深渊遮罩、B 癫狂层的墨、A 轮廓；癫狂层按 _Lunacy 显现，可以长出轮廓之外）。
 // UI 不用这个着色器，所以癫狂效果不会糊掉卡牌和数字（10 §1.2 支柱 4）。
 Shader "Deeptide/UI/Stage"
 {
@@ -13,6 +15,11 @@ Shader "Deeptide/UI/Stage"
         _FringeA ("Fringe A (teal)", Color) = (0.31, 0.76, 0.69, 1)
         _FringeB ("Fringe B (blood)", Color) = (0.88, 0.45, 0.42, 1)
         _Seed ("Seed", Float) = 0
+        _Packed ("Packed Art", Float) = 0
+        _PaperColor ("Paper", Color) = (0.91, 0.88, 0.80, 1)
+        _InkColor ("Ink", Color) = (0.11, 0.10, 0.09, 1)
+        _AbyssColor ("Abyss", Color) = (0.10, 0.38, 0.37, 1)
+        _MadColor ("Mad Layer", Color) = (0.31, 0.76, 0.69, 1)
 
         _StencilComp ("Stencil Comparison", Float) = 8
         _Stencil ("Stencil ID", Float) = 0
@@ -47,10 +54,10 @@ Shader "Deeptide/UI/Stage"
             struct v2f { float4 vertex : SV_POSITION; fixed4 color : COLOR; float2 texcoord : TEXCOORD0; float4 local : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
 
             sampler2D _MainTex;
-            fixed4 _Color, _FlashColor, _FringeA, _FringeB;
+            fixed4 _Color, _FlashColor, _FringeA, _FringeB, _PaperColor, _InkColor, _AbyssColor, _MadColor;
             fixed4 _TextureSampleAdd;
             float4 _ClipRect;
-            float _Flash, _Dissolve, _Seed;
+            float _Flash, _Dissolve, _Seed, _Packed;
             // 全局参数，不放进 Properties，否则材质上的值会盖掉全局值
             float _Lunacy, _ReduceFx;
 
@@ -66,7 +73,9 @@ Shader "Deeptide/UI/Stage"
                 return o;
             }
 
-            float AlphaAt(float2 uv) { return (tex2D(_MainTex, uv) + _TextureSampleAdd).a; }
+            // 打包贴图的 alpha = 轮廓 ∪ 显现出来的癫狂层
+            float AlphaOf(float4 t, float reveal) { return _Packed > 0.5 ? max(t.a, t.b * reveal) : t.a; }
+            float AlphaAt(float2 uv, float reveal) { return AlphaOf(tex2D(_MainTex, uv) + _TextureSampleAdd, reveal); }
 
             fixed4 frag(v2f i) : SV_Target
             {
@@ -79,16 +88,27 @@ Shader "Deeptide/UI/Stage"
                 uv.y += sin(uv.x * 13 + _Time.y * 2.1 + _Seed * 0.7) * 0.004 * ripple;
 
                 float off = 0.012 * lun * (1 - 0.7 * reduce);
-                float a = AlphaAt(uv);
-                float fa = saturate(AlphaAt(uv + float2(off, 0)) - a) * 0.8;
-                float fb = saturate(AlphaAt(uv - float2(off, 0)) - a) * 0.8;
+                float4 tex = tex2D(_MainTex, uv) + _TextureSampleAdd;
+                float a = AlphaOf(tex, lun);
+                float fa = saturate(AlphaAt(uv + float2(off, 0), lun) - a) * 0.8;
+                float fb = saturate(AlphaAt(uv - float2(off, 0), lun) - a) * 0.8;
+
+                // 本体颜色：剪影用 Image 的颜色；打包贴图按通道从色板上色（10 §11.2）
+                float3 ink = i.color.rgb;
+                if (_Packed > 0.5)
+                {
+                    ink = lerp(_PaperColor.rgb, _InkColor.rgb, tex.r);
+                    ink = lerp(ink, _AbyssColor.rgb, tex.g);
+                    ink = lerp(ink, _MadColor.rgb, tex.b * lun);
+                    ink *= i.color.rgb;
+                }
 
                 // 「over」合成：先两道色差，再盖上本体
                 float3 rgb = _FringeA.rgb * fa;
                 float al = fa;
                 rgb = _FringeB.rgb * fb + rgb * (1 - fb);
                 al = fb + al * (1 - fb);
-                float3 body = lerp(i.color.rgb, _FlashColor.rgb, _Flash);
+                float3 body = lerp(ink, _FlashColor.rgb, _Flash);
                 rgb = body * a + rgb * (1 - a);
                 al = a + al * (1 - a);
                 float3 straight = rgb / max(al, 1e-4);

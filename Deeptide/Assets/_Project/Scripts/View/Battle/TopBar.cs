@@ -47,6 +47,26 @@ namespace Deeptide.View.Battle
             bar._hp = Ui.Text("Hp", rt, "", 28, Palette.Hp, TextAlignmentOptions.Left);
             bar._hp.fontStyle = FontStyles.Bold;
             bar._hp.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(-820, 0), new Vector2(200, 50));
+            // UI 套件：生命永远配心形（10 §2.2），顶栏下沿一道铜版饰带
+            var heart = Ui.Box("Heart", rt, Palette.Hp);
+            if (ArtSprites.Apply(heart, "icon_heart", Palette.Hp))
+            {
+                heart.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(-912, 0), new Vector2(32, 32));
+                bar._hp.rectTransform.anchoredPosition = new Vector2(-786, 0);
+            }
+            else Destroy(heart.gameObject);
+            var rule = Ui.Box("Rule", rt, Palette.InkMid);
+            if (ArtSprites.Apply(rule, "ui_rule", Palette.InkMid, default, 2))
+            {
+                rule.type = Image.Type.Tiled;
+                rule.raycastTarget = false;
+                rule.rectTransform.anchorMin = new Vector2(0, 0);
+                rule.rectTransform.anchorMax = new Vector2(1, 0);
+                rule.rectTransform.pivot = new Vector2(0.5f, 1);
+                rule.rectTransform.anchoredPosition = new Vector2(0, 6);
+                rule.rectTransform.sizeDelta = new Vector2(0, 12);
+            }
+            else Destroy(rule.gameObject);
 
             bar._relicRow = Ui.Rect("Relics", rt).Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(0, Height));
 
@@ -108,7 +128,14 @@ namespace Deeptide.View.Battle
                 var img = Ui.Box($"Relic {relic.Id}", _relicRow, Palette.PanelLight, true);
                 img.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(RelicsLeft + RelicSize / 2 + i * step, 0), new Vector2(RelicSize, RelicSize));
                 Ui.Border(img, Palette.Gold, 1.5f);
-                Ui.Text("Label", img.transform, relic.Name.Substring(0, 1), 24, Palette.Text).rectTransform.Fill();
+                // 遗物图标（10 §8）：衬一枚纸色圆片，没画好的继续用名字首字
+                var icon = Ui.Box("Icon", img.transform, Palette.Ink);
+                if (ArtSprites.Apply(icon, $"relic_{relic.Id}", Palette.Ink)) icon.rectTransform.Fill(3);
+                else
+                {
+                    Destroy(icon.gameObject);
+                    Ui.Text("Label", img.transform, relic.Name.Substring(0, 1), 24, Palette.Text).rectTransform.Fill();
+                }
                 TooltipTrigger.Add(img, () => $"{relic.Name}\n{relic.Description}");
                 _relics[relic.Id] = img;
             }

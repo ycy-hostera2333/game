@@ -1,0 +1,280 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d1cf6b6ace7e96499281f3ed43d1e9c, type: 3}
+  m_Name: ArtDatabase
+  m_EditorClassIdentifier: Game.View::Deeptide.View.ArtDatabase
+  Cards:
+  - Id: B01
+    Texture: {fileID: 2800000, guid: 8ae7b4a74eb53894baf4b186903198fc, type: 3}
+  - Id: B02
+    Texture: {fileID: 2800000, guid: 0f70fb0f593f14c4aa2da1f639018519, type: 3}
+  - Id: B03
+    Texture: {fileID: 2800000, guid: d083c2384597dc240881f88a77f3a2df, type: 3}
+  - Id: C01
+    Texture: {fileID: 2800000, guid: 3a495531cd541d049ae1e70e9f5f180d, type: 3}
+  - Id: C02
+    Texture: {fileID: 2800000, guid: ccbc45a71701eb2498de445976e54e49, type: 3}
+  - Id: C03
+    Texture: {fileID: 2800000, guid: 3547dd1f713d8084b8baa9a8c1b4b2a6, type: 3}
+  - Id: C04
+    Texture: {fileID: 2800000, guid: 7fd8e939bfb0ff14eb6916e3bf0c7931, type: 3}
+  - Id: C05
+    Texture: {fileID: 2800000, guid: b219968cc3f26434788ef3f3aa62bf9a, type: 3}
+  - Id: C06
+    Texture: {fileID: 2800000, guid: e623d98b378651a40b01eb59471251b6, type: 3}
+  - Id: C07
+    Texture: {fileID: 2800000, guid: fc40823a33846a44e876e8d843141a7f, type: 3}
+  - Id: C08
+    Texture: {fileID: 2800000, guid: 06afe3e073c883d4882df437ed75a3d0, type: 3}
+  - Id: C09
+    Texture: {fileID: 2800000, guid: 7cb19d6178e2d4248be74c5f76e3da66, type: 3}
+  - Id: C10
+    Texture: {fileID: 2800000, guid: 5b6b4648c287b8a4cab870bf2aafd2dc, type: 3}
+  - Id: C11
+    Texture: {fileID: 2800000, guid: b5a31b4f8b38f91418d7546f28bea661, type: 3}
+  - Id: C12
+    Texture: {fileID: 2800000, guid: 64eb47d2a2767e743a387507e6188374, type: 3}
+  - Id: C13
+    Texture: {fileID: 2800000, guid: 0dfc376340549354e9d9cd15b77da65e, type: 3}
+  - Id: C14
+    Texture: {fileID: 2800000, guid: 2f150728f6bb1144ba2b2757872dc136, type: 3}
+  - Id: C15
+    Texture: {fileID: 2800000, guid: ce119dcf751234a43a761ba7772d8dcd, type: 3}
+  - Id: C16
+    Texture: {fileID: 2800000, guid: bc3dcd2ad50607046a4e03bfe80e9105, type: 3}
+  - Id: R01
+    Texture: {fileID: 2800000, guid: 02b6cf8fe709aa54d83a9b9f6bdff044, type: 3}
+  - Id: R02
+    Texture: {fileID: 2800000, guid: f523f85fad5efb14aa785b875e432c31, type: 3}
+  - Id: R03
+    Texture: {fileID: 2800000, guid: 324cd4d045f77e640a22c6e6b7884dfc, type: 3}
+  - Id: R04
+    Texture: {fileID: 2800000, guid: f9b0a31061d48f8489c62643bb2255ce, type: 3}
+  - Id: R05
+    Texture: {fileID: 2800000, guid: 043a9c53fbe8dcc40bcd0f41bbf6cb31, type: 3}
+  - Id: R06
+    Texture: {fileID: 2800000, guid: fbae6a031456adf46a6afea3e940cef5, type: 3}
+  - Id: S01
+    Texture: {fileID: 2800000, guid: 3a7817794efb68f488a826e0ffc334eb, type: 3}
+  - Id: S02
+    Texture: {fileID: 2800000, guid: f37575e45a0e64f4281f00add2fdd818, type: 3}
+  - Id: U01
+    Texture: {fileID: 2800000, guid: cf62222af9ae730438de3f55442cef06, type: 3}
+  - Id: U02
+    Texture: {fileID: 2800000, guid: 3a70dc331d93b214f82fa8c0324635c5, type: 3}
+  - Id: U03
+    Texture: {fileID: 2800000, guid: 172ca78ff73f95941a1679de9268a066, type: 3}
+  - Id: U04
+    Texture: {fileID: 2800000, guid: ae3fc552b3d317c4c904d406af6a9c70, type: 3}
+  - Id: U05
+    Texture: {fileID: 2800000, guid: f8eb753e5e63d5a4c93116027ff98858, type: 3}
+  - Id: U06
+    Texture: {fileID: 2800000, guid: 4d448d1ccc9040f428d1f9361e61045f, type: 3}
+  - Id: U07
+    Texture: {fileID: 2800000, guid: 5daba14f0c6600846b7a0d9d8d5f1dc2, type: 3}
+  - Id: U08
+    Texture: {fileID: 2800000, guid: 69a79e712b98b024fb93d70bc57ea3e2, type: 3}
+  - Id: U09
+    Texture: {fileID: 2800000, guid: b959c84715d640f459030ae5e21f3cc1, type: 3}
+  - Id: U10
+    Texture: {fileID: 2800000, guid: ead85a7fb7fa2d740955864cf0f35b3f, type: 3}
+  - Id: U11
+    Texture: {fileID: 2800000, guid: 09b90505688490949895ae97e0c33595, type: 3}
+  - Id: U12
+    Texture: {fileID: 2800000, guid: abb4918583ae689498e0ffe4fc52f94c, type: 3}
+  - Id: U13
+    Texture: {fileID: 2800000, guid: 5226544ba64bdd84e865481850407f16, type: 3}
+  - Id: U14
+    Texture: {fileID: 2800000, guid: ab713b767275a604b96d17afeaff9489, type: 3}
+  - Id: U15
+    Texture: {fileID: 2800000, guid: 18621b943a6b871448684dee521bc801, type: 3}
+  Actors:
+  - Id: acolyte
+    Texture: {fileID: 2800000, guid: 7de89b4994ab82c489140a6000dd5a0f, type: 3}
+  - Id: drowned
+    Texture: {fileID: 2800000, guid: 90e20e17a92be6e4887ef1424efa1856, type: 3}
+  - Id: drowned_priest
+    Texture: {fileID: 2800000, guid: 6efcfac1378b8b944b7e92b593f144e3, type: 3}
+  - Id: drowned_priest_p2
+    Texture: {fileID: 2800000, guid: 087f845435536ac4eb97103429dabe1b, type: 3}
+  - Id: player
+    Texture: {fileID: 2800000, guid: f3741bb2242f816489ec8c78d9a97ac1, type: 3}
+  - Id: rat
+    Texture: {fileID: 2800000, guid: 4e0af7d097bb6fb4faf1abeeb896efac, type: 3}
+  - Id: scaleling
+    Texture: {fileID: 2800000, guid: 16caee70e6b98d343b3ed967f3ce6013, type: 3}
+  - Id: tentacle
+    Texture: {fileID: 2800000, guid: dfef9b1e4889b3d43b655280af5d9000, type: 3}
+  Backgrounds:
+  - Id: chapel
+    Texture: {fileID: 2800000, guid: 89d1c2f5c5c2a794e83b6a66c76f05a3, type: 3}
+  - Id: docks
+    Texture: {fileID: 2800000, guid: 73bd9839ed59a664d9027342d059d9f7, type: 3}
+  - Id: map
+    Texture: {fileID: 2800000, guid: 95f28bc24469ad242b7c83e60e35dc08, type: 3}
+  Sprites:
+  - Id: frame_basic
+    Texture: {fileID: 2800000, guid: 7165cb1c732c5124783cc9ece74dd046, type: 3}
+  - Id: frame_common
+    Texture: {fileID: 2800000, guid: ddd24a4ad58de8a44968ba568708a6dc, type: 3}
+  - Id: frame_erosion
+    Texture: {fileID: 2800000, guid: f5bc2ceba72674d4a9bc2d6368012523, type: 3}
+  - Id: frame_rare
+    Texture: {fileID: 2800000, guid: 3b4690a59b4cbe445a0d563475b1bfb0, type: 3}
+  - Id: frame_uncommon
+    Texture: {fileID: 2800000, guid: c3b60e1a03e67134bbf29e8e7ad3c684, type: 3}
+  - Id: icon_block
+    Texture: {fileID: 2800000, guid: 7d48430beb691c74191e22dab1466d6e, type: 3}
+  - Id: icon_discard
+    Texture: {fileID: 2800000, guid: 2fa34b00a1fa86840813e48e5d29b01a, type: 3}
+  - Id: icon_draw
+    Texture: {fileID: 2800000, guid: e19c37a4dbfd5884989f68ef116bacbf, type: 3}
+  - Id: icon_exhaust
+    Texture: {fileID: 2800000, guid: 78e61aa2c072f8f44a11454a43f6a20e, type: 3}
+  - Id: icon_heart
+    Texture: {fileID: 2800000, guid: 42da7ad2623fd3d4e9699f851b28c115, type: 3}
+  - Id: intent_attack
+    Texture: {fileID: 2800000, guid: d14a99f8d3001c5428a6ca1a4ed68b85, type: 3}
+  - Id: intent_buff
+    Texture: {fileID: 2800000, guid: f9aeb2c3bd012884ab58baeb1b32ed83, type: 3}
+  - Id: intent_debuff
+    Texture: {fileID: 2800000, guid: 8ac5dc13371722f40969a7379170142a, type: 3}
+  - Id: intent_defend
+    Texture: {fileID: 2800000, guid: c7400e6e1e3059a46896a7173f6aa8b6, type: 3}
+  - Id: intent_mind
+    Texture: {fileID: 2800000, guid: 2f060ac1ceafe904c93d4caa00ef1c12, type: 3}
+  - Id: intent_stun
+    Texture: {fileID: 2800000, guid: af0e5f26a217a6c4cbc8615ac8e0e7b7, type: 3}
+  - Id: intent_summon
+    Texture: {fileID: 2800000, guid: 040a3992fabecca41a7a7c3240df9464, type: 3}
+  - Id: intent_unknown
+    Texture: {fileID: 2800000, guid: ff511f9950b621846b0ef2b344ea10b0, type: 3}
+  - Id: node_battle
+    Texture: {fileID: 2800000, guid: 416fa1ded2b17b347adc06c2d7e4a7ca, type: 3}
+  - Id: node_boss
+    Texture: {fileID: 2800000, guid: fe977ab76b3637344afbcb22c9d039b6, type: 3}
+  - Id: node_elite
+    Texture: {fileID: 2800000, guid: 1f0e532019b88534cba8f72caa87f4cd, type: 3}
+  - Id: node_event
+    Texture: {fileID: 2800000, guid: 79ca307395d852246a86a4ffbcb2e48d, type: 3}
+  - Id: node_rest
+    Texture: {fileID: 2800000, guid: 729122cc8edbab044a9662f96c09b15c, type: 3}
+  - Id: node_shop
+    Texture: {fileID: 2800000, guid: 5c16694ed43ade2489dd5d5d6082a82c, type: 3}
+  - Id: node_treasure
+    Texture: {fileID: 2800000, guid: 4e98a5d12faff9c4099f18e9b346c17b, type: 3}
+  - Id: passive_faceless
+    Texture: {fileID: 2800000, guid: ad3473c2bc80c374c885f944f9c69f04, type: 3}
+  - Id: passive_glare
+    Texture: {fileID: 2800000, guid: 122d9681b3c23274488caf1c4c71bdc9, type: 3}
+  - Id: passive_scent
+    Texture: {fileID: 2800000, guid: b2560df61903a3d498c8649015a19051, type: 3}
+  - Id: passive_tide
+    Texture: {fileID: 2800000, guid: a8f91c55107075d40929390e7b09790a, type: 3}
+  - Id: relic_whale_oil_lamp
+    Texture: {fileID: 2800000, guid: e9850218535d4e344948fae801dd9ab5, type: 3}
+  - Id: seal_contagion
+    Texture: {fileID: 2800000, guid: 80a0201cb658bad419b4696939339ece, type: 3}
+  - Id: seal_fallen
+    Texture: {fileID: 2800000, guid: 655a54b0d4b32da449350c1ba1e76d7a, type: 3}
+  - Id: seal_vigil
+    Texture: {fileID: 2800000, guid: 0fdeebea9e07bf04882b4efa88e201e9, type: 3}
+  - Id: status_bound
+    Texture: {fileID: 2800000, guid: 01363668ef8cf0d4798a90614562c5ef, type: 3}
+  - Id: status_dexterity
+    Texture: {fileID: 2800000, guid: fd20ae407c4ce51488acbb55609e0b0b, type: 3}
+  - Id: status_fear
+    Texture: {fileID: 2800000, guid: 3f14393bd4f4bb54f8cb346b82b9e3ec, type: 3}
+  - Id: status_frail
+    Texture: {fileID: 2800000, guid: 4c7c988c4c7c8ba40a7d6c6437ba4147, type: 3}
+  - Id: status_strength
+    Texture: {fileID: 2800000, guid: dcf177efe9d081447be6f644071cfbad, type: 3}
+  - Id: status_stun
+    Texture: {fileID: 2800000, guid: 1868cd5ecc7f0394e9b06f09488ebf1e, type: 3}
+  - Id: status_vulnerable
+    Texture: {fileID: 2800000, guid: 57ae00e51cfb94c498ac4b946619d11a, type: 3}
+  - Id: status_ward
+    Texture: {fileID: 2800000, guid: ca81393b881e787498f354c2940e708a, type: 3}
+  - Id: status_weak
+    Texture: {fileID: 2800000, guid: 6f6bca2159c165b419c3b00494992ea4, type: 3}
+  - Id: ui_bar
+    Texture: {fileID: 2800000, guid: f8ef58dc09849b74f9d513e75104d6c2, type: 3}
+  - Id: ui_bar_block
+    Texture: {fileID: 2800000, guid: 624aac2b84cf7fa44a2022abbdc07570, type: 3}
+  - Id: ui_gauge
+    Texture: {fileID: 2800000, guid: 186f97d22bfb91443a22371e5716d196, type: 3}
+  - Id: ui_orb
+    Texture: {fileID: 2800000, guid: e904ad74853a5504681465d202322a31, type: 3}
+  - Id: ui_plaque
+    Texture: {fileID: 2800000, guid: c5d2cceff47275c4a84632b0cc1ddb00, type: 3}
+  - Id: ui_rule
+    Texture: {fileID: 2800000, guid: 500f51a702499f0458162bedbf4858f1, type: 3}
+  - Id: ui_scroll
+    Texture: {fileID: 2800000, guid: 698ee6d42bf35a14c85a611000d29e2a, type: 3}
+  - Id: vfx_break_0
+    Texture: {fileID: 2800000, guid: 68d2da3822fb79642bec7cf702c32288, type: 3}
+  - Id: vfx_break_1
+    Texture: {fileID: 2800000, guid: c5f014a83c6929c418b08c28bbfdc83c, type: 3}
+  - Id: vfx_break_2
+    Texture: {fileID: 2800000, guid: 74a16f9c13064134880a9bd7706f70ca, type: 3}
+  - Id: vfx_break_3
+    Texture: {fileID: 2800000, guid: 376885c0d7e91b14a9b3a51452018b21, type: 3}
+  - Id: vfx_break_4
+    Texture: {fileID: 2800000, guid: ff5f491a3e63280458a23e67c13b6638, type: 3}
+  - Id: vfx_break_5
+    Texture: {fileID: 2800000, guid: bf340c0e4bae8604c81e09d594efc416, type: 3}
+  - Id: vfx_crack
+    Texture: {fileID: 2800000, guid: 25932de6888646940b16a9c9d125fa8b, type: 3}
+  - Id: vfx_hit_a_0
+    Texture: {fileID: 2800000, guid: 1104035c341346842af293e821998548, type: 3}
+  - Id: vfx_hit_a_1
+    Texture: {fileID: 2800000, guid: 070241b34d8a1034eb228f8c5780a4c5, type: 3}
+  - Id: vfx_hit_a_2
+    Texture: {fileID: 2800000, guid: dd78e1e9cda03a1468d50cd56ca55c5a, type: 3}
+  - Id: vfx_hit_a_3
+    Texture: {fileID: 2800000, guid: 87477c835cf306d498c8003b67a16e70, type: 3}
+  - Id: vfx_hit_a_4
+    Texture: {fileID: 2800000, guid: f80695b2fb5a79948a608e844594937b, type: 3}
+  - Id: vfx_hit_a_5
+    Texture: {fileID: 2800000, guid: 21e356cef2c533849bc54502c69b601a, type: 3}
+  - Id: vfx_hit_b_0
+    Texture: {fileID: 2800000, guid: 23b080806c5ddc744949bf387a2f75b3, type: 3}
+  - Id: vfx_hit_b_1
+    Texture: {fileID: 2800000, guid: e921820389898de4ebc41e21ca9217a6, type: 3}
+  - Id: vfx_hit_b_2
+    Texture: {fileID: 2800000, guid: 4a45ff8d660ba7c4fbb2f5b92dead961, type: 3}
+  - Id: vfx_hit_b_3
+    Texture: {fileID: 2800000, guid: 3e3308d1f7bb5ad44bf31b3a3c9bbf9d, type: 3}
+  - Id: vfx_hit_b_4
+    Texture: {fileID: 2800000, guid: 72901c87467a6bc45a466457b7f4c6bc, type: 3}
+  - Id: vfx_hit_b_5
+    Texture: {fileID: 2800000, guid: 7174bad8288da9a448d8a3bcc9d96751, type: 3}
+  - Id: vfx_hit_c_0
+    Texture: {fileID: 2800000, guid: 8d646a03d87ced04f9d7007fb68bc809, type: 3}
+  - Id: vfx_hit_c_1
+    Texture: {fileID: 2800000, guid: de9305fd4c118a14085f8887ce2a0297, type: 3}
+  - Id: vfx_hit_c_2
+    Texture: {fileID: 2800000, guid: 6a0b06393508874479555b4db7f0360e, type: 3}
+  - Id: vfx_hit_c_3
+    Texture: {fileID: 2800000, guid: e62d1cbe387b67f4d867778476a47a25, type: 3}
+  - Id: vfx_hit_c_4
+    Texture: {fileID: 2800000, guid: 356722c3da3a011419fa82fe69ca2b32, type: 3}
+  - Id: vfx_hit_c_5
+    Texture: {fileID: 2800000, guid: efbf78c4b236cfe43bd1dc8f637960d8, type: 3}
+  - Id: window_arch
+    Texture: {fileID: 2800000, guid: 7f16b81a86b4cd64c85c824bcbc5bb33, type: 3}
+  - Id: window_bevel
+    Texture: {fileID: 2800000, guid: 52e5b9b00a1758e47b4595bfbe109f56, type: 3}
+  - Id: window_blot
+    Texture: {fileID: 2800000, guid: 6ee860e706b328b4fb66fdd074217050, type: 3}
+  - Id: window_circle
+    Texture: {fileID: 2800000, guid: e6576b6254ea321468deddaaf04394cb, type: 3}

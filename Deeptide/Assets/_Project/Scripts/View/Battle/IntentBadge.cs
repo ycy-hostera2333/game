@@ -7,7 +7,7 @@ using UnityEngine.UI;
 namespace Deeptide.View.Battle
 {
     /// <summary>
-    /// 敌人意图（策划/10 §6.3）。灰盒图标 = 墨圆 + 一个汉字（10 §10）：攻 / 防 / 增 / 减 / 神 / 召 / ?。
+    /// 敌人意图（策划/10 §6.3）。墨圆上一个纸色图标（ArtSprites 的 intent_*）；还没有图标时退回灰盒的汉字（10 §10）：攻 / 防 / 增 / 减 / 神 / 召 / ?。
     /// 清醒：图标 + 数值，攻击按单段伤害分 3 档大小。癫狂：数值换成墨渍，图标固定中档大小、以 12 帧 / 秒抖动并带青 / 血色差。
     /// 点亮提灯、鲸油灯让意图在癫狂时也看得清，这时图标旁加一个「灯」角标。
     /// </summary>
@@ -16,7 +16,7 @@ namespace Deeptide.View.Battle
         const float Icon = 56;
 
         RectTransform _shake, _iconRoot;
-        Image _icon, _ghostA, _ghostB, _cross, _blot, _lantern;
+        Image _icon, _art, _ghostA, _ghostB, _cross, _blot, _lantern;
         TextMeshProUGUI _glyph, _number;
         readonly List<GameObject> _chips = new List<GameObject>();
         float _nextJitter;
@@ -48,16 +48,22 @@ namespace Deeptide.View.Battle
             _glyph.font = Fonts.Serif;
             _glyph.fontStyle = FontStyles.Bold;
             _glyph.rectTransform.Fill();
+            _art = Ui.Box("Art", _icon.transform, Palette.Paper);
+            _art.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(Icon * 0.74f, Icon * 0.74f));
+            _art.gameObject.SetActive(false);
 
             _cross = Ui.Rect("Cross", _iconRoot).Fill().gameObject.AddComponent<Image>();
             _cross.color = new Color(0, 0, 0, 0);
             _cross.raycastTarget = false;
-            foreach (float angle in new[] { 45f, -45f })
-            {
-                var bar = Ui.Box("Bar", _cross.transform, Palette.Blood);
-                bar.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(Icon * 1.25f, 6));
-                bar.rectTransform.localRotation = Quaternion.Euler(0, 0, angle);
-            }
+            // 震慑：意图被墨线划叉（10 §6.3）。有画好的毛笔叉就用它，没有就用两道血色横条
+            if (!ArtSprites.Apply(_cross, "intent_stun", Palette.Blood))
+                foreach (float angle in new[] { 45f, -45f })
+                {
+                    var bar = Ui.Box("Bar", _cross.transform, Palette.Blood);
+                    bar.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(Icon * 1.25f, 6));
+                    bar.rectTransform.localRotation = Quaternion.Euler(0, 0, angle);
+                }
+            else _cross.rectTransform.Fill(-8);
 
             _number = Ui.Text("Number", _shake, "", 34, Palette.Blood, TextAlignmentOptions.Left);
             _number.font = Fonts.Serif;
@@ -106,6 +112,9 @@ namespace Deeptide.View.Battle
             bool attack = (v.Type & IntentType.Attack) != 0;
             var main = v.Hidden ? IntentType.Unknown : MainType(v.Type);
             _glyph.text = Glyph(main);
+            bool art = ArtSprites.Apply(_art, IconId(main), Palette.Paper);
+            _art.gameObject.SetActive(art);
+            _glyph.gameObject.SetActive(!art);
             _cross.gameObject.SetActive(v.Stunned);
 
             // 攻击按单段伤害分档；模糊时固定中档，否则图标大小本身就泄露了数值
@@ -155,8 +164,14 @@ namespace Deeptide.View.Battle
             var ring = Ui.Box("Ring", chip.transform, Palette.Ink);
             ring.sprite = Shapes.Ring(26);
             ring.rectTransform.Fill();
-            var text = Ui.Text("Glyph", chip.transform, Glyph(t), 15, t == IntentType.Mind ? Palette.Teal : Palette.Ink);
-            text.rectTransform.Fill();
+            var color = t == IntentType.Mind ? Palette.Teal : Palette.Ink;
+            var icon = Ui.Box("Art", chip.transform, color);
+            if (ArtSprites.Apply(icon, IconId(t), color)) icon.rectTransform.Fill(4);
+            else
+            {
+                Destroy(icon.gameObject);
+                Ui.Text("Glyph", chip.transform, Glyph(t), 15, color).rectTransform.Fill();
+            }
             return chip.gameObject;
         }
 
@@ -174,6 +189,21 @@ namespace Deeptide.View.Battle
             foreach (var x in new[] { IntentType.Attack, IntentType.Mind, IntentType.Debuff, IntentType.Buff, IntentType.Defend, IntentType.Summon })
                 if ((t & x) != 0) return x;
             return IntentType.Unknown;
+        }
+
+        /// <summary>意图类型 → 图标 ID（ArtDatabase 单色精灵）。</summary>
+        public static string IconId(IntentType t)
+        {
+            switch (t)
+            {
+                case IntentType.Attack: return "intent_attack";
+                case IntentType.Defend: return "intent_defend";
+                case IntentType.Buff: return "intent_buff";
+                case IntentType.Debuff: return "intent_debuff";
+                case IntentType.Mind: return "intent_mind";
+                case IntentType.Summon: return "intent_summon";
+                default: return "intent_unknown";
+            }
         }
 
         static string Glyph(IntentType t)

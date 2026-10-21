@@ -54,6 +54,18 @@ namespace Deeptide.View.Battle
             var title = Ui.Text("Title", root, "理智", 22, Palette.InkMid);
             title.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, Height / 2 + 24), new Vector2(80, 30));
 
+            // UI 套件：理智格立在一根柱子里（柱头在格子上方、柱础在下方），文字让开
+            float valueY = -Height / 2 - 24;
+            var pillar = Ui.Box("Pillar", root, Palette.InkMid);
+            if (ArtSprites.Apply(pillar, "ui_gauge", Palette.InkMid, ArtSprites.GaugeBorder, 1.5f))
+            {
+                pillar.raycastTarget = false;
+                pillar.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 2), new Vector2(Width + 28, Height + 84));
+                title.rectTransform.anchoredPosition = new Vector2(0, Height / 2 + 64);
+                valueY = -Height / 2 - 60;
+            }
+            else Destroy(pillar.gameObject);
+
             _column = Ui.Rect("Column", root).Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(Width, Height));
 
             _lunacyLine = Ui.Rect("LunacyLine", root);
@@ -70,10 +82,10 @@ namespace Deeptide.View.Battle
             _value = Ui.Text("Value", root, "", 26, Palette.Ink);
             _value.font = Fonts.Serif;
             _value.fontStyle = FontStyles.Bold;
-            _value.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, -Height / 2 - 24), new Vector2(110, 34));
+            _value.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, valueY), new Vector2(110, 34));
 
             _ward = Ui.Box("Ward", root, Palette.Teal);
-            _ward.sprite = Shapes.Shield;
+            if (!ArtSprites.Apply(_ward, "icon_block", Palette.Teal)) _ward.sprite = Shapes.Shield;
             _ward.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(46, Height / 2 + 26), new Vector2(34, 38));
             _wardText = Ui.Text("Value", _ward.transform, "", 19, Palette.Paper);
             _wardText.font = Fonts.Serif;
