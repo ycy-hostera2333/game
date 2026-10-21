@@ -91,10 +91,14 @@ namespace Deeptide.View.Battle
             _running = true;
             while (_queue.Count > 0)
             {
-                float wait = _screen.Apply(_queue.Dequeue());
+                // 某个视图抛异常时只跳过这条表现，协程不能死：死了 _running 一直为真，输入就永久锁住
+                float wait;
+                try { wait = _screen.Apply(_queue.Dequeue()); }
+                catch (Exception ex) { Debug.LogException(ex); wait = 0; }
                 if (wait > 0) yield return new WaitForSeconds(wait / Mathf.Max(0.01f, Speed));
             }
-            _screen.SyncAll();
+            try { _screen.SyncAll(); }
+            catch (Exception ex) { Debug.LogException(ex); }
             _running = false;
             _screen.OnDirectorIdle();
         }

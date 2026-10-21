@@ -16,6 +16,8 @@ namespace Deeptide.View
         /// <param name="border">九宫格边距（像素，左 下 右 上）；全 0 表示不切片。</param>
         public static Sprite Get(string id, Vector4 border = default)
         {
+            // 能力等没有图标的状态传 null 进来，直接走灰盒
+            if (string.IsNullOrEmpty(id)) return null;
             string key = border == Vector4.zero ? id : $"{id}#{border}";
             if (Cache.TryGetValue(key, out var s) && s != null) return s;
             var tex = ArtDatabase.SpriteTexture(id);

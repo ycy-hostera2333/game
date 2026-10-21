@@ -325,6 +325,42 @@ namespace Deeptide.View.Tests
             yield return Shot("14_backdrop_boss");
         }
 
+        /// <summary>
+        /// 能力牌：打出后玩家状态行多一枚能力小牌（没有图标，显示汉字）。能力的图标 ID 是 null，曾经让 ArtSprites 查字典抛异常，
+        /// 回放协程中断、输入永久锁住。把全部能力牌打一遍，每张打完都要能接着操作，Console 里不能有异常。
+        /// </summary>
+        [UnityTest]
+        public IEnumerator PowersDoNotStallReplay()
+        {
+            string[] powers = { "U01", "U05", "U07", "U11", "R01", "R02", "R06" };
+            _boot.Deck = powers.Concat(new[] { "B02", "B02", "B02" }).ToArray();
+            _boot.Enemies = new[] { "dummy" };
+            _boot.Launch(new BattleLaunch { Seed = 1 });
+            yield return null;
+            _screen = _boot.Screen;
+            _screen.Director.Speed = 20;
+            yield return WaitIdle();
+
+            for (int guard = 0; guard < 60 && Engine.Player.Powers.Count < powers.Length; guard++)
+            {
+                Assert.AreEqual(BattleOutcome.Ongoing, Engine.State.Outcome);
+                if (_screen.Controller.AwaitingChoice) Assert.IsTrue(_screen.Controller.Choose(0));
+                else
+                {
+                    var hand = Engine.Player.Hand;
+                    int pick = hand.FindIndex(c => c.Def.Type == CardType.Power && Engine.CanPlay(hand.IndexOf(c), out _));
+                    Assert.IsTrue(pick >= 0 ? _screen.Controller.Play(pick) : _screen.Controller.EndTurn());
+                }
+                yield return WaitIdle();
+                Assert.AreEqual(Engine.Player.Hand.Count, _screen.Hand.Cards.Count);
+            }
+            Assert.AreEqual(powers.Length, Engine.Player.Powers.Count, "全部能力都打出来了");
+            if (_screen.Controller.AwaitingChoice) Assert.IsTrue(_screen.Controller.Choose(0));
+            else Assert.IsTrue(_screen.Controller.EndTurn(), "打完能力还能结束回合");
+            yield return WaitIdle();
+            yield return Shot("15_powers");
+        }
+
         /// <summary>程序化的测试角色图（64 × 128）：一个椭圆的轮廓，里面一半排线。</summary>
         static Texture2D TestActor()
         {
