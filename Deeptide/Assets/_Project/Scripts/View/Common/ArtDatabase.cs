@@ -7,8 +7,8 @@ namespace Deeptide.View
     /// <summary>
     /// 美术资源映射（策划/08 §4、10 §11.3）：内容 ID → 打包贴图。Core 只认 ID，表现层在这里查图。
     /// 资源放在 <c>Art/Resources/ArtDatabase.asset</c>，由 ArtPacker 打包时自动创建和更新；还没有资源时所有查询返回 null，卡面和角色继续用灰盒。
-    /// 四张表：卡图（卡牌 ID）、角色（敌人定义 ID，调查员是 <see cref="PlayerId"/>）、战斗背景（打包贴图）、
-    /// 单色精灵（图标、框饰、UI 墨线、特效序列帧：白色 + alpha，由 Image 着色，10 §11.3）。
+    /// 五张表：卡图（卡牌 ID）、角色（敌人定义 ID，调查员是 <see cref="PlayerId"/>）、战斗背景（打包贴图）、
+    /// 插图（事件、篝火、主视觉：全对比度的打包贴图，10 §8）、单色精灵（图标、框饰、UI 墨线、特效序列帧：白色 + alpha，由 Image 着色，10 §11.3）。
     /// Demo 规模下直接引用贴图，不上 Addressables。
     /// </summary>
     [CreateAssetMenu(menuName = "Deeptide/ArtDatabase", fileName = "ArtDatabase")]
@@ -34,12 +34,15 @@ namespace Deeptide.View
         [Tooltip("战斗背景：docks / chapel … → 打包贴图（R 淡墨、B 癫狂层）")]
         public List<Entry> Backgrounds = new List<Entry>();
 
+        [Tooltip("插图：event_<事件 ID> / campfire / keyart → 打包贴图（R 墨、G 深渊遮罩、B 癫狂层），用 Deeptide/UI/Etching 着色")]
+        public List<Entry> Illustrations = new List<Entry>();
+
         [Tooltip("单色精灵：intent_attack / status_fear / node_elite / frame_rare / ui_panel / vfx_hit_a_0 … → 白色 + alpha 的贴图")]
         public List<Entry> Sprites = new List<Entry>();
 
         static ArtDatabase _instance;
         static bool _loaded;
-        static Dictionary<string, Texture2D> _cards, _actors, _backgrounds, _sprites;
+        static Dictionary<string, Texture2D> _cards, _actors, _backgrounds, _illustrations, _sprites;
         static readonly Dictionary<string, Texture2D> Overrides = new Dictionary<string, Texture2D>();
         static readonly Dictionary<string, Texture2D> ActorOverrides = new Dictionary<string, Texture2D>();
 
@@ -90,6 +93,9 @@ namespace Deeptide.View
         /// <summary>一张战斗背景（打包贴图）；没有时返回 null。</summary>
         public static Texture2D Background(string id) => Lookup(id, ref _backgrounds, db => db.Backgrounds);
 
+        /// <summary>一张插图（打包贴图）；没有时返回 null。</summary>
+        public static Texture2D Illustration(string id) => Lookup(id, ref _illustrations, db => db.Illustrations);
+
         /// <summary>一张单色贴图（白色 + alpha）；没有时返回 null。做成精灵用 <see cref="ArtSprites"/>。</summary>
         public static Texture2D SpriteTexture(string id) => Lookup(id, ref _sprites, db => db.Sprites);
 
@@ -136,6 +142,7 @@ namespace Deeptide.View
             _cards = null;
             _actors = null;
             _backgrounds = null;
+            _illustrations = null;
             _sprites = null;
             ArtSprites.Invalidate();
         }
@@ -161,6 +168,14 @@ namespace Deeptide.View
             if (Backgrounds == null) Backgrounds = new List<Entry>();
             Set(Backgrounds, id, texture);
             _backgrounds = null;
+        }
+
+        /// <summary>添加或替换一张插图（ArtPacker 用）。</summary>
+        public void SetIllustration(string id, Texture2D texture)
+        {
+            if (Illustrations == null) Illustrations = new List<Entry>();
+            Set(Illustrations, id, texture);
+            _illustrations = null;
         }
 
         /// <summary>添加或替换一张单色贴图（ArtPacker 用）。</summary>

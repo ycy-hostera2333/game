@@ -8,6 +8,7 @@ ArtSource/
 ├─ cards/        卡图分层 PNG + 源文件（.psd / .kra）
 ├─ actors/       角色图（敌人、调查员）分层 PNG
 ├─ backgrounds/  战斗背景、地图底图的分层 PNG（_ink 淡墨、_mad 癫狂层）
+├─ illustrations/ 插图：事件 8 张、篝火、主视觉（全对比度，_ink / _abyss / _mad）
 ├─ sprites/      单色精灵：图标、卡框套件、UI 套件、地图节点、特效帧（白色 + alpha，子目录只用来分类）
 └─ CREDITS.md    公有领域素材登记（10 §12.3）
 ```
@@ -74,6 +75,19 @@ python build.py C06 B01      # 不给 ID 就画全部
   - UI 套件 `ui_*`（九宫格边距写在 `ArtSprites.cs`）、`icon_heart / draw / discard / exhaust`
   - 地图节点 `node_*`；特效帧 `vfx_hit_a_0 … vfx_hit_c_5`、`vfx_break_0 … 5`、`vfx_crack`
 - 没有某个 ID 的图时，游戏继续用灰盒（几何 + 汉字），所以可以一张张替换
+
+## 插图（事件、篝火、主视觉）
+
+10 §8 的 P2：每个事件一张（`event_<事件 ID>`，1920 × 1280，事件界面左边显示 880 × 620）、篝火 `campfire`（同尺寸）、主视觉 `keyart`（3840 × 2160，标题画面的背景）。
+商店里的商贩直接用 `event_fog_peddler` 的左半（商贩整个画在 x < 960 里）。
+
+- 和卡图一样是全对比度的版画，分层 `_ink`（必需）、`_abyss`（深渊遮罩，任何时候都着深渊青）、`_mad`（癫狂层）。游戏里用 `Deeptide/UI/Etching` 着清醒面；
+  事件界面悬停会扣理智上限的选项时，癫狂层以深渊青浮出来
+- 打包进 ArtDatabase 的插图表（`Art/Illustrations/ill_<ID>.png`），和卡图同一个菜单 / batchmode 命令
+- 程序化的源在 `procedural/illustrations/<ID>.py`（`python build_illustrations.py event_mirror campfire …`，不给 ID 就画全部，一张 40–80 秒，主视觉约 3 分钟），
+  共用画法在 `illustrations/_kit.py`（线宽、夜空、海面、礁石、调查员背影、兜帽人、火苗）。预览 `preview/ill_<ID>.png`：清醒 / 癫狂层浮出 / 游戏里的显示尺寸
+- 插图在游戏里缩小一半显示，**线距不要小于 7 像素**，否则缩小后会出摩尔纹；放射排线（`ph_ray`）的 r0 用 `_kit.ray_r0` 取整，不然左侧水平方向会有一道接缝
+- 标题字 `logo` 是单色精灵（`procedural/sprites/title.py`，思源宋体 Black 做底再刻排线），在 `sprites/title/`
 
 程序化的源在 `procedural/backgrounds/`（`python build_backgrounds.py docks`）和 `procedural/sprites/`（`python build_sprites.py icons frames ui nodes vfx vfx_big`）。
 

@@ -121,6 +121,27 @@ MonoBehaviour:
     Texture: {fileID: 2800000, guid: 73bd9839ed59a664d9027342d059d9f7, type: 3}
   - Id: map
     Texture: {fileID: 2800000, guid: 95f28bc24469ad242b7c83e60e35dc08, type: 3}
+  Illustrations:
+  - Id: campfire
+    Texture: {fileID: 2800000, guid: 828fdcf350886fd47aa61e869031d122, type: 3}
+  - Id: event_asylum_ward
+    Texture: {fileID: 2800000, guid: 860b36139606a384eace600948161ae9, type: 3}
+  - Id: event_cult_gathering
+    Texture: {fileID: 2800000, guid: a424093cca951c348999d6ee6ad0ac8e, type: 3}
+  - Id: event_dream_mentor
+    Texture: {fileID: 2800000, guid: 386c4ef08bfd62e408bd5f9a88ae9341, type: 3}
+  - Id: event_drowning_sailor
+    Texture: {fileID: 2800000, guid: f44b011570466f94bae1ca5cfa878570, type: 3}
+  - Id: event_fog_peddler
+    Texture: {fileID: 2800000, guid: 3b4f2cb82f6e22e4bbbd3f0d73388465, type: 3}
+  - Id: event_forbidden_book
+    Texture: {fileID: 2800000, guid: c2ede4f9a1572d34ab7a9259b28d6e45, type: 3}
+  - Id: event_mirror
+    Texture: {fileID: 2800000, guid: 9612b0d0cec27f4438773402a2f69339, type: 3}
+  - Id: event_seaside_altar
+    Texture: {fileID: 2800000, guid: bba6c3de72c882546a218d3c8627ceee, type: 3}
+  - Id: keyart
+    Texture: {fileID: 2800000, guid: e121851bd81cd5f478aa846af6864db5, type: 3}
   Sprites:
   - Id: frame_basic
     Texture: {fileID: 2800000, guid: 7165cb1c732c5124783cc9ece74dd046, type: 3}
@@ -158,6 +179,8 @@ MonoBehaviour:
     Texture: {fileID: 2800000, guid: 040a3992fabecca41a7a7c3240df9464, type: 3}
   - Id: intent_unknown
     Texture: {fileID: 2800000, guid: ff511f9950b621846b0ef2b344ea10b0, type: 3}
+  - Id: logo
+    Texture: {fileID: 2800000, guid: b515fe0ae1f7ac04984dcd1421ffcddf, type: 3}
   - Id: node_battle
     Texture: {fileID: 2800000, guid: 416fa1ded2b17b347adc06c2d7e4a7ca, type: 3}
   - Id: node_boss

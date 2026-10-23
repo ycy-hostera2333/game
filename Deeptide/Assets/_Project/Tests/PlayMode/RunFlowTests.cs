@@ -71,6 +71,8 @@ namespace Deeptide.View.Tests
         public IEnumerator TitleStartsRunOnMap()
         {
             Assert.IsFalse(_boot.ClickTitle("Continue"), "没有存档时不该有「继续」");
+            Assert.IsNotNull(ArtDatabase.Illustration("keyart"), "主视觉应该已经打包");
+            Assert.IsTrue(_boot.Title.GetComponentsInChildren<UnityEngine.UI.Image>().Any(i => i.name == "Logo"), "标题画面应该有 Logo");
             yield return Shot("20_title");
             _boot.NextSeed = 12;
             Assert.IsTrue(_boot.ClickTitle("NewRun"));
@@ -110,6 +112,7 @@ namespace Deeptide.View.Tests
             yield return null;
             var seenRooms = new HashSet<RoomType>();
             var shots = new HashSet<string>();
+            bool revealChecked = false;
             int steps = 0;
             while (!Run.IsOver && steps++ < 8000)
             {
@@ -124,6 +127,25 @@ namespace Deeptide.View.Tests
                 if (steps % 200 == 0) Debug.Log($"[RunFlowTests] 第 {steps} 步：第 {s.Floor} 层 {s.Phase}，生命 {s.Hp}/{s.MaxHp}");
                 string shot = ShotName(s);
                 if (shot != null && shots.Add(shot)) yield return Shot(shot);
+                if (s.Phase == RunPhase.Event || s.Phase == RunPhase.Shop || s.Phase == RunPhase.Campfire)
+                {
+                    var plate = Screen.Panel.GetComponentInChildren<Illustration>();
+                    Assert.IsNotNull(plate, $"{s.Phase}：应该显示插图（ArtDatabase 的插图表）");
+                    Assert.IsNotNull(plate.Art.texture);
+                    var hook = Screen.Panel.GetComponentInChildren<HoverHook>();
+                    if (hook != null && !revealChecked)
+                    {
+                        // 悬停会扣理智上限的选项：插图的癫狂层浮出来，移开退回去
+                        revealChecked = true;
+                        hook.Enter();
+                        yield return new WaitForSeconds(0.5f);
+                        Assert.Greater(plate.Reveal, 0.5f, "悬停扣理智的选项时癫狂层应该浮出");
+                        yield return Shot("28_event_reveal");
+                        hook.Exit();
+                        yield return new WaitForSeconds(0.5f);
+                        Assert.Less(plate.Reveal, 0.05f);
+                    }
+                }
 
                 switch (s.Phase)
                 {

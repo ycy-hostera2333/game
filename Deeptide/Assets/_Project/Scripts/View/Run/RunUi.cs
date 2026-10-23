@@ -106,9 +106,85 @@ namespace Deeptide.View.Run
             return label;
         }
 
+        /// <summary>
+        /// 一张插图（ArtDatabase 的插图表，10 §8）：RawImage + 自己的一份 Etching 材质（清醒面配色，癫狂层着深渊青，_Reveal 从 0 开始），
+        /// uv 截取一部分（商店只用雾中商贩的左半）。还没有这张图时返回 null，调用方用别的东西顶上。
+        /// </summary>
+        public static Illustration Plate(Transform parent, string id, Vector2 pos, Vector2 size, Rect? uv = null)
+        {
+            var tex = ArtDatabase.Illustration(id);
+            var shader = Shader.Find("Deeptide/UI/Etching");
+            if (tex == null || shader == null) return null;
+            var frame = Ui.Box($"Illustration {id}", parent, Palette.Ink);
+            frame.rectTransform.Place(new Vector2(0.5f, 0.5f), pos, size);
+            var art = Ui.Rect("Art", frame.transform).Fill(6).gameObject.AddComponent<RawImage>();
+            art.texture = tex;
+            art.raycastTarget = false;
+            if (uv.HasValue) art.uvRect = uv.Value;
+            var mat = new Material(shader) { hideFlags = HideFlags.DontSave, name = $"Illustration {id}" };
+            mat.SetColor("_PaperColor", Palette.Paper);
+            mat.SetColor("_InkColor", Palette.Ink);
+            mat.SetColor("_AbyssColor", Palette.Teal);
+            mat.SetColor("_MadColor", Palette.Teal);
+            mat.SetFloat("_Reveal", 0);
+            art.material = mat;
+            var ill = frame.gameObject.AddComponent<Illustration>();
+            ill.Init(art, mat);
+            return ill;
+        }
+
         /// <summary>牌组里的一张牌（ID 带 + 表示升级）画成卡面数据：不在战斗里，画清醒面、不带动态说明。</summary>
         public static CardFace.Data Face(string deckId, bool mad = false) =>
             CardView.Describe(CardLibrary.Create(deckId, 0), null, mad, 0, false);
+    }
+
+    /// <summary>一张插图：持有自己的材质，癫狂层可以慢慢浮出（悬停会扣理智的选项时，10 §1.3「理智低时看见不该看的东西」）。</summary>
+    public sealed class Illustration : MonoBehaviour
+    {
+        static readonly int RevealId = Shader.PropertyToID("_Reveal");
+
+        public RawImage Art { get; private set; }
+        public float Reveal => _mat != null ? _mat.GetFloat(RevealId) : 0;
+
+        Material _mat;
+
+        public void Init(RawImage art, Material mat)
+        {
+            Art = art;
+            _mat = mat;
+        }
+
+        /// <summary>癫狂层浮出到 target（0 = 不显示），0.35 秒补间。</summary>
+        public void RevealTo(float target)
+        {
+            if (_mat == null) return;
+            Tween.StopAll(_mat);
+            Tween.Custom(_mat, _mat.GetFloat(RevealId), target, 0.35f, (m, v) => m.SetFloat(RevealId, v), Ease.OutQuad);
+        }
+
+        /// <summary>悬停 target 时浮出癫狂层，移开时退回去。</summary>
+        public void RevealOnHover(Graphic target, float amount = 0.75f)
+        {
+            var hover = target.gameObject.AddComponent<HoverHook>();
+            hover.Enter = () => RevealTo(amount);
+            hover.Exit = () => RevealTo(0);
+        }
+
+        void OnDestroy()
+        {
+            if (_mat == null) return;
+            Tween.StopAll(_mat);
+            Destroy(_mat);
+        }
+    }
+
+    /// <summary>通用的悬停回调。</summary>
+    public sealed class HoverHook : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+    {
+        public Action Enter, Exit;
+        public void OnPointerEnter(PointerEventData e) => Enter?.Invoke();
+        public void OnPointerExit(PointerEventData e) => Exit?.Invoke();
+        void OnDisable() => Exit?.Invoke();
     }
 
     /// <summary>

@@ -108,30 +108,23 @@ namespace Deeptide.View.Run
             var root = RunUi.Canvas("Title", Camera.main);
             Title = root;
             Ui.Box("Paper", root, Palette.Paper).rectTransform.Fill();
-            // 背景：海图最上面的漩涡（1920 × 1088 正好 16:9）
-            var tex = ArtDatabase.Background("map");
-            var shader = Shader.Find("Deeptide/UI/Backdrop");
-            if (tex != null && shader != null)
+            // 背景：主视觉（10 §8，栈桥尽头的调查员和雾里的巨物）；没有时用海图最上面的漩涡
+            bool keyart = Backdrop(root);
+            float col = keyart ? -520 : 0;                                      // 有主视觉时标题和按钮放在左边的雾里
+            var logo = Ui.Box("Logo", root, Palette.Ink);
+            if (ArtSprites.Apply(logo, "logo", Palette.Ink))
             {
-                var mat = new Material(shader) { hideFlags = HideFlags.DontSave };
-                mat.SetColor("_InkColor", Palette.InkMid);
-                mat.SetColor("_MadColor", Palette.Teal);
-                var art = Ui.Rect("Art", root).Fill().gameObject.AddComponent<RawImage>();
-                art.texture = tex;
-                art.material = mat;
-                art.color = Palette.Paper;
-                art.uvRect = new Rect(0, 1 - 1088f / 3400f, 1, 1088f / 3400f);
-                art.raycastTarget = false;
-                art.gameObject.AddComponent<MaterialOwner>().Material = mat;
-                var fitter = art.gameObject.AddComponent<AspectRatioFitter>();
-                fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
-                fitter.aspectRatio = 1920f / 1088f;
+                logo.raycastTarget = false;
+                logo.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(col, 280), new Vector2(760, 295));
             }
-
-            var name = RunUi.Title(root, "深潮", new Vector2(0, 250), new Vector2(800, 190), 170);
-            name.outlineWidth = 0.15f;
-            name.outlineColor = Palette.Paper;
-            RunUi.Label(root, "理智与双面牌 · Demo", new Vector2(0, 130), new Vector2(800, 44), 30, Palette.InkMid);
+            else
+            {
+                Destroy(logo.gameObject);
+                var name = RunUi.Title(root, "深潮", new Vector2(col, 250), new Vector2(800, 190), 170);
+                name.outlineWidth = 0.15f;
+                name.outlineColor = Palette.Paper;
+            }
+            Legible(RunUi.Label(root, "理智与双面牌 · Demo", new Vector2(col, 112), new Vector2(800, 44), 30, Palette.Ink));
 
             var save = RunSaves.Peek(SavePath);
             float y = -10;
@@ -139,11 +132,11 @@ namespace Deeptide.View.Run
             {
                 string where = save.Phase == RunPhase.Battle ? "战斗中，读档后这场重新开始" : save.Row < 0 ? "还没出发" : $"第 {save.Floor} 层";
                 RunUi.Button(root, "Continue", $"继续\n<size=55%>{where} · 生命 {save.Hp}/{save.MaxHp} · ◎ {save.Gold}</size>",
-                    new Vector2(0, y), new Vector2(460, 100), () => Continue(), true, null, 38);
+                    new Vector2(col, y), new Vector2(460, 100), () => Continue(), true, null, 38);
                 y -= 120;
             }
             TextMeshProUGUI newLabel = null;
-            var newRun = RunUi.Button(root, "NewRun", "新的一局", new Vector2(0, y), new Vector2(460, 84), () =>
+            var newRun = RunUi.Button(root, "NewRun", "新的一局", new Vector2(col, y), new Vector2(460, 84), () =>
             {
                 if (save != null && !_confirmNew)
                 {
@@ -157,18 +150,62 @@ namespace Deeptide.View.Run
             newLabel = newRun.GetComponentInChildren<TextMeshProUGUI>();
             y -= 80;
             TextMeshProUGUI seedLabel = null;
-            seedLabel = RunUi.Label(root, $"种子 {NextSeed}", new Vector2(-70, y), new Vector2(300, 40), 24, Palette.InkMid, TextAlignmentOptions.Right);
-            RunUi.Button(root, "Reseed", "换一个", new Vector2(150, y), new Vector2(140, 48), () =>
+            seedLabel = Legible(RunUi.Label(root, $"种子 {NextSeed}", new Vector2(col - 70, y), new Vector2(300, 40), 24, Palette.Ink, TextAlignmentOptions.Right));
+            RunUi.Button(root, "Reseed", "换一个", new Vector2(col + 150, y), new Vector2(140, 48), () =>
             {
                 NextSeed = RandomSeed();
                 seedLabel.text = $"种子 {NextSeed}";
             }, true, null, 22);
             y -= 90;
-            RunUi.Button(root, "Greybox", "单场战斗（灰盒测试）", new Vector2(0, y), new Vector2(460, 70),
+            RunUi.Button(root, "Greybox", "单场战斗（灰盒测试）", new Vector2(col, y), new Vector2(460, 70),
                 () => SceneManager.LoadScene("Battle_Greybox"), true, null, 26);
             if (!Application.isEditor)
-                RunUi.Button(root, "Quit", "退出", new Vector2(0, y - 90), new Vector2(460, 70), Application.Quit, true, null, 26);
-            _hint = RunUi.Label(root, "", new Vector2(0, -470), new Vector2(1400, 40), 24, Palette.Blood);
+                RunUi.Button(root, "Quit", "退出", new Vector2(col, y - 90), new Vector2(460, 70), Application.Quit, true, null, 26);
+            _hint = RunUi.Label(root, "", new Vector2(col, -470), new Vector2(1000, 40), 24, Palette.Blood);
+        }
+
+        /// <summary>压在主视觉排线上的小字：加一圈纸色描边。</summary>
+        static TextMeshProUGUI Legible(TextMeshProUGUI t)
+        {
+            t.outlineWidth = 0.3f;
+            t.outlineColor = Palette.Paper;
+            return t;
+        }
+
+        /// <summary>标题画面的背景，返回是不是主视觉。主视觉用 Etching 着清醒面；退而求其次是海图顶上的漩涡。</summary>
+        static bool Backdrop(RectTransform root)
+        {
+            var key = ArtDatabase.Illustration("keyart");
+            var etching = Shader.Find("Deeptide/UI/Etching");
+            if (key != null && etching != null)
+            {
+                Cover(root, key, CardArt.For(false), new Rect(0, 0, 1, 1), (float)key.width / key.height, false);
+                return true;
+            }
+            var map = ArtDatabase.Background("map");
+            var shader = Shader.Find("Deeptide/UI/Backdrop");
+            if (map == null || shader == null) return false;
+            var mat = new Material(shader) { hideFlags = HideFlags.DontSave };
+            mat.SetColor("_InkColor", Palette.InkMid);
+            mat.SetColor("_MadColor", Palette.Teal);
+            // 海图最上面的 1920 × 1088 正好 16:9
+            Cover(root, map, mat, new Rect(0, 1 - 1088f / 3400f, 1, 1088f / 3400f), 1920f / 1088f, true);
+            return false;
+        }
+
+        /// <summary>铺满屏幕（宽屏时上下裁一点）的一张图。</summary>
+        static void Cover(RectTransform root, Texture tex, Material mat, Rect uv, float aspect, bool ownMaterial)
+        {
+            var art = Ui.Rect("Art", root).Fill().gameObject.AddComponent<RawImage>();
+            art.texture = tex;
+            art.material = mat;
+            art.color = Palette.Paper;
+            art.uvRect = uv;
+            art.raycastTarget = false;
+            if (ownMaterial) art.gameObject.AddComponent<MaterialOwner>().Material = mat;
+            var fitter = art.gameObject.AddComponent<AspectRatioFitter>();
+            fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            fitter.aspectRatio = aspect;
         }
 
         void CloseTitle()

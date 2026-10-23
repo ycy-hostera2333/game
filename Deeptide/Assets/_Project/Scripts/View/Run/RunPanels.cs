@@ -258,9 +258,11 @@ namespace Deeptide.View.Run
             Paper(root);
             RunUi.Title(root, "商店", new Vector2(-700, 390), new Vector2(400, 80), 64);
             RunUi.Label(root, "雾里传来铃声，商贩掀开了车上的油布。", new Vector2(-700, 330), new Vector2(460, 40), 22, Palette.InkMid);
-            Icon(root, "node_shop", "商", Palette.Ink, new Vector2(0.5f, 0.5f), new Vector2(-700, 90), 260);
-            RunUi.Label(root, "雾中商贩", new Vector2(-700, -70), new Vector2(300, 44), 30).font = Fonts.Serif;
-            RunUi.Label(root, $"删卡价格每用一次 +25", new Vector2(-700, -120), new Vector2(360, 36), 20, Palette.InkMid);
+            // 商贩：事件「雾中商贩」那张插图的左半（10 §5.3「商店和事件 7 共用」）；没有图时用天平图标
+            var merchant = RunUi.Plate(root, "event_fog_peddler", new Vector2(-700, 20), new Vector2(400, 540), new Rect(0.03f, 0.05f, 0.45f, 0.9f));
+            if (merchant == null) Icon(root, "node_shop", "商", Palette.Ink, new Vector2(0.5f, 0.5f), new Vector2(-700, 90), 260);
+            RunUi.Label(root, "雾中商贩", new Vector2(-700, -290), new Vector2(300, 44), 30).font = Fonts.Serif;
+            RunUi.Label(root, $"删卡价格每用一次 +25", new Vector2(-700, -336), new Vector2(360, 36), 20, Palette.InkMid);
 
             int card = 0, item = 0;
             for (int i = 0; i < options.Count; i++)
@@ -346,12 +348,16 @@ namespace Deeptide.View.Run
         {
             var root = Root(layer, "Campfire");
             Ui.Box("Night", root, Palette.Abyss, true).rectTransform.Fill();
-            var glow = Ui.Box("Glow", root, new Color(Palette.GoldLight.r, Palette.GoldLight.g, Palette.GoldLight.b, 0.12f));
-            glow.sprite = Shapes.Circle;
-            glow.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 150), new Vector2(640, 640));
-            Icon(root, "node_rest", "火", Palette.GoldLight, new Vector2(0.5f, 0.5f), new Vector2(0, 150), 280);
-            RunUi.Title(root, "篝火", new Vector2(0, 400), new Vector2(600, 80), 64, Palette.Pale);
-            RunUi.Label(root, "火光照不到的地方，有什么东西在水里动。", new Vector2(0, -60), new Vector2(900, 40), 24,
+            var plate = RunUi.Plate(root, "campfire", new Vector2(0, 150), new Vector2(900, 600));
+            if (plate == null)
+            {
+                var glow = Ui.Box("Glow", root, new Color(Palette.GoldLight.r, Palette.GoldLight.g, Palette.GoldLight.b, 0.12f));
+                glow.sprite = Shapes.Circle;
+                glow.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 150), new Vector2(640, 640));
+                Icon(root, "node_rest", "火", Palette.GoldLight, new Vector2(0.5f, 0.5f), new Vector2(0, 150), 280);
+                RunUi.Title(root, "篝火", new Vector2(0, 400), new Vector2(600, 80), 64, Palette.Pale);
+            }
+            RunUi.Label(root, "火光照不到的地方，有什么东西在水里动。", new Vector2(0, -186), new Vector2(900, 40), 24,
                 new Color(Palette.Pale.r, Palette.Pale.g, Palette.Pale.b, 0.7f));
 
             var options = screen.Run.Options();
@@ -359,7 +365,7 @@ namespace Deeptide.View.Run
             {
                 var o = options[i];
                 float x = (i - (options.Count - 1) / 2f) * 370;
-                RunUi.Button(root, $"Option {i}", TwoLines(o.Label), new Vector2(x, -240), new Vector2(330, 170), Pick(screen, i, o), o.Enabled, o.Reason, 36);
+                RunUi.Button(root, $"Option {i}", TwoLines(o.Label), new Vector2(x, -320), new Vector2(330, 150), Pick(screen, i, o), o.Enabled, o.Reason, 36);
             }
             return root;
         }
@@ -382,6 +388,34 @@ namespace Deeptide.View.Run
             var root = Root(layer, "Event");
             Paper(root);
 
+            // 插图：这个事件自己的（10 §8，P2）；还没画的用码头街道的背景截一块
+            var plate = RunUi.Plate(root, "event_" + def.Id, new Vector2(-450, 0), new Vector2(880, 620));
+            if (plate == null) FallbackPlate(root);
+            var title = RunUi.Label(root, def.Name, new Vector2(500, 330), new Vector2(780, 80), 56, null, TextAlignmentOptions.Left);
+            title.font = Fonts.Serif;
+            title.fontStyle = FontStyles.Bold;
+            RunUi.Label(root, run.Description, new Vector2(500, 200), new Vector2(780, 160), 28, Palette.Text, TextAlignmentOptions.TopLeft);
+
+            var options = run.Options();
+            for (int i = 0; i < options.Count; i++)
+            {
+                var o = options[i];
+                string text = RunUi.ColorCosts(o.Label) + (o.Enabled ? "" : $"<color={Ui.Hex(Palette.InkMid)}>（{o.Reason}）</color>");
+                var btn = RunUi.Button(root, $"Option {i}", text, new Vector2(500, 40 - i * 100), new Vector2(780, 84), Pick(screen, i, o), o.Enabled, o.Reason, 26);
+                var label = btn.GetComponentInChildren<TextMeshProUGUI>();
+                label.alignment = TextAlignmentOptions.Left;
+                label.margin = new Vector4(32, 4, 20, 4);
+                // 会扣理智上限的选项：悬停时插图的癫狂层浮出来
+                if (plate != null && o.Enabled && CostsSanity(o.Label)) plate.RevealOnHover((Image)btn.targetGraphic);
+            }
+            return root;
+        }
+
+        static bool CostsSanity(string label) => label.Contains("理智上限 −") || label.Contains("理智上限 -");
+
+        /// <summary>还没有事件插图时：码头街道的背景截一块，套一个墨框。</summary>
+        static void FallbackPlate(RectTransform root)
+        {
             var frame = Ui.Box("Illustration", root, Palette.Ink);
             frame.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(-450, 0), new Vector2(880, 620));
             var tex = ArtDatabase.Background("docks");
@@ -406,23 +440,6 @@ namespace Deeptide.View.Run
                 art.uvRect = new Rect(0, 0, 868 / 36f, 608 / 36f);
                 art.color = Palette.PaperShade;
             }
-
-            var title = RunUi.Label(root, def.Name, new Vector2(500, 330), new Vector2(780, 80), 56, null, TextAlignmentOptions.Left);
-            title.font = Fonts.Serif;
-            title.fontStyle = FontStyles.Bold;
-            RunUi.Label(root, run.Description, new Vector2(500, 200), new Vector2(780, 160), 28, Palette.Text, TextAlignmentOptions.TopLeft);
-
-            var options = run.Options();
-            for (int i = 0; i < options.Count; i++)
-            {
-                var o = options[i];
-                string text = RunUi.ColorCosts(o.Label) + (o.Enabled ? "" : $"<color={Ui.Hex(Palette.InkMid)}>（{o.Reason}）</color>");
-                var btn = RunUi.Button(root, $"Option {i}", text, new Vector2(500, 40 - i * 100), new Vector2(780, 84), Pick(screen, i, o), o.Enabled, o.Reason, 26);
-                var label = btn.GetComponentInChildren<TextMeshProUGUI>();
-                label.alignment = TextAlignmentOptions.Left;
-                label.margin = new Vector4(32, 4, 20, 4);
-            }
-            return root;
         }
 
         // ------------------------------------------------------------------ 结算

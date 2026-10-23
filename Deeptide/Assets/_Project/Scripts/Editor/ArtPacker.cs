@@ -9,7 +9,8 @@ using UnityEngine;
 namespace Deeptide.EditorTools
 {
     /// <summary>
-    /// 美术打包（策划/10 §11.2–§11.5，11 §3）：把 <c>ArtSource/cards/</c>（卡图）和 <c>ArtSource/actors/</c>（角色）下的分层 PNG 打成一张 RGBA，
+    /// 美术打包（策划/10 §11.2–§11.5，11 §3）：把 <c>ArtSource/cards/</c>（卡图）、<c>actors/</c>（角色）、<c>backgrounds/</c>（背景）、
+    /// <c>illustrations/</c>（事件、篝火、主视觉）下的分层 PNG 打成一张 RGBA，
     /// 导出到 <c>Assets/_Project/Art/Cards/card_&lt;ID&gt;.png</c> / <c>Art/Actors/actor_&lt;ID&gt;.png</c>，设好导入参数（关 sRGB、开 mipmap、BC7），再登记进 ArtDatabase。
     /// 分层命名：<c>C06_ink.png</c>（必需）、<c>C06_abyss.png</c>、<c>C06_mad.png</c>、<c>C06_fill.png</c>（可选），各层尺寸不同时按 _ink 重采样。
     /// 角色图透明底，必须有 <c>_fill</c>（轮廓），否则整张图都是不透明的纸。
@@ -21,6 +22,7 @@ namespace Deeptide.EditorTools
         public const string ActorOutputDir = "Assets/_Project/Art/Actors";
         public const string BackgroundOutputDir = "Assets/_Project/Art/Backgrounds";
         public const string SpriteOutputDir = "Assets/_Project/Art/Sprites";
+        public const string IllustrationOutputDir = "Assets/_Project/Art/Illustrations";
         public const string DatabasePath = "Assets/_Project/Art/Resources/ArtDatabase.asset";
 
         /// <summary>源文件目录：工程根目录（Assets 的上一级）下的 ArtSource/cards，不进 Assets，Unity 不会去导入。</summary>
@@ -28,6 +30,7 @@ namespace Deeptide.EditorTools
         public static string ActorSourceDir => Path.GetFullPath(Path.Combine(Application.dataPath, "..", "ArtSource", "actors"));
         public static string BackgroundSourceDir => Path.GetFullPath(Path.Combine(Application.dataPath, "..", "ArtSource", "backgrounds"));
         public static string SpriteSourceDir => Path.GetFullPath(Path.Combine(Application.dataPath, "..", "ArtSource", "sprites"));
+        public static string IllustrationSourceDir => Path.GetFullPath(Path.Combine(Application.dataPath, "..", "ArtSource", "illustrations"));
 
         [MenuItem("Deeptide/美术/打包卡图和角色")]
         public static void PackCards()
@@ -35,6 +38,7 @@ namespace Deeptide.EditorTools
             Debug.Log($"[ArtPacker] 卡图：{PackAll(SourceDir)}");
             Debug.Log($"[ArtPacker] 角色：{PackAll(ActorSourceDir, ActorOutputDir, "actor_", (db, id, tex) => db.SetActor(id, tex))}");
             Debug.Log($"[ArtPacker] 背景：{PackAll(BackgroundSourceDir, BackgroundOutputDir, "bg_", (db, id, tex) => db.SetBackground(id, tex))}");
+            Debug.Log($"[ArtPacker] 插图：{PackAll(IllustrationSourceDir, IllustrationOutputDir, "ill_", (db, id, tex) => db.SetIllustration(id, tex))}");
             Debug.Log($"[ArtPacker] 单色精灵：{CopySprites(SpriteSourceDir)}");
         }
 
@@ -158,7 +162,7 @@ namespace Deeptide.EditorTools
             UnityEngine.Object.DestroyImmediate(tex);
 
             AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceSynchronousImport);
-            ConfigureImporter(assetPath, prefix == "bg_" ? 4096 : 1024);
+            ConfigureImporter(assetPath, prefix == "bg_" || prefix == "ill_" ? 4096 : 1024);
             return assetPath;
         }
 
