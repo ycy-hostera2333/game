@@ -58,6 +58,9 @@ namespace Deeptide.View
         public static Sprite Dash => Get("dashline", 24, 8, (x, y) => Mathf.Max(Mathf.Abs(x - 8) - 6, Mathf.Abs(y - 4) - 2.5f),
             wrap: TextureWrapMode.Repeat);
 
+        /// <summary>横向圆点，平铺成点线（地图上没走过的路，10 §8）。</summary>
+        public static Sprite Dots => Get("dotline", 16, 8, (x, y) => Len(x - 6, y - 4) - 2.8f, wrap: TextureWrapMode.Repeat);
+
         /// <summary>水面的波峰（横向平铺）：曲线以下实心。潮水的上沿用。</summary>
         public static Sprite Wave => Get("wave", 64, 24, (x, y) => y - (13 + 6 * Mathf.Sin(x / 64f * Mathf.PI * 2)),
             wrap: TextureWrapMode.Repeat);

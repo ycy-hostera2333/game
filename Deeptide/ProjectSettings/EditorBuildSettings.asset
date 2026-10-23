@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/_Project/Scenes/Run.unity
+    guid: 118496e73f3595b4793bba47db3782e9
+  - enabled: 1
     path: Assets/_Project/Scenes/Battle_Greybox.unity
     guid: 4a55e933104947e4cb24987fbb95c2e4
   m_configObjects: {}

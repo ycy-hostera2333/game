@@ -12,17 +12,31 @@ namespace Deeptide.View.Battle
     /// </summary>
     public sealed class BattleController
     {
+        /// <summary>把一条命令交给内核执行；失败时给出原因。</summary>
+        public delegate bool CommandSink(BattleCommand cmd, out string error);
+
         public readonly BattleEngine Engine;
         readonly BattleDirector _director;
+        readonly CommandSink _execute;
         int _consumed;
 
         /// <summary>命令被内核拒绝时的原因（能量不足等），界面弹提示用。</summary>
         public event Action<string> Rejected;
 
+        /// <summary>单场战斗（灰盒场景）：自己开一场，命令直接交给 BattleEngine。</summary>
         public BattleController(BattleSetup setup, BattleDirector director)
         {
             _director = director;
             Engine = BattleEngine.Start(setup);
+            _execute = Engine.Execute;
+        }
+
+        /// <summary>跑局里的战斗：引擎归 RunEngine 所有，命令经它转发（打完那一刻它要结算奖励、存档）。</summary>
+        public BattleController(BattleEngine engine, CommandSink execute, BattleDirector director)
+        {
+            _director = director;
+            Engine = engine;
+            _execute = execute;
         }
 
         /// <summary>开始回放开场事件（建玩家、生成敌人、第一回合抽牌）。界面接好 Controller 之后再调用。</summary>
@@ -45,7 +59,7 @@ namespace Deeptide.View.Battle
         bool Run(BattleCommand cmd)
         {
             if (!_director.IsIdle) return false;
-            if (!Engine.Execute(cmd, out var error))
+            if (!_execute(cmd, out var error))
             {
                 Rejected?.Invoke(error);
                 return false;

@@ -56,6 +56,7 @@ namespace Deeptide.View.Battle
 
         // ------------------------------------------------------------------ 搭建
 
+        /// <summary>单场战斗（灰盒场景）：自己建画布和顶栏，顶栏上有「选择对局」「重开」。</summary>
         public static BattleScreen Create(Camera camera, BattleSetup setup, System.Action restart, System.Action openLauncher = null)
         {
             var go = new GameObject("BattleScreen", typeof(RectTransform)) { layer = Ui.Layer };
@@ -70,19 +71,47 @@ namespace Deeptide.View.Battle
             go.AddComponent<GraphicRaycaster>();
 
             var screen = go.AddComponent<BattleScreen>();
-            screen.Camera = camera;
             screen._restart = restart;
             screen._openLauncher = openLauncher;
-            screen.Director = go.AddComponent<BattleDirector>();
-            screen.Director.Bind(screen);
-            screen.Build();
+            screen.Init(camera, null);
             screen.SetBackdropArt(setup);
-            screen.Controller = new BattleController(setup, screen.Director);
-            screen.Controller.Rejected += screen.Toast;
-            screen._topBar.Bind(screen.Controller.Engine);
-            screen.Controller.Begin();
+            screen.Begin(new BattleController(setup, screen.Director));
             return screen;
         }
+
+        /// <summary>
+        /// 跑局里的一场战斗：挂在跑局界面的画布下（不单独建画布），引擎归 RunEngine 所有、命令经 execute 转发，
+        /// 顶栏用跑局的那一条（战斗期间绑到这场的引擎上）。打完、事件播完时触发 <see cref="Finished"/>。
+        /// </summary>
+        public static BattleScreen Create(Camera camera, RectTransform parent, BattleEngine engine, BattleController.CommandSink execute, TopBar topBar)
+        {
+            var rt = Ui.Rect("BattleScreen", parent).Fill();
+            var screen = rt.gameObject.AddComponent<BattleScreen>();
+            screen.Init(camera, topBar);
+            screen.SetBackdropArt(engine.Setup);
+            screen.Begin(new BattleController(engine, execute, screen.Director));
+            return screen;
+        }
+
+        void Init(Camera camera, TopBar topBar)
+        {
+            Camera = camera;
+            Director = gameObject.AddComponent<BattleDirector>();
+            Director.Bind(this);
+            Build(topBar);
+        }
+
+        void Begin(BattleController controller)
+        {
+            Controller = controller;
+            Controller.Rejected += Toast;
+            _topBar.Bind(Controller.Engine);
+            Controller.Begin();
+        }
+
+        /// <summary>分出胜负、最后一批事件（胜利 / 失败横幅）播完时触发一次。</summary>
+        public event System.Action Finished;
+        bool _finished;
 
         Image _background;
         Material _backgroundMat;
@@ -133,7 +162,7 @@ namespace Deeptide.View.Battle
             if (_backgroundMat != null) Destroy(_backgroundMat);
         }
 
-        void Build()
+        void Build(TopBar sharedTopBar)
         {
             _root = (RectTransform)transform;
             var background = Ui.Box("Background", _root, Palette.Background);
@@ -194,8 +223,9 @@ namespace Deeptide.View.Battle
             _log = Ui.Text("Text", logBox.transform, "", 19, Palette.Text, TextAlignmentOptions.BottomLeft);
             _log.rectTransform.Fill(12);
             logBox.gameObject.SetActive(false);
-            _topBar = TopBar.Create(_root, PotionClicked, () => _openLauncher?.Invoke(), () => _restart?.Invoke(),
-                () => logBox.gameObject.SetActive(!logBox.gameObject.activeSelf));
+            _logBox = logBox.gameObject;
+            _topBar = sharedTopBar != null ? sharedTopBar
+                : TopBar.Create(_root, PotionClicked, () => _openLauncher?.Invoke(), () => _restart?.Invoke(), ToggleLog);
 
             // 手牌层、箭头 / 飘字 / 提示层
             _hand = Ui.Rect("Hand", _root).Fill().gameObject.AddComponent<HandView>();
@@ -234,6 +264,11 @@ namespace Deeptide.View.Battle
             Tooltip.Create(_root);
             _fx.BuildOverlay(_root);
         }
+
+        GameObject _logBox;
+
+        /// <summary>展开 / 收起调试日志（顶栏「日志」）。</summary>
+        public void ToggleLog() => _logBox.SetActive(!_logBox.activeSelf);
 
         static TextMeshProUGUI PileLabel(Transform parent, string name, Vector2 pos)
         {
@@ -494,6 +529,11 @@ namespace Deeptide.View.Battle
             _endTurn.interactable = Controller.AcceptsInput;
             if (Controller.AwaitingChoice) _choice.Show(Controller.Engine.State.Choice, Controller.Engine, option => Controller.Choose(option));
             else if (_choice.IsOpen) _choice.Hide();
+            if (!_finished && Controller.Engine.State.Outcome != BattleOutcome.Ongoing)
+            {
+                _finished = true;
+                Finished?.Invoke();
+            }
         }
 
         // ------------------------------------------------------------------ 敌人排位
@@ -641,6 +681,13 @@ namespace Deeptide.View.Battle
             _toast.text = message;
             _toast.alpha = 1;
             Tween.Alpha(_toast, 0, 0.6f, startDelay: 0.8f);
+        }
+
+        /// <summary>收起战场上的横幅（「胜利」「失败」），跑局界面在战场上叠奖励 / 结算面板时用。</summary>
+        public void ClearBanner()
+        {
+            Tween.StopAll(_banner);
+            _banner.text = "";
         }
 
         void ShowBanner(string text, float hold)

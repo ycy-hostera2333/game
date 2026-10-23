@@ -1,6 +1,6 @@
 # Deeptide（Unity 工程）
 
-内核源码（`Assets/_Project/Scripts/Core/`）、内容数据（`Assets/_Project/Data/*.csv`），以及阶段 2 的灰盒战斗：`Scenes/Battle_Greybox.unity`，打击 + 防御对教团侍僧。
+内核源码（`Assets/_Project/Scripts/Core/`）、内容数据（`Assets/_Project/Data/*.csv`）、整局游戏 `Scenes/Run.unity`（标题 → 地图 → 战斗 / 商店 / 篝火 / 事件 → Boss 结算），以及单场测试用的灰盒战斗 `Scenes/Battle_Greybox.unity`。
 
 ## 第一次打开
 
@@ -11,6 +11,19 @@
 3. 第一次打开要下载包、导入资源，几分钟
 
 已经设好、不用再动的：输入后端 = Input System（`activeInputHandler: 1`）；默认渲染管线 = `Settings/URP-2D.asset`（2D 渲染器）；TMP 基础资源已导入（`Assets/TextMesh Pro/`）。这几项都可以用菜单「Deeptide → 工程设置」重做，脚本是 `Scripts/Editor/ProjectSetup.cs`，已经设好的会跳过。
+
+## 整局（Run 场景）
+
+打开 `Assets/_Project/Scenes/Run.unity`，点 Play（打包后启动也进这个场景）。
+
+- 标题画面：有存档时「继续」（显示层数、生命、金币），「新的一局」用下面的种子开局（「换一个」随机换），「单场战斗（灰盒测试）」跳到 `Battle_Greybox`。有存档时点「新的一局」要连点两次，第二次才覆盖存档
+- 地图：竖向卷动的海图（滚轮或拖动），第 1 层在栈桥上方，最上面的漩涡是 Boss。能去的节点会轻轻跳动，点它进入；悬停任意节点，从当前位置通往它的所有路段加粗。走过的路是实墨线，没走的是点线。右下角是图例
+- 战斗和灰盒场景是同一套界面；打完后奖励面板叠在战场上（金币、遗物、药水逐项点领，卡牌三选一可以跳过），「继续前进」回地图
+- 商店：上排 5 张牌、下排遗物和药水（悬停看说明），右边删卡服务；买不起的价格标血色。篝火：休息 / 锻造（悬停看升级后的样子）/ 静思。事件：右边选项里的代价按功能色标出（生命血色、理智上限深渊青、金币金色）
+- 顶栏：生命、金币、药水（不在战斗里点药水可以丢掉）、遗物、层数 / 回合；「牌组」看整副牌，「菜单」里可以保存并回到标题、放弃这一局
+- 存档在 `Application.persistentDataPath/run.json`，格式和控制台 `run` 模式的存档一样（`View/Run/RunSaves.cs` 对应 `Tools/Shared/RunSaves.cs`）。进入节点、战斗结束、回到地图时自动写；回到标题、关游戏时再存一次当前状态；通关或倒下后删档。战斗中退出，读档后这场战斗从头开始，起手和意图都和第一次一样（06 §8）
+
+结构：`RunBootstrap`（载入数据、标题画面、存档路径）→ `RunScreen`（持有 RunEngine，按阶段切面板，所有操作变成 `RunCommand`）→ `MapView` / `RunPanels`（奖励、选择、商店、篝火、事件、结算）/ `BattleScreen`（跑局模式：挂在跑局画布下，借用跑局的顶栏，命令经 RunEngine 转发）。面板每次都按 `RunEngine.Options()` 重画，规则判断都在内核里。商店、篝火、事件的正式插图是 P2，先用节点图标和码头背景代替。
 
 ## 灰盒战斗
 
@@ -33,6 +46,7 @@ PlayMode 测试在 `Assets/_Project/Tests/PlayMode/`：通过表现层入口出�
 
 - `BattleGreyboxTests`：打击 + 防御的基本流程、能量不足被拒、一路打到胜利
 - `BattleContentTests`：15 组遭遇用混合牌组逐个打到分出胜负，每一步核对手牌、牌堆、能量、生命、格挡、每个敌人、药水栏和选择面板；启动面板换成 Boss 战；药水选目标；查阅资料的选择面板
+- `RunFlowTests`：标题开局、地图卷动和悬停；一局从出发打到 Boss 通关（生命给到 999，路线预先规划成走遍 6 种房间），每一步核对面板画出了内核的全部选项、顶栏和 RunState 一致；战斗中保存退出再继续（战斗从头开始，哈希和第一次进入时一致）、奖励界面换场景后继续；牌组弹窗、丢药水。存档写到临时目录，不碰玩家的存档
 
 ```bash
 "C:/Program Files/Unity/Hub/Editor/6000.3.26f1/Editor/Unity.exe" -batchmode -projectPath Deeptide -runTests -testPlatform PlayMode -testResults Logs/playmode.xml -logFile Logs/playmode.log
@@ -72,10 +86,10 @@ PlayMode 测试在 `Assets/_Project/Tests/PlayMode/`：通过表现层入口出�
 Assets/_Project/
 ├─ Scripts/
 │  ├─ Core/      ← Game.Core.asmdef（noEngineReferences）：纯逻辑，不能引用 UnityEngine
-│  ├─ View/      ← Game.View.asmdef：Battle/（战斗界面）、Common/（UI 搭建、字体、配色）
+│  ├─ View/      ← Game.View.asmdef：Battle/（战斗界面）、Run/（标题、地图、奖励 / 商店 / 篝火 / 事件、存档）、Common/（UI 搭建、字体、配色）
 │  └─ Editor/    ← Game.Editor.asmdef：工程设置，以后放数据校验、卡牌预览
 ├─ Data/         ← cards.csv / enemies.csv …（场景里 BattleBootstrap 引用这些 TextAsset）
-├─ Scenes/       ← Battle_Greybox（阶段 2 灰盒）；以后 Boot、MainMenu、Run
+├─ Scenes/       ← Run（整局，Build Settings 第一个）、Battle_Greybox（单场灰盒）；主菜单以后单独做，现在标题画面在 Run 里
 ├─ Settings/     ← URP-2D 渲染管线资源
 ├─ Tests/        ← PlayMode 测试
 └─ Art/ Audio/ Prefabs/ Shaders/

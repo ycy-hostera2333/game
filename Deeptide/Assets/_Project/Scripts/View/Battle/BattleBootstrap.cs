@@ -1,14 +1,10 @@
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Deeptide.Core;
 using Deeptide.Core.Content;
-using Deeptide.Core.Data;
 using Deeptide.Core.Enemies;
 using Deeptide.Core.Relics;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.InputSystem.UI;
 
 namespace Deeptide.View.Battle
 {
@@ -58,8 +54,8 @@ namespace Deeptide.View.Battle
 
         void Start()
         {
-            EnsureEventSystem();
-            LoadData();
+            SceneSetup.EnsureEventSystem();
+            SceneSetup.LoadData(DataFiles, nameof(BattleBootstrap));
             Begin();
         }
 
@@ -101,32 +97,5 @@ namespace Deeptide.View.Battle
             Potions = Potions.ToList(),
         };
 
-        void LoadData()
-        {
-            if (GameData.IsLoaded) return;
-            var source = DataSource.From(fileName =>
-            {
-                string key = Path.GetFileNameWithoutExtension(fileName);
-                var asset = DataFiles.FirstOrDefault(a => a != null && a.name == key);
-                if (asset == null) throw new FileNotFoundException($"BattleBootstrap 缺少数据文件 {fileName}");
-                return asset.text;
-            });
-            try
-            {
-                GameData.Load(source);
-            }
-            catch (DataValidationException ex)
-            {
-                foreach (var error in ex.Errors) Debug.LogError(error);
-                throw;
-            }
-        }
-
-        static void EnsureEventSystem()
-        {
-            if (EventSystem.current != null) return;
-            var go = new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
-            DontDestroyOnLoad(go);
-        }
     }
 }

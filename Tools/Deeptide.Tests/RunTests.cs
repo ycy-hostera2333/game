@@ -89,6 +89,26 @@ namespace Deeptide.Tests
             Assert.That(replayed.State.Deck, Is.EqualTo(run.State.Deck));
         }
 
+        /// <summary>State.Path 记下的是一条沿着地图连线走的路（地图界面按它画实墨线）。</summary>
+        [TestCase(1UL)]
+        [TestCase(6UL)]
+        public void FullRun_PathFollowsMapEdges(ulong seed)
+        {
+            var s = PlayScripted(seed).Run.State;
+            var map = s.Map;
+            Assert.That(s.Path.Count, Is.EqualTo(s.Row + 1));
+            Assert.That(map.Get(0, s.Path[0]), Is.Not.Null);
+            for (int r = 0; r + 1 < s.Path.Count; r++)
+            {
+                if (r + 1 == map.Height)
+                {
+                    Assert.That(s.Path[r + 1], Is.EqualTo(0), "Boss 那一行记 0");
+                    break;
+                }
+                Assert.That(map.Get(r, s.Path[r]).Children, Does.Contain(s.Path[r + 1]), $"第 {r + 1} → {r + 2} 层");
+            }
+        }
+
         [TestCase(4UL)]
         [TestCase(5UL)]
         public void SaveLoad_AtEverySavePoint_ContinuesToSameEnd(ulong seed)

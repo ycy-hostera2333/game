@@ -236,6 +236,7 @@ namespace Deeptide.Core.Run
             State.Row = row;
             State.Col = col;
             State.Floor = row + 1;
+            State.Path.Add(col);
             State.Stats.NodeHp.Add(State.Hp);
             switch (room)
             {

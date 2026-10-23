@@ -29,6 +29,7 @@ namespace Deeptide.EditorTools
         const string DataDir = "Assets/_Project/Data";
         const string ScenesDir = "Assets/_Project/Scenes";
         public const string GreyboxScene = ScenesDir + "/Battle_Greybox.unity";
+        public const string RunScene = ScenesDir + "/Run.unity";
         const string TmpEssentials = "Packages/com.unity.ugui/Package Resources/TMP Essential Resources.unitypackage";
 
         public static void Batch()
@@ -68,6 +69,8 @@ namespace Deeptide.EditorTools
             EnsureUrp2D();
             EnsureTmpEssentials();
             if (!File.Exists(GreyboxScene)) BuildGreyboxScene();
+            if (!File.Exists(RunScene)) BuildRunScene();
+            EnsureInBuildSettings(RunScene, true);
             EnsureInBuildSettings(GreyboxScene);
         }
 
@@ -126,6 +129,26 @@ namespace Deeptide.EditorTools
         [MenuItem("Deeptide/工程设置/重建灰盒战斗场景")]
         public static void BuildGreyboxScene()
         {
+            var scene = NewSceneWithCamera();
+            var boot = new GameObject("BattleBootstrap").AddComponent<BattleBootstrap>();
+            boot.DataFiles = LoadDataFiles();
+            Save(scene, GreyboxScene);
+            EnsureInBuildSettings(GreyboxScene);
+        }
+
+        /// <summary>跑局场景（策划/08 §8 的 Run）：相机 + EventSystem + RunBootstrap，标题、地图、战斗、商店都是运行时搭的面板。会覆盖已有的同名场景。</summary>
+        [MenuItem("Deeptide/工程设置/重建跑局场景")]
+        public static void BuildRunScene()
+        {
+            var scene = NewSceneWithCamera();
+            var boot = new GameObject("RunBootstrap").AddComponent<Deeptide.View.Run.RunBootstrap>();
+            boot.DataFiles = LoadDataFiles();
+            Save(scene, RunScene);
+            EnsureInBuildSettings(RunScene, true);
+        }
+
+        static UnityEngine.SceneManagement.Scene NewSceneWithCamera()
+        {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             var camGo = new GameObject("Main Camera", typeof(Camera), typeof(UniversalAdditionalCameraData)) { tag = "MainCamera" };
@@ -137,23 +160,30 @@ namespace Deeptide.EditorTools
             cam.backgroundColor = Palette.Background;
 
             new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
-
-            var boot = new GameObject("BattleBootstrap").AddComponent<BattleBootstrap>();
-            boot.DataFiles = DataSource.FileNames
-                .Select(f => AssetDatabase.LoadAssetAtPath<TextAsset>($"{DataDir}/{f}") ?? throw new FileNotFoundException($"{DataDir}/{f}"))
-                .ToArray();
-
-            Directory.CreateDirectory(ScenesDir);
-            if (!EditorSceneManager.SaveScene(scene, GreyboxScene)) throw new InvalidOperationException($"保存 {GreyboxScene} 失败");
-            EnsureInBuildSettings(GreyboxScene);
-            Debug.Log($"[ProjectSetup] 已生成 {GreyboxScene}");
+            return scene;
         }
 
-        static void EnsureInBuildSettings(string path)
+        static TextAsset[] LoadDataFiles() => DataSource.FileNames
+            .Select(f => AssetDatabase.LoadAssetAtPath<TextAsset>($"{DataDir}/{f}") ?? throw new FileNotFoundException($"{DataDir}/{f}"))
+            .ToArray();
+
+        static void Save(UnityEngine.SceneManagement.Scene scene, string path)
+        {
+            Directory.CreateDirectory(ScenesDir);
+            if (!EditorSceneManager.SaveScene(scene, path)) throw new InvalidOperationException($"保存 {path} 失败");
+            Debug.Log($"[ProjectSetup] 已生成 {path}");
+        }
+
+        /// <summary>把场景加进 Build Settings；first = true 时放到第一个（打包后启动进这个场景）。</summary>
+        static void EnsureInBuildSettings(string path, bool first = false)
         {
             var scenes = EditorBuildSettings.scenes.ToList();
-            if (scenes.Any(s => s.path == path)) return;
-            scenes.Add(new EditorBuildSettingsScene(path, true));
+            int i = scenes.FindIndex(s => s.path == path);
+            if (i >= 0 && (!first || i == 0)) return;
+            var entry = i >= 0 ? scenes[i] : new EditorBuildSettingsScene(path, true);
+            if (i >= 0) scenes.RemoveAt(i);
+            if (first) scenes.Insert(0, entry);
+            else scenes.Add(entry);
             EditorBuildSettings.scenes = scenes.ToArray();
         }
     }

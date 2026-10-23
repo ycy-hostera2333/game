@@ -43,6 +43,12 @@ namespace Deeptide.View
             if (_current == this) _current = null;
         }
 
+        /// <summary>
+        /// 让这个提示框接管所有提示（最后 Create 的那个默认接管）。跑局界面在战斗界面建好之后调用，
+        /// 提示框就画在跑局的最上层，不会被顶栏、面板压住。
+        /// </summary>
+        public void MakeCurrent() => _current = this;
+
         public static void Show(RectTransform owner, string text)
         {
             if (_current == null || owner == null || string.IsNullOrEmpty(text)) return;

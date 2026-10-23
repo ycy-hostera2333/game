@@ -201,6 +201,8 @@ namespace Deeptide.Core.Run
         public int Row = -1;
         public int Col = -1;
         public int Floor;
+        /// <summary>走过的节点：第 i 项是第 i 行进入的列号（Boss 那一行记 0）。地图界面画「走过的路」用，不参与规则。</summary>
+        public List<int> Path = new List<int>();
 
         public RunPhase Phase;
         public BattleInfo Battle;
