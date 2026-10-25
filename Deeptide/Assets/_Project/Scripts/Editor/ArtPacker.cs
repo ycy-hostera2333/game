@@ -100,7 +100,9 @@ namespace Deeptide.EditorTools
 
         /// <summary>
         /// 单色精灵（图标、框饰、UI 墨线、特效帧）：源文件已经是白色 + alpha，直接拷进 Art/Sprites，
-        /// 导入为 sRGB、不开 mipmap（10 §11.3），登记进 ArtDatabase。子目录只用来分类，ID 是文件名。
+        /// 导入为 sRGB，登记进 ArtDatabase。子目录只用来分类，ID 是文件名。
+        /// 要开 mipmap：10 §11.3 原来写的「图标不开 mipmap」是按 1:1 显示设想的，实际卡框在手牌里缩到 1/3、意图图标缩到 0.4，
+        /// 不开 mip 的双线性缩小会把细线采成断断续续的锯齿（2026-10-25 试玩反馈）。
         /// </summary>
         public static string CopySprites(string sourceDir)
         {
@@ -120,10 +122,9 @@ namespace Deeptide.EditorTools
                 ti.sRGBTexture = true;
                 ti.alphaSource = TextureImporterAlphaSource.FromInput;
                 ti.alphaIsTransparency = true;
-                ti.mipmapEnabled = false;
+                ConfigureMips(ti);
                 ti.npotScale = TextureImporterNPOTScale.None;
                 ti.wrapMode = TextureWrapMode.Clamp;
-                ti.filterMode = FilterMode.Bilinear;
                 ti.maxTextureSize = 4096;
                 ti.textureCompression = TextureImporterCompression.CompressedHQ;
                 ti.SaveAndReimport();
@@ -174,13 +175,23 @@ namespace Deeptide.EditorTools
             ti.sRGBTexture = false;
             ti.alphaSource = TextureImporterAlphaSource.FromInput;
             ti.alphaIsTransparency = false;
-            ti.mipmapEnabled = true;
+            ConfigureMips(ti);
             ti.npotScale = TextureImporterNPOTScale.None;
             ti.wrapMode = TextureWrapMode.Clamp;
-            ti.filterMode = FilterMode.Trilinear;
             ti.maxTextureSize = maxSize;
             ti.textureCompression = TextureImporterCompression.CompressedHQ;
             ti.SaveAndReimport();
+        }
+
+        /// <summary>
+        /// 缩小显示的抗锯齿：开 mipmap、三线性过滤，mip 用 Kaiser 滤波（比默认的 Box 更像低通，细排线缩小后成灰而不是出摩尔纹）。
+        /// </summary>
+        static void ConfigureMips(TextureImporter ti)
+        {
+            ti.mipmapEnabled = true;
+            ti.mipmapFilter = TextureImporterMipFilter.KaiserFilter;
+            ti.filterMode = FilterMode.Trilinear;
+            ti.anisoLevel = 1;
         }
 
         static Color32[] Layer(string sourceDir, string id, string layer, int w, int h)

@@ -209,11 +209,12 @@ namespace Deeptide.View
         static Texture2D Bake(string key, int w, int h, Sdf sdf, TextureWrapMode wrap)
         {
             if (Textures.TryGetValue(key, out var cached) && cached != null) return cached;
-            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false)
+            // 带 mipmap、三线性：卡面整体缩到 1/3 显示在手牌里，不带 mip 的话细边框会采成锯齿
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, true)
             {
                 name = key,
                 wrapMode = wrap,
-                filterMode = FilterMode.Bilinear,
+                filterMode = FilterMode.Trilinear,
                 hideFlags = HideFlags.DontSave,
             };
             var px = new Color32[w * h];
@@ -224,7 +225,7 @@ namespace Deeptide.View
                 px[y * w + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(a * 255));
             }
             tex.SetPixels32(px);
-            tex.Apply(false, true);
+            tex.Apply(true, true);
             Textures[key] = tex;
             return tex;
         }
