@@ -24,6 +24,7 @@ namespace Deeptide.View.Tests
     {
         static string ShotDir => Path.GetFullPath(Path.Combine(Application.dataPath, "../Logs/Screenshots"));
         static string TestSave => Path.Combine(Application.temporaryCachePath, "run_test.json");
+        static string TestTelemetry => Path.Combine(Application.temporaryCachePath, "telemetry_test");
 
         RunBootstrap _boot;
         RunScreen Screen => _boot.Screen;
@@ -34,6 +35,8 @@ namespace Deeptide.View.Tests
         {
             RunBootstrap.SavePathOverride = TestSave;
             RunSaves.Delete(TestSave);
+            TelemetryFiles.DirOverride = TestTelemetry;
+            if (Directory.Exists(TestTelemetry)) Directory.Delete(TestTelemetry, true);
             RunScreen.BattleSpeed = 40;
             yield return LoadRunScene();
         }
@@ -61,9 +64,14 @@ namespace Deeptide.View.Tests
         [UnityTearDown]
         public IEnumerator Cleanup()
         {
+            // 先销毁 RunBootstrap 再撤掉临时路径：不然退出 Play 时它的 OnApplicationQuit 会把测试局存进玩家真正的存档和遥测目录
+            if (_boot != null) Object.Destroy(_boot.gameObject);
+            yield return null;
             RunScreen.BattleSpeed = 1;
             RunSaves.Delete(TestSave);
             RunBootstrap.SavePathOverride = null;
+            if (Directory.Exists(TestTelemetry)) Directory.Delete(TestTelemetry, true);
+            TelemetryFiles.DirOverride = null;
             yield return null;
         }
 
@@ -83,6 +91,10 @@ namespace Deeptide.View.Tests
             Assert.IsNull(_boot.Title);
             Assert.AreEqual(RunPhase.Map, Screen.Shown);
             Assert.IsTrue(File.Exists(TestSave), "开局就该存一次档");
+            var t0 = ReadTelemetry();
+            Assert.AreEqual(RunOutcome.Unfinished, t0.Outcome);
+            Assert.AreEqual(1, t0.RunIndex);
+            Assert.AreEqual(12UL, t0.Seed);
             var map = Run.State.Map;
             Assert.AreEqual(map.Nodes.Count + 1, Screen.Map.NodeCount, "每个节点 + Boss 都要画出来");
             CollectionAssert.AreEquivalent(map.InRow(0).Select(n => (n.Row, n.Col)), Screen.Map.Choosable);
@@ -170,17 +182,24 @@ namespace Deeptide.View.Tests
             Assert.AreEqual(RunPhase.Victory, Screen.Shown);
             Assert.IsNotNull(Screen.Panel, "通关后应该显示结算面板");
             Assert.IsFalse(File.Exists(TestSave), "一局结束要删档");
+            var tel = ReadTelemetry();
+            Assert.AreEqual(RunOutcome.Victory, tel.Outcome);
+            Assert.AreEqual(Run.State.Path.Count, tel.Nodes.Count, "遥测里每个节点一条");
+            Assert.AreEqual(Run.State.Stats.Battles.Count, tel.Battles.Count);
+            Assert.Greater(tel.PlaySeconds, 0, "单局用时");
+            Assert.That(tel.Nodes.Select(n => n.Seconds), Is.Ordered, "节点的进入时间递增");
             yield return Shot("29_victory");
             Debug.Log($"[RunFlowTests] 种子 {seed}，{steps} 步通关，走过的房间：{string.Join("、", seenRooms)}；牌组 {Run.State.Deck.Count} 张");
             foreach (var room in new[] { RoomType.Battle, RoomType.Elite, RoomType.Campfire, RoomType.Treasure, RoomType.Shop, RoomType.Event, RoomType.Boss })
                 Assert.Contains(room, seenRooms.ToList(), $"这条路线没走到 {room}");
 
-            // 结算 → 回到标题，没有存档了
+            // 结算 → 回到标题，没有存档了；回到标题不会把通关记成放弃
             Assert.IsTrue(Screen.Panel.GetComponentsInChildren<UnityEngine.UI.Button>().Any(b => b.name == "Back"));
             Screen.ExitToTitle(true);
             yield return null;
             Assert.IsNotNull(_boot.Title);
             Assert.IsFalse(_boot.ClickTitle("Continue"));
+            Assert.AreEqual(RunOutcome.Victory, ReadTelemetry().Outcome);
         }
 
         /// <summary>战斗中保存退出 → 继续：回到这场战斗的开头，和刚进入时完全一样；打完在奖励界面退出 → 继续：还在奖励界面。</summary>
@@ -229,6 +248,28 @@ namespace Deeptide.View.Tests
             Assert.AreEqual(RunPhase.Reward, Screen.Shown);
             Assert.AreEqual(atReward, Run.Hash());
             Assert.AreEqual(Run.Options().Count, Screen.CountOptions());
+            var tel = ReadTelemetry();
+            Assert.AreEqual(RunOutcome.Unfinished, tel.Outcome);
+            Assert.AreEqual(1, tel.Battles.Count, "读档前打完的战斗在遥测里");
+
+            // 放弃这一局：记成 Abandoned；再开一局是本机第 2 局
+            Screen.ExitToTitle(true);
+            yield return null;
+            Assert.AreEqual(RunOutcome.Abandoned, ReadTelemetry().Outcome);
+            _boot.NewRun(78);
+            yield return null;
+            Assert.AreEqual(2, Directory.GetFiles(TestTelemetry, "*.json").Length);
+            Assert.AreEqual(2, Run.State.Stats.RunIndex);
+        }
+
+        /// <summary>这一局的遥测文件（TelemetryFiles 写的 JSON）。</summary>
+        RunTelemetry ReadTelemetry()
+        {
+            var state = Screen != null ? Run.State : null;
+            string path = state != null ? TelemetryFiles.PathOf(state)
+                : Directory.GetFiles(TestTelemetry, "*.json").OrderBy(File.GetLastWriteTimeUtc).Last();
+            Assert.IsTrue(File.Exists(path), $"没有遥测文件 {path}");
+            return Newtonsoft.Json.JsonConvert.DeserializeObject<RunTelemetry>(File.ReadAllText(path), new Newtonsoft.Json.Converters.StringEnumConverter());
         }
 
         [UnityTest]

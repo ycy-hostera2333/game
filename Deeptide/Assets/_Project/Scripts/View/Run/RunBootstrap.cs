@@ -3,6 +3,7 @@ using System.IO;
 using Deeptide.Core.Run;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -11,7 +12,7 @@ namespace Deeptide.View.Run
     /// <summary>
     /// Run 场景的入口（策划/08 §8）：载入 CSV，先显示标题画面（继续 / 新的一局 / 单场战斗），选了之后建 RunScreen。
     /// 存档写在 <c>Application.persistentDataPath/run.json</c>（06 §8）：存档点变化时自动写；退出到标题、关掉游戏时再存一次当前状态；
-    /// 一局结束（通关或倒下）删档。战斗中退出，读档后这场战斗从头开始。
+    /// 一局结束（通关或倒下）删档。战斗中退出，读档后这场战斗从头开始。每次存档顺带写这一局的遥测（TelemetryFiles）。
     /// 主菜单场景还没做，标题画面先放在这里。
     /// </summary>
     public sealed class RunBootstrap : MonoBehaviour
@@ -46,7 +47,11 @@ namespace Deeptide.View.Run
 
         public RunScreen NewRun(ulong seed, RunConfig config = null)
         {
+            // 有存档时开新局 = 放弃旧的那局
+            var old = RunSaves.Peek(SavePath);
+            if (old != null) TelemetryFiles.Write(old, abandoned: true);
             var run = RunEngine.NewRun(seed, config);
+            TelemetryFiles.Begin(run.State);
             Save(run);
             return Play(run);
         }
@@ -75,6 +80,7 @@ namespace Deeptide.View.Run
             CloseTitle();
             if (Screen != null) Destroy(Screen.gameObject);
             Screen = RunScreen.Create(Camera.main, run, Save, Exit);
+            _lastInput = Time.unscaledTime;
             return Screen;
         }
 
@@ -82,11 +88,17 @@ namespace Deeptide.View.Run
         {
             if (run.IsOver) RunSaves.Delete(SavePath);
             else RunSaves.Write(SavePath, run);
+            TelemetryFiles.Write(run.State);
         }
 
         void Exit(bool abandon)
         {
-            if (abandon) RunSaves.Delete(SavePath);
+            if (abandon)
+            {
+                // 结算界面的「回到标题」也走这里，局已经结束的不算放弃（RunTelemetry.From 里判断）
+                if (Screen != null) TelemetryFiles.Write(Screen.Run.State, abandoned: true);
+                RunSaves.Delete(SavePath);
+            }
             else if (Screen != null) Save(Screen.Run);
             ShowTitle();
         }
@@ -94,6 +106,23 @@ namespace Deeptide.View.Run
         void OnApplicationQuit()
         {
             if (Screen != null) Save(Screen.Run);
+        }
+
+        // ------------------------------------------------------------------ 计时（遥测的单局用时）
+
+        /// <summary>超过这么久没有鼠标 / 键盘操作就停表：挂机不算进单局用时。</summary>
+        const float IdleSeconds = 180;
+        float _lastInput;
+
+        void Update()
+        {
+            if (Screen == null || Screen.Run.IsOver) return;
+            var mouse = Mouse.current;
+            if ((mouse != null && (mouse.delta.ReadValue() != Vector2.zero || mouse.leftButton.isPressed || mouse.rightButton.isPressed || mouse.scroll.ReadValue() != Vector2.zero))
+                || (Keyboard.current != null && Keyboard.current.anyKey.isPressed))
+                _lastInput = Time.unscaledTime;
+            // 卡顿、断点、切出窗口回来的一大帧不算
+            if (Time.unscaledTime - _lastInput < IdleSeconds) Screen.Run.State.Stats.PlaySeconds += Mathf.Min(Time.unscaledDeltaTime, 1f);
         }
 
         // ------------------------------------------------------------------ 标题画面
@@ -162,6 +191,10 @@ namespace Deeptide.View.Run
             if (!Application.isEditor)
                 RunUi.Button(root, "Quit", "退出", new Vector2(col, y - 90), new Vector2(460, 70), Application.Quit, true, null, 26);
             _hint = RunUi.Label(root, "", new Vector2(col, -470), new Vector2(1000, 40), 24, Palette.Blood);
+
+            // 右下角：试玩记录和版本号（写在按钮底色上，主视觉的排线上小字看不清）。试玩的人把记录文件夹发回来，用 Tools 的 telemetry 汇总（策划/07 §6.2）
+            RunUi.Button(root, "Telemetry", $"打开试玩记录（{TelemetryFiles.Count} 局）\n<size=75%>版本 {TelemetryFiles.GameVersion}</size>",
+                new Vector2(760, -476), new Vector2(360, 80), TelemetryFiles.Reveal, true, null, 22);
         }
 
         /// <summary>压在主视觉排线上的小字：加一圈纸色描边。</summary>

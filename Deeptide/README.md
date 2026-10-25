@@ -23,6 +23,8 @@
 - 顶栏：生命、金币、药水（不在战斗里点药水可以丢掉）、遗物、层数 / 回合；「牌组」看整副牌，「菜单」里可以保存并回到标题、放弃这一局
 - 存档在 `Application.persistentDataPath/run.json`，格式和控制台 `run` 模式的存档一样（`View/Run/RunSaves.cs` 对应 `Tools/Shared/RunSaves.cs`）。进入节点、战斗结束、回到地图时自动写；回到标题、关游戏时再存一次当前状态；通关或倒下后删档。战斗中退出，读档后这场战斗从头开始，起手和意图都和第一次一样（06 §8）
 
+- 遥测（策划/07 §6.2）：每次存档顺带写这一局的 `persistentDataPath/telemetry/开局时间_种子.json`（`View/Run/TelemetryFiles.cs`），放弃、开新局覆盖旧档时记成放弃。标题画面右下角显示版本号，「打开试玩记录」打开这个文件夹。汇总用 `Tools` 的 `telemetry` 子命令
+
 结构：`RunBootstrap`（载入数据、标题画面、存档路径）→ `RunScreen`（持有 RunEngine，按阶段切面板，所有操作变成 `RunCommand`）→ `MapView` / `RunPanels`（奖励、选择、商店、篝火、事件、结算）/ `BattleScreen`（跑局模式：挂在跑局画布下，借用跑局的顶栏，命令经 RunEngine 转发）。面板每次都按 `RunEngine.Options()` 重画，规则判断都在内核里。事件、商店（商贩）、篝火、标题画面用 ArtDatabase 插图表里的图（10 §8 的 P2），没有图时退回节点图标和码头背景；事件界面悬停会扣理智上限的选项时，插图的癫狂层浮出来。
 
 ## 灰盒战斗
@@ -46,13 +48,23 @@ PlayMode 测试在 `Assets/_Project/Tests/PlayMode/`：通过表现层入口出�
 
 - `BattleGreyboxTests`：打击 + 防御的基本流程、能量不足被拒、一路打到胜利
 - `BattleContentTests`：15 组遭遇用混合牌组逐个打到分出胜负，每一步核对手牌、牌堆、能量、生命、格挡、每个敌人、药水栏和选择面板；启动面板换成 Boss 战；药水选目标；查阅资料的选择面板
-- `RunFlowTests`：标题开局、地图卷动和悬停；一局从出发打到 Boss 通关（生命给到 999，路线预先规划成走遍 6 种房间），每一步核对面板画出了内核的全部选项、顶栏和 RunState 一致；战斗中保存退出再继续（战斗从头开始，哈希和第一次进入时一致）、奖励界面换场景后继续；牌组弹窗、丢药水。存档写到临时目录，不碰玩家的存档
+- `RunFlowTests`：标题开局、地图卷动和悬停；一局从出发打到 Boss 通关（生命给到 999，路线预先规划成走遍 6 种房间），每一步核对面板画出了内核的全部选项、顶栏和 RunState 一致；战斗中保存退出再继续（战斗从头开始，哈希和第一次进入时一致）、奖励界面换场景后继续；牌组弹窗、丢药水；遥测文件的结果（没打完 / 通关 / 放弃）、节点数和用时。存档和遥测都写到临时目录，不碰玩家的
 
 ```bash
 "C:/Program Files/Unity/Hub/Editor/6000.3.26f1/Editor/Unity.exe" -batchmode -projectPath Deeptide -runTests -testPlatform PlayMode -testResults Logs/playmode.xml -logFile Logs/playmode.log
 ```
 
 编辑器里打开着这个工程时，batchmode 会因为工程被占用而失败，先关掉编辑器，或者直接用 Window → General → Test Runner。
+
+## 打包试玩版
+
+菜单「Deeptide → 打包 Windows」，或者关掉编辑器后：
+
+```bash
+"C:/Program Files/Unity/Hub/Editor/6000.3.26f1/Editor/Unity.exe" -batchmode -quit -projectPath Deeptide -executeMethod Deeptide.EditorTools.BuildPlayer.Batch -logFile Deeptide/Logs/build.log
+```
+
+64 位、Mono 后端，输出 `Builds/Deeptide_Windows/`（不进仓库），复制 `BuildExtras/` 下的试玩说明，再压成 `Builds/Deeptide_版本号.zip`，发给试玩的人就是这个 zip。发新包前先改 Player Settings 的 Version，遥测按它区分版本。exe 和编辑器的存档、遥测在同一个目录（`AppData/LocalLow/DefaultCompany/Deeptide/`）。
 
 ## 包（`Packages/manifest.json`）
 

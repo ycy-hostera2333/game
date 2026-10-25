@@ -142,6 +142,7 @@ namespace Deeptide.Core.Run
                 case RunCommandKind.DropPotion:
                     if (State.Phase == RunPhase.Battle) { error = "战斗中不能丢药水"; return false; }
                     if (cmd.Index < 0 || cmd.Index >= State.Potions.Count || State.Potions[cmd.Index] == null) { error = "这个药水栏是空的"; return false; }
+                    CurrentNode?.Picks.Add("discard:" + State.Potions[cmd.Index]);
                     State.Potions[cmd.Index] = null;
                     return true;
 
@@ -150,9 +151,46 @@ namespace Deeptide.Core.Run
                     if (cmd.Index < 0 || cmd.Index >= options.Count) { error = "没有这个选项"; return false; }
                     var opt = options[cmd.Index];
                     if (!opt.Enabled) { error = opt.Reason ?? "现在不能选这一项"; return false; }
+                    // 选地图节点由 EnterNode 新建记录；其余选择记到当前节点（先算好标签，Do 之后牌组、药水栏都变了）
+                    var node = State.Phase == RunPhase.Map ? null : CurrentNode;
+                    string pick = node == null ? null : PickRecord(opt);
                     opt.Do();
+                    node?.Picks.Add(pick);
                     return true;
             }
+        }
+
+        /// <summary>当前所在节点的遥测记录（还没出发时为 null）。</summary>
+        NodeRecord CurrentNode => State.Stats.Nodes.Count == 0 ? null : State.Stats.Nodes[State.Stats.Nodes.Count - 1];
+
+        /// <summary>选项写进 NodeRecord.Picks 的样子：牌组下标、药水栏位换成具体的 ID，下标对之后看记录的人没有意义。</summary>
+        string PickRecord(RunOption opt)
+        {
+            string tag = opt.Tag ?? "";
+            if (tag.StartsWith("deck:", StringComparison.Ordinal))
+                return (State.Select?.Purpose == SelectPurpose.UpgradeCard ? "upgrade:" : "remove:") + opt.CardId;
+            if (tag.StartsWith("drop:", StringComparison.Ordinal) && int.TryParse(tag.Substring(5), out int slot) && slot < State.Potions.Count)
+                return "drop:" + State.Potions[slot];
+            return tag;
+        }
+
+        static string Describe(RewardItem r)
+        {
+            switch (r.Kind)
+            {
+                case RewardKind.Gold: return "gold:" + r.Amount;
+                case RewardKind.Cards: return "cards:" + string.Join(";", r.Cards);
+                default: return r.Kind.ToString().ToLowerInvariant() + ":" + r.Id;
+            }
+        }
+
+        void NoteOffered()
+        {
+            var node = CurrentNode;
+            if (node == null) return;
+            if (State.Phase == RunPhase.Reward) node.Offered.AddRange(State.Rewards.Select(Describe));
+            else if (State.Phase == RunPhase.Shop)
+                node.Offered.AddRange(State.Shop.Items.Select(it => $"{it.Kind.ToString().ToLowerInvariant()}:{it.Id}:{it.Price}"));
         }
 
         /// <summary>当前界面的标题。</summary>
@@ -238,6 +276,15 @@ namespace Deeptide.Core.Run
             State.Floor = row + 1;
             State.Path.Add(col);
             State.Stats.NodeHp.Add(State.Hp);
+            State.Stats.Nodes.Add(new NodeRecord
+            {
+                Floor = State.Floor,
+                Room = room,
+                Hp = State.Hp,
+                MaxHp = State.MaxHp,
+                Gold = State.Gold,
+                Seconds = State.Stats.PlaySeconds,
+            });
             switch (room)
             {
                 case RoomType.Battle:
@@ -262,11 +309,13 @@ namespace Deeptide.Core.Run
                     State.EventsSeen.Add(ev.Id);
                     State.Event = new EventState { Id = ev.Id };
                     State.Phase = RunPhase.Event;
+                    CurrentNode.Content = ev.Id;
                     break;
                 case RoomType.Shop:
                     State.Stats.ShopVisits++;
                     State.Shop = GenerateShop();
                     State.Phase = RunPhase.Shop;
+                    NoteOffered();
                     break;
                 case RoomType.Campfire:
                     State.Phase = RunPhase.Campfire;
@@ -276,6 +325,7 @@ namespace Deeptide.Core.Run
                     AddRelicReward(RollRelicRarity(Rng.Reward));
                     State.Rewards.Add(new RewardItem { Kind = RewardKind.Gold, Amount = Rng.Reward.Range(25, 50) });
                     State.Phase = RunPhase.Reward;
+                    NoteOffered();
                     break;
             }
             SavePoint();
@@ -328,6 +378,8 @@ namespace Deeptide.Core.Run
                 Room = room,
             };
             State.Phase = RunPhase.Battle;
+            // 事件里打起来的战斗：节点记录留着事件 ID，遭遇看 BattleRecord
+            if (CurrentNode != null && CurrentNode.Content == null) CurrentNode.Content = encounterId;
             CreateBattle();
         }
 
@@ -388,6 +440,7 @@ namespace Deeptide.Core.Run
             {
                 GenerateBattleRewards(info.Room == RoomType.Elite);
                 State.Phase = RunPhase.Reward;
+                NoteOffered();
             }
             // 打完就存一次：在奖励界面退出再读档，不会回到已经打赢的战斗
             SavePoint();

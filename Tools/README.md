@@ -73,7 +73,18 @@ dotnet run --project Deeptide.Sim -c Release -- runbatch --n 1000     # 四个�
 
 - `run`：地图 / 奖励 / 商店 / 篝火 / 事件都是「输入选项编号」；`d2` 丢第 2 格药水；`deck` 看牌组；`map` 看地图；`a` 让 AI 走一步、`A` 让 AI 打完当前战斗；`q` 存档退出。打完会把整局命令写进 `run_commands.txt`，可以用 `runreplay --seed N --cmds-file run_commands.txt` 重放
 - `runview`：不开交互进程，每次往命令文件里追加命令（`pick 2`、`play 0 1`、`end`、`choose 0`、`potion 1 -1`、`drop 0`，`#` 后面是注释）再运行一次。`--from K` 只打印第 K 条命令之后发生的事，`--deck 1` / `--map 1` 附带牌组和地图。Claude 的跑局试玩就是这样打的（`原型/试玩_跑局/`）
-- `runbatch`：输出 策划/07 §5.2 的生命账本（到达 Boss 时的生命）、§5.3 的指标（三流派胜率差、进入癫狂的战斗占比、堕落崩溃次数、守夜清明回合占比）、各类战斗的回合和掉血、经济、死因和每张牌的拾取率。`--arch watch,fall,contagion,mixed` 选流派，`--cards 0` 不打印拾取率
+- `runbatch`：输出 策划/07 §5.2 的生命账本（到达 Boss 时的生命）、§5.3 的指标（三流派胜率差、进入癫狂的战斗占比、堕落崩溃次数、守夜清明回合占比）、各类战斗的回合和掉血、经济、死因和每张牌的拾取率。`--arch watch,fall,contagion,mixed` 选流派，`--cards 0` 不打印拾取率，`--telemetry 目录` 把每局写成和游戏一样的遥测 JSON（拿来和真人对照）
+
+## 试玩遥测
+
+游戏每局写一份 JSON（策划/07 §6.2），默认在 `%USERPROFILE%\AppData\LocalLow\DefaultCompany\Deeptide\telemetry\`，编辑器和打包的 exe 写在同一个地方。试玩的人发回来的文件夹放到一起（可以每人一个子文件夹），再汇总：
+
+```bash
+dotnet run --project Deeptide.Sim -- telemetry                          # 读本机的记录
+dotnet run --project Deeptide.Sim -- telemetry --dir ../试玩记录 --editor 0   # 读收回来的记录，排除编辑器里打的
+```
+
+输出：逐局列表（开局时间、本机第几局、按最终牌组判断的流派、结果、层数、用时、Boss 前生命、死因）；打完的局按 `runbatch` 同一套口径汇总（胜率、第 1 局胜率、单局用时、生命账本、各类战斗、理智指标、经济、死因）；按流派分组的理智指标；篝火 / 商店 / 每个事件选了什么；每类节点的真实用时；打出最多的牌；真人的拾取率。没打完、放弃的局只算进战斗统计。同一局收到两份时留最后写的那份。
 
 ## AI
 

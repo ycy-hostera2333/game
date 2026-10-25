@@ -13,6 +13,8 @@ using Deeptide.Core.Random;
 using Deeptide.Core.Relics;
 using Deeptide.Core.Run;
 using Deeptide.Tools;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
 namespace Deeptide.Sim
 {
@@ -407,6 +409,7 @@ namespace Deeptide.Sim
                 });
                 all[arch] = results.ToList();
                 PrintArchetype(arch, results, sw.Elapsed);
+                if (o.TryGetValue("telemetry", out var dir)) WriteTelemetry(dir, arch, results);
             }
 
             if (archs.Count > 1)
@@ -416,8 +419,22 @@ namespace Deeptide.Sim
                 var pure = all.Where(kv => kv.Key != Archetype.Mixed).Select(kv => kv.Value.Count(r => r.Won) / (double)n).ToList();
                 if (pure.Count > 1) Console.WriteLine($"守夜 / 堕落 / 传染三流派胜率差：{(pure.Max() - pure.Min()) * 100:F1} 个百分点");
             }
-            if (verbose) PrintPickRates(all.Values.SelectMany(x => x).Where(r => r.State != null).ToList());
+            if (verbose) PrintPickRates(all.Values.SelectMany(x => x).Where(r => r.State != null).SelectMany(r => r.State.Stats.CardChoices));
             return all.Values.SelectMany(x => x).Any(r => r.Error != null) ? 1 : 0;
+        }
+
+        /// <summary>把 AI 局写成和游戏一样的遥测 JSON，好用 telemetry 子命令拿真人数据和 AI 对照。</summary>
+        static void WriteTelemetry(string dir, Archetype arch, RunResult[] results)
+        {
+            Directory.CreateDirectory(dir);
+            var settings = new JsonSerializerSettings { Formatting = Formatting.Indented, Converters = { new StringEnumConverter() } };
+            foreach (var r in results.Where(r => r.State != null))
+            {
+                var t = RunTelemetry.From(r.State);
+                t.GameVersion = "AI " + RunAutoplayer.ArchetypeName(arch);
+                t.StartedAt = $"AI {RunAutoplayer.ArchetypeName(arch)} {r.Seed:D4}";
+                File.WriteAllText(Path.Combine(dir, $"ai_{arch.ToString().ToLowerInvariant()}_{r.Seed:D4}.json"), JsonConvert.SerializeObject(t, settings));
+            }
         }
 
         static void PrintArchetype(Archetype arch, RunResult[] results, TimeSpan elapsed)
@@ -429,10 +446,54 @@ namespace Deeptide.Sim
             Console.WriteLine($"  胜率 {results.Count(r => r.Won) / (double)n:P1}  平均到达层数 {ok.Average(r => r.Floor):F1}  异常 {errors.Count} 局");
             foreach (var e in errors.Take(5)) Console.WriteLine($"    种子 {e.Seed}：{e.Error}");
             if (ok.Count == 0) return;
+            PrintMetrics(ok.Select(r => new RunSample(r.State)).ToList(), n);
+            Console.WriteLine();
+        }
 
-            var battles = ok.SelectMany(r => r.State.Stats.Battles).ToList();
-            var reachedBoss = ok.Where(r => r.State.Stats.HpAtBoss >= 0).ToList();
-            Console.WriteLine($"  到达 Boss {reachedBoss.Count / (double)n:P0}，到达时生命中位数 {Median(reachedBoss.Select(r => r.State.Stats.HpAtBoss))}（目标 40–50）；Boss 战胜率 {(reachedBoss.Count == 0 ? 0 : results.Count(r => r.Won) / (double)reachedBoss.Count):P0}");
+        /// <summary>一局里汇总要用的数据：runbatch 的 AI 局和试玩遥测（TelemetryReport）共用一套口径（策划/07 §5）。</summary>
+        internal sealed class RunSample
+        {
+            public bool Won;
+            public int HpAtBoss, GoldEarned, ShopVisits, CardsRemoved;
+            public List<string> Deck;
+            public List<BattleRecord> Battles;
+            public List<CardChoiceRecord> CardChoices;
+            /// <summary>遭遇 ID，或 event:事件 ID。</summary>
+            public string Death;
+
+            public RunSample(RunState s)
+            {
+                Won = s.Phase == RunPhase.Victory;
+                HpAtBoss = s.Stats.HpAtBoss;
+                GoldEarned = s.Stats.GoldEarned;
+                ShopVisits = s.Stats.ShopVisits;
+                CardsRemoved = s.Stats.CardsRemoved;
+                Deck = s.Deck;
+                Battles = s.Stats.Battles;
+                CardChoices = s.Stats.CardChoices;
+                Death = s.Stats.DeathEncounter;
+            }
+
+            public RunSample(RunTelemetry t)
+            {
+                Won = t.Outcome == RunOutcome.Victory;
+                HpAtBoss = t.HpAtBoss;
+                GoldEarned = t.GoldEarned;
+                ShopVisits = t.ShopVisits;
+                CardsRemoved = t.CardsRemoved;
+                Deck = t.Deck;
+                Battles = t.Battles;
+                CardChoices = t.CardChoices;
+                Death = t.DeathCause;
+            }
+        }
+
+        /// <summary>生命账本、各类战斗、理智指标、经济和死因。n = 这一组一共跑了几局（含异常的），算「到达 Boss」的比例用。</summary>
+        internal static void PrintMetrics(List<RunSample> ok, int n)
+        {
+            var battles = ok.SelectMany(r => r.Battles).ToList();
+            var reachedBoss = ok.Where(r => r.HpAtBoss >= 0).ToList();
+            Console.WriteLine($"  到达 Boss {reachedBoss.Count / (double)n:P0}，到达时生命中位数 {Median(reachedBoss.Select(r => r.HpAtBoss))}（目标 40–50）；Boss 战胜率 {(reachedBoss.Count == 0 ? 0 : ok.Count(r => r.Won) / (double)reachedBoss.Count):P0}");
             foreach (var room in new[] { RoomType.Battle, RoomType.Elite, RoomType.Boss })
             {
                 var bs = battles.Where(b => b.Room == room).ToList();
@@ -444,42 +505,51 @@ namespace Deeptide.Sim
             var easy = battles.Where(b => b.Room == RoomType.Battle && b.EncounterId.StartsWith("easy")).ToList();
             if (easy.Count > 0 && hard.Count > 0)
                 Console.WriteLine($"  其中简单池 回合 {easy.Average(b => b.Turns):F1} 掉血 {easy.Average(b => b.HpLost):F1}（目标 3–4 / 2–6），困难池 回合 {hard.Average(b => b.Turns):F1} 掉血 {hard.Average(b => b.HpLost):F1}（目标 4–6 / 4–9）");
-            double lunacyShare = battles.Count(b => b.EnteredLunacy) / (double)battles.Count;
-            double turns = battles.Sum(b => b.Turns);
-            Console.WriteLine($"  进入过癫狂的战斗 {lunacyShare:P0}（目标 40–70%）  崩溃 {battles.Average(b => b.Collapses):F2} 次/场  清明回合占比 {battles.Sum(b => b.ClarityTurns) / turns:P0}  癫狂回合占比 {battles.Sum(b => b.LunacyTurns) / turns:P0}");
-            Console.WriteLine($"  金币收入 {ok.Average(r => r.State.Stats.GoldEarned):F0}（目标 300–400，不含事件）  商店 {ok.Average(r => r.State.Stats.ShopVisits):F1} 次  删卡 {ok.Average(r => r.State.Stats.CardsRemoved):F1}  最终牌组 {ok.Average(r => r.State.Deck.Count):F1} 张（目标 18–24）  疯语 {ok.Average(r => r.State.Deck.Count(c => c == CardIds.Whispers)):F1} 张");
-            Console.WriteLine($"  普通战斗 {ok.Average(r => r.State.Stats.Battles.Count(b => b.Room == RoomType.Battle)):F1} 场（目标 7–9） 精英 {ok.Average(r => r.State.Stats.Battles.Count(b => b.Room == RoomType.Elite)):F1} 场（目标 1–3）");
-            var deaths = ok.Where(r => r.State.Stats.DeathEncounter != null).GroupBy(r => r.State.Stats.DeathEncounter)
-                .OrderByDescending(g => g.Count()).Take(5).Select(g => $"{Deeptide.Core.Enemies.EncounterLibrary.Get(g.Key).Name} {g.Count()}");
+            if (battles.Count > 0) PrintSanity("  ", battles);
+            Console.WriteLine($"  金币收入 {ok.Average(r => r.GoldEarned):F0}（目标 300–400，不含事件）  商店 {ok.Average(r => r.ShopVisits):F1} 次  删卡 {ok.Average(r => r.CardsRemoved):F1}  最终牌组 {ok.Average(r => r.Deck.Count):F1} 张（目标 18–24）  疯语 {ok.Average(r => r.Deck.Count(c => c == CardIds.Whispers)):F1} 张");
+            Console.WriteLine($"  普通战斗 {ok.Average(r => r.Battles.Count(b => b.Room == RoomType.Battle)):F1} 场（目标 7–9） 精英 {ok.Average(r => r.Battles.Count(b => b.Room == RoomType.Elite)):F1} 场（目标 1–3）");
+            var deaths = ok.Where(r => r.Death != null).GroupBy(r => r.Death)
+                .OrderByDescending(g => g.Count()).Take(5).Select(g => $"{DeathName(g.Key)} {g.Count()}");
             Console.WriteLine($"  死因：{string.Join("、", deaths)}");
-            Console.WriteLine();
         }
 
-        static void PrintPickRates(List<RunResult> runs)
+        /// <summary>07 §5.3 的三项理智指标。</summary>
+        internal static void PrintSanity(string indent, List<BattleRecord> battles)
+        {
+            double lunacyShare = battles.Count(b => b.EnteredLunacy) / (double)battles.Count;
+            double turns = Math.Max(1, battles.Sum(b => b.Turns));
+            Console.WriteLine($"{indent}进入过癫狂的战斗 {lunacyShare:P0}（目标 40–70%）  崩溃 {battles.Average(b => b.Collapses):F2} 次/场  清明回合占比 {battles.Sum(b => b.ClarityTurns) / turns:P0}  癫狂回合占比 {battles.Sum(b => b.LunacyTurns) / turns:P0}");
+        }
+
+        internal static string DeathName(string cause) =>
+            cause.StartsWith("event:") ? EventLibrary.Get(cause.Substring(6)).Name + "（事件）" : Deeptide.Core.Enemies.EncounterLibrary.Get(cause).Name;
+
+        /// <param name="who">拾取率反映的是谁的选择（AI 的打分规则 / 真人）。</param>
+        internal static void PrintPickRates(IEnumerable<CardChoiceRecord> choices, string who = " AI 的打分规则")
         {
             var offered = new Dictionary<string, int>();
             var picked = new Dictionary<string, int>();
-            foreach (var c in runs.SelectMany(r => r.State.Stats.CardChoices))
+            foreach (var c in choices)
             {
                 foreach (var id in c.Offered) offered[id] = offered.TryGetValue(id, out var x) ? x + 1 : 1;
                 if (c.Picked != null) picked[c.Picked] = picked.TryGetValue(c.Picked, out var y) ? y + 1 : 1;
             }
             var rows = offered.Select(kv => (Id: kv.Key, Offered: kv.Value, Rate: (picked.TryGetValue(kv.Key, out var p) ? p : 0) / (double)kv.Value))
                 .OrderBy(r => r.Id).ToList();
-            Console.WriteLine("拾取率（被选中 / 出现在卡牌奖励里的次数；目标 10–60%，反映的是 AI 的打分规则）：");
+            Console.WriteLine($"拾取率（被选中 / 出现在卡牌奖励里的次数；目标 10–60%，反映的是{who}）：");
             var sb = new StringBuilder();
             int col = 0;
             foreach (var r in rows)
             {
                 string flag = r.Rate < 0.10 ? "↓" : r.Rate > 0.60 ? "↑" : " ";
-                sb.Append($"  {CardLibrary.Get(r.Id).Name,-6}{r.Rate,5:P0}{flag}");
+                sb.Append($"  {CardLibrary.Create(r.Id, 0).Name,-6}{r.Rate,5:P0}{flag}");
                 if (++col % 6 == 0) sb.AppendLine();
             }
             Console.WriteLine(sb.ToString());
             Console.WriteLine($"  区间外：{rows.Count(r => r.Rate < 0.10 || r.Rate > 0.60)} / {rows.Count} 张");
         }
 
-        static int Median(IEnumerable<int> values)
+        internal static int Median(IEnumerable<int> values)
         {
             var list = values.OrderBy(x => x).ToList();
             return list.Count == 0 ? 0 : list[list.Count / 2];

@@ -2,12 +2,15 @@ using System.Collections.Generic;
 using System.Linq;
 using Deeptide.Core;
 using Deeptide.Core.Cards;
+using Deeptide.Core.Content;
 using Deeptide.Core.Enemies;
 using Deeptide.Core.Map;
 using Deeptide.Core.Random;
 using Deeptide.Core.Relics;
 using Deeptide.Core.Run;
 using Deeptide.Tools;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using NUnit.Framework;
 
 namespace Deeptide.Tests
@@ -521,6 +524,102 @@ namespace Deeptide.Tests
             Assert.That(EventLibrary.All.Count, Is.EqualTo(8));
             foreach (var r in new[] { RelicRarity.Common, RelicRarity.Uncommon, RelicRarity.Rare, RelicRarity.Shop })
                 Assert.That(RelicLibrary.All.Any(d => d.Rarity == r), Is.True, r.ToString());
+        }
+
+        // ---------------- 遥测（策划/07 §6.2）
+
+        /// <summary>整局下来每个节点一条记录：和走过的路一一对应，战斗节点记了遭遇，奖励 / 商店记了提供的东西，局层选择都记进了 Picks。</summary>
+        [TestCase(1UL)]
+        [TestCase(6UL)]
+        public void Telemetry_FullRun_RecordsEveryNode(ulong seed)
+        {
+            var run = PlayScripted(seed).Run;
+            var s = run.State;
+            var nodes = s.Stats.Nodes;
+            Assert.That(nodes.Count, Is.EqualTo(s.Path.Count));
+            Assert.That(nodes.Select(n => n.Hp), Is.EqualTo(s.Stats.NodeHp));
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                var n = nodes[i];
+                Assert.That(n.Floor, Is.EqualTo(i + 1));
+                if (i < s.Map.Height) Assert.That(n.Room, Is.EqualTo(s.Map.Get(i, s.Path[i]).Room), $"第 {i + 1} 层");
+                if (n.Room == RoomType.Battle || n.Room == RoomType.Elite || n.Room == RoomType.Boss)
+                    Assert.That(EncounterLibrary.Get(n.Content), Is.Not.Null);
+                if (n.Room == RoomType.Shop) Assert.That(n.Offered.Count(o => o.StartsWith("card:")), Is.EqualTo(5));
+                if (n.Room == RoomType.Treasure) Assert.That(n.Offered, Has.Some.StartsWith("relic:"));
+                if (n.Room != RoomType.Boss && (i + 1 < nodes.Count)) Assert.That(n.Picks, Is.Not.Empty, $"第 {i + 1} 层 {n.Room} 没记选择");
+                Assert.That(n.Picks, Has.None.StartsWith("deck:"), "牌组下标要换成卡牌 ID");
+            }
+            // 打赢的战斗节点：奖励列表里有卡牌，和 CardChoices 对得上
+            foreach (var n in nodes.Where(n => n.Room == RoomType.Battle && n.Offered.Count > 0))
+                Assert.That(n.Offered, Has.Some.StartsWith("cards:"));
+
+            var t = RunTelemetry.From(s);
+            Assert.That(t.Outcome, Is.EqualTo(s.Phase == RunPhase.Victory ? RunOutcome.Victory : RunOutcome.Defeat));
+            Assert.That(t.Floor, Is.EqualTo(s.Floor));
+            if (t.Outcome == RunOutcome.Defeat) Assert.That(t.DeathCause, Is.EqualTo(s.Stats.DeathEncounter));
+            Assert.That(RunTelemetry.From(s, abandoned: true).Outcome, Is.EqualTo(t.Outcome), "已经结束的局不算放弃");
+
+            // JSON 往返（Unity 和 Tools 用同一套 Newtonsoft 设置）
+            var json = JsonConvert.SerializeObject(t, Formatting.Indented, new StringEnumConverter());
+            var back = JsonConvert.DeserializeObject<RunTelemetry>(json, new StringEnumConverter());
+            Assert.That(JsonConvert.SerializeObject(back, Formatting.Indented, new StringEnumConverter()), Is.EqualTo(json));
+            Assert.That(json, Does.Contain("\"Outcome\": \"" + t.Outcome + "\""));
+        }
+
+        [Test]
+        public void Telemetry_DoesNotChangeHashOrReplay()
+        {
+            var run = PlayScripted(3).Run;
+            var replayed = RunEngine.Replay(3, run.History);
+            replayed.State.Stats.PlaySeconds = 1234;
+            replayed.State.Stats.StartedAt = "2026-10-25 12:00:00";
+            Assert.That(replayed.Hash(), Is.EqualTo(run.Hash()), "外层填的时间、序号不参与哈希");
+        }
+
+        [Test]
+        public void Telemetry_PicksNameTheCards()
+        {
+            var run = At(RoomType.Campfire);
+            run.State.Stats.PlaySeconds = 90;
+            run.EnterNode(7, 0, RoomType.Campfire);
+            var node = run.State.Stats.Nodes.Last();
+            Assert.That(node.Seconds, Is.EqualTo(90), "进入时把外层的计时抄进来");
+            Pick(run, "smith");
+            Pick(run, "skip");
+            Pick(run, "smith");
+            Pick(run, "deck:0");
+            Assert.That(node.Picks, Is.EqualTo(new[] { "smith", "skip", "smith", "upgrade:B01" }));
+
+            var shop = At(RoomType.Shop);
+            shop.State.Gold = 500;
+            Pick(shop, "remove");
+            Pick(shop, "deck:1");
+            Assert.That(shop.State.Stats.Nodes.Last().Picks, Is.EqualTo(new[] { "remove", "remove:B01" }));
+            Assert.That(shop.State.Stats.Nodes.Last().Gold, Is.EqualTo(99), "进入时的金币");
+
+            var reward = At(RoomType.Treasure);
+            reward.State.Potions = new List<string> { "smelling_salts", "iron_tonic", "powder_flask" };
+            reward.State.Rewards.Add(new RewardItem { Kind = RewardKind.Potion, Id = "acid_vial" });
+            Pick(reward, "potion:");
+            Pick(reward, "drop:1");
+            Assert.That(reward.Execute(RunCommand.DropPotion(0), out var error), Is.True, error);
+            Assert.That(reward.State.Stats.Nodes.Last().Picks, Is.EqualTo(new[] { "potion:acid_vial", "drop:iron_tonic", "discard:smelling_salts" }));
+        }
+
+        [Test]
+        public void Telemetry_UnfinishedOrAbandoned_AndArchetype()
+        {
+            var run = At(RoomType.Battle);
+            Assert.That(RunTelemetry.From(run.State).Outcome, Is.EqualTo(RunOutcome.Unfinished));
+            Assert.That(RunTelemetry.From(run.State, abandoned: true).Outcome, Is.EqualTo(RunOutcome.Abandoned));
+            Assert.That(RunTelemetry.From(run.State).DeathCause, Is.Null);
+            Assert.That(run.State.Stats.Nodes.Last().Content, Is.EqualTo(run.State.Battle.EncounterId));
+
+            Assert.That(RunTelemetry.MainArchetype(TestDecks.Starter), Is.EqualTo("混合"), "只有起始牌");
+            Assert.That(RunTelemetry.MainArchetype(TestDecks.Starter.Concat(new[] { "C01", "C02+", "U03", "C06" })), Is.EqualTo("守夜"),
+                "守夜 4 张（含起始的祷告）+ 堕落 2 张（含起始的禁忌一瞥）");
+            Assert.That(RunTelemetry.MainArchetype(TestDecks.Starter.Concat(new[] { "C01", "C02", "C06", "C07" })), Is.EqualTo("混合"), "3 : 3 不算");
         }
     }
 }

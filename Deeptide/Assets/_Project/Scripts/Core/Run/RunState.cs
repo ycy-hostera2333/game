@@ -144,11 +144,40 @@ namespace Deeptide.Core.Run
         public List<BattleRecord> Battles = new List<BattleRecord>();
         public List<CardChoiceRecord> CardChoices = new List<CardChoiceRecord>();
         public List<int> NodeHp = new List<int>();
+        public List<NodeRecord> Nodes = new List<NodeRecord>();
         public int GoldEarned;
         public int ShopVisits;
         public int CardsRemoved;
         public int HpAtBoss = -1;
         public string DeathEncounter;
+
+        // ---- 下面三项由外层（Unity）填写：Core 不读时钟，只在进入节点时把 PlaySeconds 抄进 NodeRecord。都不参与规则和哈希
+        /// <summary>累计游玩秒数（窗口失去焦点时不计）。</summary>
+        public double PlaySeconds;
+        /// <summary>开局时间（本地时间，yyyy-MM-dd HH:mm:ss），遥测文件名用。</summary>
+        public string StartedAt;
+        /// <summary>这台机器上的第几局（从 1 开始）。</summary>
+        public int RunIndex;
+    }
+
+    /// <summary>一个节点里发生的事（遥测，策划/07 §6.2）。</summary>
+    public sealed class NodeRecord
+    {
+        public int Floor;
+        public RoomType Room;
+        /// <summary>进入时的状态。</summary>
+        public int Hp, MaxHp, Gold;
+        /// <summary>进入时的累计游玩秒数。</summary>
+        public double Seconds;
+        /// <summary>遭遇 ID（战斗）或事件 ID。</summary>
+        public string Content;
+        /// <summary>奖励列表 / 商店货架：gold:数量、relic:ID、potion:ID、cards:ID;ID;ID、card:ID:价格（商店）……</summary>
+        public List<string> Offered = new List<string>();
+        /// <summary>
+        /// 在这个节点做的每一次局层选择，按顺序：选项的 Tag（见 RunOption.Tag），其中牌组里的牌换成 remove:ID / upgrade:ID，
+        /// 药水栏满时丢的换成 drop:药水 ID；在地图外丢药水记 discard:药水 ID。
+        /// </summary>
+        public List<string> Picks = new List<string>();
     }
 
     public sealed class BattleRecord
