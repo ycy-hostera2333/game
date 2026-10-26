@@ -353,8 +353,15 @@ namespace Deeptide.Core.Data
                     MinFloor = row.IntOr("min_floor", 1),
                     Vars = Csv.ParseVars(row["vars"]),
                     Text = row["text"],
+                    LoopText = row["loop_text"],
                     Factory = factory,
                 };
+                // 循环变体的出现条件：第几夜起（≥ 2），或 seen（前几夜见过这个事件）
+                string loopFrom = row["loop_from"];
+                if (loopFrom == "seen") def.LoopAfterSeen = true;
+                else if (loopFrom.Length > 0) def.LoopFrom = row.Int("loop_from");
+                if ((def.LoopText.Length > 0) != (loopFrom.Length > 0)) throw new FormatException($"{id} 的 loop_text 和 loop_from 要么都填，要么都空");
+                if (loopFrom.Length > 0 && !def.LoopAfterSeen && def.LoopFrom < 2) throw new FormatException($"{id} 的 loop_from 应为 seen 或不小于 2 的夜数");
                 foreach (var part in row["options"].Split('|'))
                 {
                     int eq = part.IndexOf('=');
@@ -363,6 +370,7 @@ namespace Deeptide.Core.Data
                 }
                 string where = $"{row.Where}（{id}）";
                 CheckPlaceholders(where, def.Text, def.Vars, errors);
+                CheckPlaceholders(where, def.LoopText, def.Vars, errors);
                 foreach (var kv in def.Options) CheckPlaceholders(where, kv.Value, def.Vars, errors);
                 var handled = new HashSet<string>(factory().Handles);
                 foreach (var kv in def.Options)

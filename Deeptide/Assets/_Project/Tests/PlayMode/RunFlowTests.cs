@@ -25,6 +25,7 @@ namespace Deeptide.View.Tests
         static string ShotDir => Path.GetFullPath(Path.Combine(Application.dataPath, "../Logs/Screenshots"));
         static string TestSave => Path.Combine(Application.temporaryCachePath, "run_test.json");
         static string TestTelemetry => Path.Combine(Application.temporaryCachePath, "telemetry_test");
+        static string TestProfile => Path.Combine(Application.temporaryCachePath, "profile_test.json");
 
         RunBootstrap _boot;
         RunScreen Screen => _boot.Screen;
@@ -37,6 +38,8 @@ namespace Deeptide.View.Tests
             RunSaves.Delete(TestSave);
             TelemetryFiles.DirOverride = TestTelemetry;
             if (Directory.Exists(TestTelemetry)) Directory.Delete(TestTelemetry, true);
+            ProfileFiles.PathOverride = TestProfile;
+            ProfileFiles.Delete();
             RunScreen.BattleSpeed = 40;
             yield return LoadRunScene();
         }
@@ -72,6 +75,8 @@ namespace Deeptide.View.Tests
             RunBootstrap.SavePathOverride = null;
             if (Directory.Exists(TestTelemetry)) Directory.Delete(TestTelemetry, true);
             TelemetryFiles.DirOverride = null;
+            ProfileFiles.Delete();
+            ProfileFiles.PathOverride = null;
             yield return null;
         }
 
@@ -95,6 +100,18 @@ namespace Deeptide.View.Tests
             Assert.AreEqual(RunOutcome.Unfinished, t0.Outcome);
             Assert.AreEqual(1, t0.RunIndex);
             Assert.AreEqual(12UL, t0.Seed);
+            Assert.AreEqual(1, t0.Night);
+
+            // 开局的信（策划/12 §8.1）：第 1 夜只有正文，没有附言；「下船」收起
+            Assert.AreEqual("Letter", Screen.ModalName, "开局先盖一封信");
+            Assert.AreEqual(1, _boot.Profile.Nights);
+            Assert.IsTrue(File.Exists(TestProfile), "开局就写局外档");
+            Assert.IsFalse(Texts().Any(t => t.name.StartsWith("Postscript")), "第 1 夜信上没有附言");
+            Assert.IsTrue(Texts().Any(t => t.name == "Body" && t.text.Contains(Story.Letter[0])));
+            yield return Shot("20_letter");
+            Assert.IsTrue(Screen.ClickModal("Disembark"));
+            yield return null;
+            Assert.IsNull(Screen.ModalName);
             var map = Run.State.Map;
             Assert.AreEqual(map.Nodes.Count + 1, Screen.Map.NodeCount, "每个节点 + Boss 都要画出来");
             CollectionAssert.AreEquivalent(map.InRow(0).Select(n => (n.Row, n.Col)), Screen.Map.Choosable);
@@ -188,6 +205,11 @@ namespace Deeptide.View.Tests
             Assert.AreEqual(Run.State.Stats.Battles.Count, tel.Battles.Count);
             Assert.Greater(tel.PlaySeconds, 0, "单局用时");
             Assert.That(tel.Nodes.Select(n => n.Seconds), Is.Ordered, "节点的进入时间递增");
+            // 通关文案（策划/12 §8.3）；局外档记下打倒过司祭（下次附言 D 才有资格出现）
+            Assert.IsTrue(Texts().Any(t => t.text == Story.VictoryTitle), "结算标题应该是「天还没亮」");
+            Assert.IsTrue(Texts().Any(t => t.name == "Marks" && t.text.Contains(Story.ActEnd) && t.text.Contains("第 1 夜")));
+            Assert.IsTrue(_boot.Profile.BeatPriest);
+            Assert.IsTrue(ProfileFiles.Read().BeatPriest, "局外档要写到盘上");
             yield return Shot("29_victory");
             Debug.Log($"[RunFlowTests] 种子 {seed}，{steps} 步通关，走过的房间：{string.Join("、", seenRooms)}；牌组 {Run.State.Deck.Count} 张");
             foreach (var room in new[] { RoomType.Battle, RoomType.Elite, RoomType.Campfire, RoomType.Treasure, RoomType.Shop, RoomType.Event, RoomType.Boss })
@@ -252,7 +274,11 @@ namespace Deeptide.View.Tests
             Assert.AreEqual(RunOutcome.Unfinished, tel.Outcome);
             Assert.AreEqual(1, tel.Battles.Count, "读档前打完的战斗在遥测里");
 
-            // 放弃这一局：记成 Abandoned；再开一局是本机第 2 局
+            // 读档继续不算新的一夜
+            Assert.AreEqual(1, _boot.Profile.Nights);
+            Assert.AreEqual(1, Run.State.Stats.Night);
+
+            // 放弃这一局：记成 Abandoned；再开一局是本机第 2 局，也是第 2 夜：信上多出附言 A，标题画面显示第几夜
             Screen.ExitToTitle(true);
             yield return null;
             Assert.AreEqual(RunOutcome.Abandoned, ReadTelemetry().Outcome);
@@ -260,7 +286,50 @@ namespace Deeptide.View.Tests
             yield return null;
             Assert.AreEqual(2, Directory.GetFiles(TestTelemetry, "*.json").Length);
             Assert.AreEqual(2, Run.State.Stats.RunIndex);
+            Assert.AreEqual(2, Run.State.Stats.Night);
+            Assert.AreEqual("Letter", Screen.ModalName);
+            var ps = Texts().Where(t => t.name.StartsWith("Postscript")).ToList();
+            Assert.AreEqual(1, ps.Count, "第 2 夜多出一条附言");
+            Assert.AreEqual(Story.Postscripts[0].Text, ps[0].text);
+            yield return new WaitForSeconds(3.5f);
+            Assert.Greater(ps[0].alpha, 0.95f, "新附言洇出来之后是实色");
+            yield return Shot("32_letter_postscript");
+            Screen.ExitToTitle(false);
+            yield return null;
+            Assert.IsTrue(_boot.Title.GetComponentsInChildren<TMPro.TextMeshProUGUI>().Any(t => t.name == "Night" && t.text == "第 2 夜"), "第 2 夜起标题画面显示第几夜");
+            yield return Shot("33_title_night");
         }
+
+        /// <summary>附言全部出现时信纸最长：信纸和「下船」都要在屏幕里。</summary>
+        [UnityTest]
+        public IEnumerator LetterWithAllPostscriptsFitsOnScreen()
+        {
+            var profile = new Profile { Nights = 9, Died = true, BeatPriest = true };
+            profile.Postscripts.AddRange(Story.Postscripts.Take(3).Select(ps => ps.Id));
+            ProfileFiles.Write(profile);
+            yield return LoadRunScene();
+            _boot.NewRun(40);
+            yield return null;
+            Assert.AreEqual(10, Run.State.Stats.Night);
+            Assert.AreEqual(4, Texts().Count(t => t.name.StartsWith("Postscript")), "第 10 夜四条附言都在（D 是这一夜新出现的）");
+            yield return new WaitForSeconds(3.5f);
+            yield return Shot("34_letter_full");
+            var corners = new Vector3[4];
+            foreach (var name in new[] { "Sheet", "Disembark" })
+            {
+                var rt = Screen.GetComponentsInChildren<RectTransform>().First(r => r.name == name);
+                var canvas = (RectTransform)Screen.transform;
+                rt.GetWorldCorners(corners);
+                foreach (var c in corners)
+                {
+                    var local = canvas.InverseTransformPoint(c);
+                    Assert.That(Mathf.Abs(local.y), Is.LessThanOrEqualTo(canvas.rect.height / 2 + 1), $"{name} 超出了屏幕");
+                }
+            }
+        }
+
+        /// <summary>跑局界面上所有的字（含弹窗和面板）。</summary>
+        List<TMPro.TextMeshProUGUI> Texts() => Screen.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true).ToList();
 
         /// <summary>这一局的遥测文件（TelemetryFiles 写的 JSON）。</summary>
         RunTelemetry ReadTelemetry()
@@ -304,6 +373,7 @@ namespace Deeptide.View.Tests
         public IEnumerator MapHoverHighlightsPaths()
         {
             _boot.NewRun(31);
+            Screen.CloseModal();    // 收起开局的信，截图里要看地图
             yield return null;
             yield return null;
             var map = Run.State.Map;

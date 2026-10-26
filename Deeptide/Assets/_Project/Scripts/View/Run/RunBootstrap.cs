@@ -12,7 +12,8 @@ namespace Deeptide.View.Run
     /// <summary>
     /// Run 场景的入口（策划/08 §8）：载入 CSV，先显示标题画面（继续 / 新的一局 / 单场战斗），选了之后建 RunScreen。
     /// 存档写在 <c>Application.persistentDataPath/run.json</c>（06 §8）：存档点变化时自动写；退出到标题、关掉游戏时再存一次当前状态；
-    /// 一局结束（通关或倒下）删档。战斗中退出，读档后这场战斗从头开始。每次存档顺带写这一局的遥测（TelemetryFiles）。
+    /// 一局结束（通关或倒下）删档。战斗中退出，读档后这场战斗从头开始。每次存档顺带写这一局的遥测（TelemetryFiles）和局外档（ProfileFiles）。
+    /// 每开一局新的就是新的一夜（策划/12 §3.5）：夜数 +1，地图上先盖一封导师的信。读档继续不算新的一夜。
     /// 主菜单场景还没做，标题画面先放在这里。
     /// </summary>
     public sealed class RunBootstrap : MonoBehaviour
@@ -29,7 +30,10 @@ namespace Deeptide.View.Run
         public RectTransform Title { get; private set; }
         /// <summary>「新的一局」用的种子。</summary>
         public ulong NextSeed { get; set; }
+        /// <summary>局外档（第几夜、附言），第一次用到时读盘。</summary>
+        public Profile Profile => _profile ??= ProfileFiles.Read();
 
+        Profile _profile;
         bool _confirmNew;
         TextMeshProUGUI _hint;
 
@@ -49,11 +53,19 @@ namespace Deeptide.View.Run
         {
             // 有存档时开新局 = 放弃旧的那局
             var old = RunSaves.Peek(SavePath);
-            if (old != null) TelemetryFiles.Write(old, abandoned: true);
+            if (old != null)
+            {
+                TelemetryFiles.Write(old, abandoned: true);
+                Story.Record(Profile, old);
+            }
             var run = RunEngine.NewRun(seed, config);
+            var postscript = Story.BeginNight(Profile, run.State);
+            ProfileFiles.Write(Profile);
             TelemetryFiles.Begin(run.State);
             Save(run);
-            return Play(run);
+            var screen = Play(run);
+            screen.ShowLetter(Profile, postscript);
+            return screen;
         }
 
         /// <summary>读档继续；没有存档或读不了时返回 null（标题画面上提示原因）。</summary>
@@ -84,11 +96,12 @@ namespace Deeptide.View.Run
             return Screen;
         }
 
-        static void Save(RunEngine run)
+        void Save(RunEngine run)
         {
             if (run.IsOver) RunSaves.Delete(SavePath);
             else RunSaves.Write(SavePath, run);
             TelemetryFiles.Write(run.State);
+            if (Story.Record(Profile, run.State)) ProfileFiles.Write(Profile);
         }
 
         void Exit(bool abandon)
@@ -96,7 +109,11 @@ namespace Deeptide.View.Run
             if (abandon)
             {
                 // 结算界面的「回到标题」也走这里，局已经结束的不算放弃（RunTelemetry.From 里判断）
-                if (Screen != null) TelemetryFiles.Write(Screen.Run.State, abandoned: true);
+                if (Screen != null)
+                {
+                    TelemetryFiles.Write(Screen.Run.State, abandoned: true);
+                    if (Story.Record(Profile, Screen.Run.State)) ProfileFiles.Write(Profile);
+                }
                 RunSaves.Delete(SavePath);
             }
             else if (Screen != null) Save(Screen.Run);
@@ -154,6 +171,9 @@ namespace Deeptide.View.Run
                 name.outlineColor = Palette.Paper;
             }
             Legible(RunUi.Label(root, "理智与双面牌 · Demo", new Vector2(col, 112), new Vector2(800, 44), 30, Palette.Ink));
+            // 第几夜（策划/12 §8.4）：第 2 夜起才显示，深渊青和信上的附言同色
+            if (Profile.Nights >= 2)
+                Legible(RunUi.Label(root, Story.NightLabel(Profile.Nights), new Vector2(col, 66), new Vector2(800, 40), 28, Palette.Teal)).name = "Night";
 
             var save = RunSaves.Peek(SavePath);
             float y = -10;

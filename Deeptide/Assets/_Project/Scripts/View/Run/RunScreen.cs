@@ -296,8 +296,62 @@ namespace Deeptide.View.Run
 
         public void CloseModal()
         {
+            if (_freshInk != null) Tween.StopAll(_freshInk);
+            _freshInk = null;
             if (_modal != null) Destroy(_modal.gameObject);
             _modal = null;
+        }
+
+        // ------------------------------------------------------------------ 开局的信
+
+        /// <summary>这一夜新多出来的那条附言（正在洇出来）。</summary>
+        TextMeshProUGUI _freshInk;
+
+        /// <summary>
+        /// 开局的信（策划/12 §8.1）：夜色里一页信纸盖住地图。正文每一夜都一样；下面是导师后来添上的附言，深渊青的墨，
+        /// 这一夜新多出来的那条慢慢洇出来。点「下船」收起（地图上走第一步也会收起：Show 会关掉弹窗）。
+        /// </summary>
+        public void ShowLetter(Profile profile, Postscript fresh)
+        {
+            CloseModal();
+            _modal = Ui.Rect("Letter", _modalLayer).Fill();
+            Ui.Box("Dark", _modal, Palette.Abyss, true).rectTransform.Fill();
+            var sheet = RunUi.Panel(_modal, "Sheet", Vector2.zero, new Vector2(1040, 400)).rectTransform;
+            const float Width = 860, Margin = 70, ButtonGap = 30, ButtonH = 76;
+
+            // 从信纸顶端往下排，排完再按内容定信纸的高度：第 1 夜只有正文，附言越多信纸越长
+            float y = Margin, end = Margin;
+            TextMeshProUGUI Line(string name, string text, float size, Color color, TextAlignmentOptions align, float lineSpacing, float gapAfter, float width = Width)
+            {
+                var t = RunUi.Label(sheet, text, Vector2.zero, new Vector2(width, 40), size, color, align);
+                t.font = Fonts.Serif;
+                t.lineSpacing = lineSpacing;
+                t.name = name;
+                float h = t.GetPreferredValues(text, width, 0).y;
+                t.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0, -y - h / 2), new Vector2(width, h));
+                end = y + h;
+                y = end + gapAfter;
+                return t;
+            }
+
+            if (profile.Nights >= 2) Line("Night", Story.NightLabel(profile.Nights), 24, Palette.InkMid, TextAlignmentOptions.Right, 0, 4);
+            Line("Body", string.Join("\n", Story.Letter.Select(l => "　　" + l)), 34, Palette.Ink, TextAlignmentOptions.TopLeft, 28, 16);
+            Line("Signature", Story.Signature, 30, Palette.Ink, TextAlignmentOptions.Right, 0, 36);
+            // 附言是后来挤在信尾的小字，排得宽一点：最长的一条（B）正好一行
+            foreach (var ps in Story.Shown(profile))
+            {
+                var t = Line("Postscript " + ps.Id, ps.Text, 25, Palette.Teal, TextAlignmentOptions.TopLeft, 0, 12, 920);
+                if (ps != fresh) continue;
+                t.alpha = 0;
+                _freshInk = t;
+                Tween.Alpha(t, 1, 2.4f, startDelay: 0.8f);
+            }
+
+            // 信纸和「下船」作为一个整体在屏幕上居中
+            float height = end + Margin;
+            float center = (ButtonGap + ButtonH) / 2;
+            sheet.Place(new Vector2(0.5f, 0.5f), new Vector2(0, center), new Vector2(1040, height));
+            RunUi.Button(_modal, "Disembark", "下船", new Vector2(0, center - height / 2 - ButtonGap - ButtonH / 2), new Vector2(260, ButtonH), CloseModal, true, null, 34);
         }
 
         /// <summary>点模态里名为 name 的按钮（测试用）。</summary>

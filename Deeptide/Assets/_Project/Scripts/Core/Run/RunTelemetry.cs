@@ -30,6 +30,8 @@ namespace Deeptide.Core.Run
         /// <summary>写这份记录的时间（外层填）。</summary>
         public string UpdatedAt;
         public int RunIndex;
+        /// <summary>第几夜（策划/12 §3.5）：试玩数据可以按第一夜 / 之后的夜分开看。0 = 加局外档之前的局。</summary>
+        public int Night;
         public ulong Seed;
         public RunOutcome Outcome;
         /// <summary>到达的层数。</summary>
@@ -65,6 +67,7 @@ namespace Deeptide.Core.Run
             {
                 StartedAt = stats.StartedAt,
                 RunIndex = stats.RunIndex,
+                Night = stats.Night,
                 Seed = s.Seed,
                 Outcome = outcome,
                 Floor = s.Floor,

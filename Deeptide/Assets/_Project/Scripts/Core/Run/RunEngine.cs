@@ -213,8 +213,10 @@ namespace Deeptide.Core.Run
             }
         }
 
-        /// <summary>当前界面的说明文字（事件描述），没有返回 null。</summary>
-        public string Description => State.Phase == RunPhase.Event ? EventLibrary.Create(State.Event.Id).Description : null;
+        /// <summary>当前界面的说明文字（事件描述，按第几夜换成循环变体），没有返回 null。</summary>
+        public string Description => State.Phase == RunPhase.Event
+            ? EventLibrary.Create(State.Event.Id).DescriptionAt(State.Stats.Night, State.Stats.EventsBefore.Contains(State.Event.Id))
+            : null;
 
         /// <summary>当前界面的选项，顺序固定（Pick 的下标就是这个列表的下标）。战斗中返回空列表。</summary>
         public List<RunOption> Options()

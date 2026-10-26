@@ -444,7 +444,10 @@ namespace Deeptide.View.Run
 
         // ------------------------------------------------------------------ 结算
 
-        /// <summary>Demo 结算（10 §8）：通关 / 倒下，叠一份本局统计；「回到标题」。</summary>
+        /// <summary>
+        /// Demo 结算（10 §8）：通关 / 倒下，叠一份本局统计；「回到标题」。
+        /// 文案按循环叙事（策划/12 §8.2–§8.3）：倒下是钟响七下、回到栈桥；通关是天还没亮、第一幕完。角标是第几夜（没有局外档的局不显示）。
+        /// </summary>
         static RectTransform End(RectTransform layer, RunScreen screen)
         {
             var run = screen.Run;
@@ -452,8 +455,16 @@ namespace Deeptide.View.Run
             bool won = s.Phase == RunPhase.Victory;
             var root = Root(layer, "End");
             RunUi.Dim(root, 0.88f);
-            RunUi.Title(root, won ? "通关" : "调查员倒下了", new Vector2(0, 230), new Vector2(1200, 130), 96, won ? Palette.GoldLight : Palette.BloodLight);
-            RunUi.Label(root, run.Title, new Vector2(0, 120), new Vector2(1200, 50), 30, Palette.Pale);
+            RunUi.Title(root, won ? Story.VictoryTitle : Story.DefeatTitle, new Vector2(0, 290), new Vector2(1200, 130), 96, won ? Palette.GoldLight : Palette.BloodLight);
+            var dim = new Color(Palette.Pale.r, Palette.Pale.g, Palette.Pale.b, 0.7f);
+            var marks = new List<string>();
+            if (won) marks.Add(Story.ActEnd);
+            if (s.Stats.Night > 0) marks.Add(Story.NightLabel(s.Stats.Night));
+            if (marks.Count > 0) RunUi.Label(root, string.Join("　　", marks), new Vector2(0, 205), new Vector2(1200, 40), 26, dim).name = "Marks";
+            var story = RunUi.Label(root, won ? Story.VictoryText : Story.DefeatText, new Vector2(0, 95), new Vector2(1300, 150), 30, Palette.Pale);
+            story.font = Fonts.Serif;
+            story.lineSpacing = 20;
+            story.name = "Story";
 
             int elites = s.Stats.Battles.Count(b => b.Room == RoomType.Elite);
             var lines = new List<string>
@@ -464,9 +475,8 @@ namespace Deeptide.View.Run
             };
             if (!won && !string.IsNullOrEmpty(s.Stats.DeathEncounter))
                 lines.Insert(0, $"倒在：{EncounterLibrary.Get(s.Stats.DeathEncounter).Name}");
-            RunUi.Label(root, string.Join("\n", lines), new Vector2(0, -10), new Vector2(1200, 180), 28,
-                new Color(Palette.Pale.r, Palette.Pale.g, Palette.Pale.b, 0.85f));
-            RunUi.Button(root, "Back", "回到标题", new Vector2(0, -230), new Vector2(300, 80), () => screen.ExitToTitle(true));
+            RunUi.Label(root, string.Join("\n", lines), new Vector2(0, -90), new Vector2(1200, 150), 24, dim);
+            RunUi.Button(root, "Back", "回到标题", new Vector2(0, -250), new Vector2(300, 80), () => screen.ExitToTitle(true));
             return root;
         }
     }

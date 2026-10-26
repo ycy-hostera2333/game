@@ -18,9 +18,20 @@ namespace Deeptide.Core.Run
         public int MinFloor = 1;
         public Dictionary<string, int> Vars = new Dictionary<string, int>();
         public string Text;
+        /// <summary>循环变体（策划/12 §7.2）：到了 LoopFrom 夜（或 LoopAfterSeen：前几夜见过这个事件）就替换 Text。没有为空。</summary>
+        public string LoopText = "";
+        public int LoopFrom;
+        public bool LoopAfterSeen;
         /// <summary>选项 ID → 选项文本（按书写顺序）。</summary>
         public List<KeyValuePair<string, string>> Options = new List<KeyValuePair<string, string>>();
         public Func<RunEvent> Factory;
+
+        /// <summary>第 night 夜的描述（night = 0 表示没有局外档，一律用原文）。选项和数值不变。</summary>
+        public string TextAt(int night, bool seenBefore)
+        {
+            if (LoopText.Length == 0 || night <= 0) return Text;
+            return (LoopAfterSeen ? seenBefore : night >= LoopFrom) ? LoopText : Text;
+        }
     }
 
     /// <summary>
@@ -47,6 +58,8 @@ namespace Deeptide.Core.Run
         public string Format(string text) => Placeholder.Replace(text ?? "", m => V(m.Groups[1].Value).ToString());
 
         public string Description => Format(Def.Text);
+
+        public string DescriptionAt(int night, bool seenBefore) => Format(Def.TextAt(night, seenBefore));
 
         /// <summary>当前阶段的选项。默认：阶段 0 列出表里的全部选项，CanChoose 决定能不能选。</summary>
         public virtual List<RunOption> Options(RunEngine run, EventState st) =>

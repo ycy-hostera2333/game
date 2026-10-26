@@ -4,6 +4,7 @@
     "references": [
         "Game.Core",
         "Game.View",
+        "Unity.TextMeshPro",
         "UnityEngine.TestRunner"
     ],
     "includePlatforms": [],

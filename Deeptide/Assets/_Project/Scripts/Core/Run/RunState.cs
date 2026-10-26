@@ -151,13 +151,17 @@ namespace Deeptide.Core.Run
         public int HpAtBoss = -1;
         public string DeathEncounter;
 
-        // ---- 下面三项由外层（Unity）填写：Core 不读时钟，只在进入节点时把 PlaySeconds 抄进 NodeRecord。都不参与规则和哈希
+        // ---- 下面五项由外层（Unity）填写：Core 不读时钟，只在进入节点时把 PlaySeconds 抄进 NodeRecord。都不参与规则和哈希
         /// <summary>累计游玩秒数（窗口失去焦点时不计）。</summary>
         public double PlaySeconds;
         /// <summary>开局时间（本地时间，yyyy-MM-dd HH:mm:ss），遥测文件名用。</summary>
         public string StartedAt;
         /// <summary>这台机器上的第几局（从 1 开始）。</summary>
         public int RunIndex;
+        /// <summary>第几夜（策划/12 §3.5，开局时从局外档抄过来，0 = 没有局外档，比如控制台）。只影响文本。</summary>
+        public int Night;
+        /// <summary>前几夜见过的事件（开局时从局外档抄过来），事件的循环变体用。</summary>
+        public List<string> EventsBefore = new List<string>();
     }
 
     /// <summary>一个节点里发生的事（遥测，策划/07 §6.2）。</summary>
