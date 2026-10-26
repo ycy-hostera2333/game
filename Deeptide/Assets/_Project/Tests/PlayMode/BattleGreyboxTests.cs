@@ -274,6 +274,34 @@ namespace Deeptide.View.Tests
             }
         }
 
+        /// <summary>稀有度牌签（策划/10 §4.2）：每张角色牌底栏写出稀有度，诅咒不挂；进入癫狂后牌签跟着反相。</summary>
+        [UnityTest]
+        public IEnumerator RarityTagOnEveryCharacterCard()
+        {
+            _boot.Deck = new[] { "B01", "C12", "U12", "R05", "S01" };
+            _boot.Enemies = new[] { "acolyte" };
+            _boot.Launch(new BattleLaunch { Seed = 7, Potions = { "hallucinogen" } });
+            yield return null;
+            _screen = _boot.Screen;
+            _screen.Director.Speed = 6;
+            yield return WaitIdle();
+
+            var expected = new Dictionary<string, string> { ["B01"] = "基础", ["C12"] = "普通", ["U12"] = "罕见", ["R05"] = "稀有", ["S01"] = null };
+            Assert.AreEqual(5, _screen.Hand.Cards.Count, "5 张牌的牌组第一回合全部在手");
+            foreach (var v in _screen.Hand.Cards) Assert.AreEqual(expected[v.CardId], v.RarityTag, v.CardId);
+            var rare = _screen.Hand.Cards.First(v => v.CardId == "R05");
+            _screen.Hand.Hover(rare, true);
+            yield return Shot("11_rarity_tags");
+            _screen.Hand.Hover(rare, false);
+
+            Assert.IsTrue(_screen.Controller.UsePotion(0));
+            yield return WaitIdle();
+            Assert.IsTrue(Engine.Player.IsLunatic);
+            Assert.IsTrue(_screen.Hand.Cards.First(v => v.CardId == "C12").ShowsMadFace, "影中之物是双面牌，翻到癫狂面");
+            foreach (var v in _screen.Hand.Cards) Assert.AreEqual(expected[v.CardId], v.RarityTag, v.CardId + "（癫狂）");
+            yield return Shot("12_rarity_tags_mad");
+        }
+
         /// <summary>
         /// 角色图（策划/10 §5、§11.2）：登记了图的角色（敌人 / 调查员）身体换成打包贴图，没有图的继续用灰盒剪影。
         /// 测试图是程序化的，用运行时替换，不依赖仓库里有没有画好的角色。

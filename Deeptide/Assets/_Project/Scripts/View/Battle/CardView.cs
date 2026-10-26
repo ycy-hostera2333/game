@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Deeptide.Core;
 using Deeptide.Core.Cards;
+using Deeptide.Core.Run;
 using PrimeTween;
 using TMPro;
 using UnityEngine;
@@ -36,6 +37,8 @@ namespace Deeptide.View.Battle
         public string FaceText => _face.Text;
         /// <summary>插图窗里是不是正式卡图（而不是灰盒首字，测试用）。</summary>
         public bool ShowsArt => _face.HasArt;
+        /// <summary>底栏稀有度牌签上的字，没有牌签时为 null（测试用）。</summary>
+        public string RarityTag => _face.RarityTag;
 
         HandView _hand;
         CardFace _face, _preview;
@@ -298,7 +301,7 @@ namespace Deeptide.View.Battle
 
     /// <summary>
     /// 卡面版式（策划/10 §4.1–§4.2），按 720 × 1008 的源尺寸搭，整体再缩放。纵向：头部 0–132、插图窗 132–564、类型行 564–612、正文 624–948、底栏 948–1008。
-    /// 类型看窗形（攻击尖拱 / 技能倒角方窗 / 能力圆窗 / 诅咒墨渍 / 状态虚线），稀有度看框饰，流派看顶部色条和卡名左侧徽记。
+    /// 类型看窗形（攻击尖拱 / 技能倒角方窗 / 能力圆窗 / 诅咒墨渍 / 状态虚线），稀有度看框饰和底栏牌签，流派看顶部色条和卡名左侧徽记。
     /// 癫狂面反相：深渊底、发光青线条、月白正文，边框长出藤壶（10 §4.3）。灰盒阶段插图窗里放卡名首字。
     /// </summary>
     public sealed class CardFace
@@ -318,15 +321,16 @@ namespace Deeptide.View.Battle
 
         RectTransform _root;
         Image _fill, _outer, _inner, _strip, _seal, _banner, _bannerBack, _orb, _orbRing, _badge, _badgeRing, _badgeHalf;
-        Image _window, _windowLine, _windowDash, _frameArt, _erosionArt;
+        Image _window, _windowLine, _windowDash, _frameArt, _erosionArt, _rarity, _rarityLine, _rarityInner;
         RawImage _hatch, _art;
-        TextMeshProUGUI _cost, _name, _glyph, _type, _text, _id;
+        TextMeshProUGUI _cost, _name, _glyph, _type, _text, _id, _rarityText;
         readonly List<Image> _rivets = new List<Image>();
         readonly List<Image> _barnacles = new List<Image>();
         WindowShape _shape = (WindowShape)(-1);
 
         public string Text => _text.text;
         public bool HasArt => _art.gameObject.activeSelf;
+        public string RarityTag => _rarity.gameObject.activeSelf ? _rarityText.text : null;
 
         public static CardFace Create(Transform parent, float scale)
         {
@@ -367,6 +371,19 @@ namespace Deeptide.View.Battle
             _erosionArt = Ui.Box("ErosionArt", _root, Palette.Lunacy);
             _erosionArt.rectTransform.Fill();
             _erosionArt.gameObject.SetActive(false);
+
+            // 稀有度牌签（底栏正中，压在框线上）：框饰缩到手牌大小不好认，再写一个字；样式跟框饰同一套层级（单线 / 双线 / 墨底反白）
+            _rarity = Sliced("Rarity", _root, Shapes.RoundRect(14), 1);
+            Top(_rarity.rectTransform, (W - 196) / 2, 942, 196, 52);
+            _rarityLine = Sliced("Line", _rarity.rectTransform, Shapes.RoundRect(14, 3), 1);
+            _rarityLine.rectTransform.Fill();
+            _rarityInner = Sliced("Inner", _rarity.rectTransform, Shapes.RoundRect(10, 2), 1);
+            _rarityInner.rectTransform.Fill(6);
+            _rarityText = Ui.Text("Label", _rarity.transform, "", 34, Palette.Ink);
+            _rarityText.font = Fonts.Serif;
+            _rarityText.fontStyle = FontStyles.Bold;
+            _rarityText.characterSpacing = 16;
+            _rarityText.rectTransform.Fill();
 
             _strip = Ui.Box("Strip", _root, Palette.InkMid);
             Top(_strip.rectTransform, 40, 12, W - 80, 12);
@@ -473,6 +490,22 @@ namespace Deeptide.View.Battle
             bool erosionArt = mad && ArtSprites.Apply(_erosionArt, "frame_erosion", Palette.Lunacy);
             _erosionArt.gameObject.SetActive(erosionArt);
             foreach (var b in _barnacles) b.gameObject.SetActive(mad && !erosionArt);
+
+            // 稀有度牌签：基础细线淡字、普通单线、罕见双线、稀有墨底反白；诅咒、状态不挂
+            bool tag = !special && d.Rarity != Rarity.Special;
+            _rarity.gameObject.SetActive(tag);
+            if (tag)
+            {
+                bool rare = d.Rarity == Rarity.Rare;
+                bool basic = d.Rarity == Rarity.Basic;
+                _rarity.color = rare ? line : paper;
+                _rarityLine.sprite = Shapes.RoundRect(14, basic ? 2 : 3);
+                _rarityLine.color = line;
+                _rarityInner.gameObject.SetActive(doubleFrame);
+                _rarityInner.color = rare ? paper : line;
+                _rarityText.text = RunEngine.RarityName(d.Rarity);
+                _rarityText.color = rare ? paper : basic ? (mad ? new Color(Palette.Pale.r, Palette.Pale.g, Palette.Pale.b, 0.75f) : Palette.InkMid) : text;
+            }
 
             _strip.color = special ? (mad ? Palette.Pale : Palette.Ink) : faction;
             _banner.gameObject.SetActive(doubleFrame);

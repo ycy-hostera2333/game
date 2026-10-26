@@ -35,7 +35,7 @@ U08,触须鞭笞,Attack,Uncommon,堕落,2,,Enemy,1,,,Damage=12;Vulnerable=2;Self
 U09,崩坏边缘,Attack,Uncommon,堕落,1,,Enemy,,,,Damage=4;PerPoint=2,PerPoint=3,造成 {Damage} 伤害。你每缺失 1 点理智，伤害 +{PerPoint}。,,,
 U10,狂笑,Skill,Uncommon,堕落,0,,None,1,exhaust,,Energy=1;Draw=0;MadSanity=1;MadEnergy=2,Draw=1,获得 {Energy} 能量。消耗。,代价{MadSanity}。获得 {MadEnergy} 能量。消耗。,获得 {Energy} 能量，抽 {Draw} 张牌。消耗。,
 U11,恐惧之源,Power,Uncommon,传染,2,,None,,,,Fear=2,Fear=3,回合结束时，对所有敌人施加 {Fear} 恐惧。,,,
-U12,心智崩塌,Attack,Uncommon,传染,1,,Enemy,,,,Mult=4,Mult=5,造成等同于目标恐惧 ×{Mult} 的伤害（不清除恐惧）。,,,
+U12,心智崩塌,Attack,Uncommon,传染,1,,Enemy,,,,Mult=4,Mult=5,造成等同于目标恐惧 ×{Mult} 的伤害，然后清空它的恐惧。,,,
 U13,凝视深渊,Skill,Uncommon,传染,1,,Enemy,1,,,Fear=5;MadSanity=2;MadFear=10,Fear=7;MadFear=14,施加 {Fear} 恐惧。,代价{MadSanity}。施加 {MadFear} 恐惧。,,
 U14,惊惧失神,Skill,Uncommon,传染,1,0,Enemy,,exhaust,,,,若目标恐惧 ≥ 其意志的一半，立即震慑它。消耗。,,,
 U15,禁书残页,Skill,Uncommon,通用,1,0,None,,exhaust,,Choices=3,,从 {Choices} 张随机罕见牌中选 1 张加入手牌，本回合费用为 0。消耗。,,,

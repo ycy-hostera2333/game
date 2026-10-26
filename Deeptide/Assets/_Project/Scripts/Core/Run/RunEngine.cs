@@ -645,7 +645,8 @@ namespace Deeptide.Core.Run
             return $"{card.Name}（{cost}费 {RarityName(card.Def.Rarity)} {card.Def.Archetype}）{card.Describe(false)}{dual}";
         }
 
-        static string RarityName(Rarity r)
+        /// <summary>稀有度的中文名（卡面的稀有度牌签也用这个）。</summary>
+        public static string RarityName(Rarity r)
         {
             switch (r)
             {

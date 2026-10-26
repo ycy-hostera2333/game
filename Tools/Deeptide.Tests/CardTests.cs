@@ -121,14 +121,19 @@ namespace Deeptide.Tests
         }
 
         [Test]
-        public void MindCollapse_DamageFromFear_KeepsFear()
+        public void MindCollapse_DamageFromFear_ThenClearsFear()
         {
             var e = Battle();
             e.State.Enemies[0].Fear = 6;
-            SetHand(e, "U12");
+            int will = e.State.Enemies[0].Will;
+            SetHand(e, "U12", "U12");
             Play(e, 0);
             Assert.That(e.State.Enemies[0].Hp, Is.EqualTo(200 - 6 * Var("U12", "Mult")));
-            Assert.That(e.State.Enemies[0].Fear, Is.EqualTo(6));
+            Assert.That(e.State.Enemies[0].Fear, Is.EqualTo(0), "打完清空恐惧");
+            Assert.That(e.State.Enemies[0].Will, Is.EqualTo(will), "不是震慑，意志不涨");
+            Assert.That(e.State.Enemies[0].Stunned, Is.False);
+            Play(e, 0);
+            Assert.That(e.State.Enemies[0].Hp, Is.EqualTo(200 - 6 * Var("U12", "Mult")), "第二张没有恐惧可兑现");
         }
 
         [Test]

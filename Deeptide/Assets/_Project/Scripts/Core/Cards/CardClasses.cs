@@ -317,10 +317,15 @@ namespace Deeptide.Core.Cards
         public override void OnPlayerTurnEnd(BattleEngine e) => e.Queue.AddToBottom(new FearAllEnemiesAction(Amount));
     }
 
-    /// <summary>U12 心智崩塌：伤害 = 目标当前恐惧 × 倍率（不清除恐惧）。</summary>
+    /// <summary>U12 心智崩塌：伤害 = 目标当前恐惧 × 倍率，然后清空它的恐惧（一次性兑现，意志不变；03 §4）。</summary>
     public sealed class MindCollapse : Card
     {
-        public override void Play(PlayContext c) => c.Then(x => x.Damage(x.Target.Fear * V("Mult")));
+        public override void Play(PlayContext c) => c.Then(x =>
+        {
+            var t = x.Target;
+            x.Damage(t.Fear * V("Mult"));
+            x.Enqueue(new DelegateAction(e => { if (!t.IsDead) e.SetFear(t, 0, t.Will); }));
+        });
 
         public override (int PerHit, int Hits)? PreviewAttack(BattleEngine e, bool mad, EnemyState target) =>
             (DamageCalculator.Compute(e, e.Player, target, (target?.Fear ?? 0) * V("Mult")), 1);
