@@ -6,7 +6,8 @@ using UnityEngine.UI;
 namespace Deeptide.View.Battle
 {
     /// <summary>
-    /// 理智条（策划/10 §6.2）：竖向，每点理智一格。清明段描金、癫狂段深渊底、癫狂线青色虚线；
+    /// 理智条（策划/10 §6.2）：竖向，每点理智一格。清明段描金、癫狂段深渊底；癫狂线青色虚线标在右侧，清明线金色虚线标在左侧，
+    /// 进入清明时「清明」两字点亮；悬停理智条显示两条界线的数值和还差多少。
     /// 预告三件事：敌人本回合的精神攻击（虚线框，癫狂时不显示）、下回合开始的侵蚀 / 光环（斜线）、悬停代价牌要付的理智（闪烁）。
     /// 坐标原点在理智条中心，单位是 1920×1080 参考分辨率。
     /// </summary>
@@ -24,7 +25,9 @@ namespace Deeptide.View.Battle
         readonly List<Segment> _segs = new List<Segment>();
         RectTransform _column, _tags;
         TextMeshProUGUI _value;
-        RectTransform _lunacyLine;
+        RectTransform _lunacyLine, _clarityLine;
+        Image _clarityDash;
+        TextMeshProUGUI _clarityLabel;
         Image _ward;
         TextMeshProUGUI _wardText;
 
@@ -33,6 +36,8 @@ namespace Deeptide.View.Battle
         bool _mindVisible;
 
         public int Sanity => _sanity;
+        /// <summary>「清明」标签是否点亮（测试用）。</summary>
+        public bool ClarityLit => _sanity >= _clarity;
         /// <summary>悬停预告的代价（测试用）；没有预告时为 -1。</summary>
         public int CostPreview => _cost;
         /// <summary>当前显示的预告标签（测试用）。</summary>
@@ -78,6 +83,23 @@ namespace Deeptide.View.Battle
             _lunacyLine.anchorMin = _lunacyLine.anchorMax = new Vector2(0.5f, 0.5f);
             _lunacyLine.pivot = new Vector2(0, 0.5f);
             _lunacyLine.sizeDelta = new Vector2(84, 6);
+
+            // 清明线：和癫狂线对称，画在左侧（右侧上方是预告标签）
+            _clarityLine = Ui.Rect("ClarityLine", root);
+            _clarityDash = Ui.Box("Dash", _clarityLine, Palette.Gold);
+            _clarityDash.sprite = Shapes.Dash;
+            _clarityDash.type = Image.Type.Tiled;
+            _clarityDash.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(-42, 0), new Vector2(84, 6));
+            _clarityLabel = Ui.Text("Label", _clarityLine, "清明", 17, Palette.Gold, TextAlignmentOptions.Right);
+            _clarityLabel.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(-116, 0), new Vector2(60, 22));
+            _clarityLine.anchorMin = _clarityLine.anchorMax = new Vector2(0.5f, 0.5f);
+            _clarityLine.pivot = new Vector2(1, 0.5f);
+            _clarityLine.sizeDelta = new Vector2(84, 6);
+
+            // 悬停理智条看界线（盖在格子上面，透明）
+            var hit = Ui.Box("Hit", root, new Color(0, 0, 0, 0));
+            hit.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(Width + 28, Height + 8));
+            TooltipTrigger.Add(hit, Describe);
 
             _value = Ui.Text("Value", root, "", 26, Palette.Ink);
             _value.font = Fonts.Serif;
@@ -197,6 +219,14 @@ namespace Deeptide.View.Battle
             line.gameObject.SetActive(_line > 0 && _line < _max);
             line.anchoredPosition = new Vector2(-Width / 2 - 4, -Height / 2 + _line * (h + Gap) - Gap / 2);
 
+            // 清明线在第 _clarity 格的下沿
+            _clarityLine.gameObject.SetActive(_clarity > 1 && _clarity <= _max);
+            _clarityLine.anchoredPosition = new Vector2(Width / 2 + 4, -Height / 2 + (_clarity - 1) * (h + Gap) - Gap / 2);
+            bool clear = ClarityLit;
+            _clarityDash.color = clear ? Palette.Gold : Fade(Palette.Gold, 0.45f);
+            _clarityLabel.color = clear ? Palette.Gold : Fade(Palette.Gold, 0.55f);
+            _clarityLabel.fontStyle = clear ? FontStyles.Bold : FontStyles.Normal;
+
             bool lunatic = _sanity <= _line;
             _value.text = $"{_sanity}/{_max}";
             _value.color = lunatic ? Palette.Teal : Palette.Ink;
@@ -213,6 +243,17 @@ namespace Deeptide.View.Battle
                 else if (!lunatic && after <= _line) _tagTexts.Add($"<color={Ui.Hex(Palette.Teal)}><b>打出后进入癫狂</b></color>");
             }
             DrawTags();
+        }
+
+        /// <summary>悬停理智条的说明：当前理智，清明 / 癫狂的界线和离它们还差多少。</summary>
+        public string Describe()
+        {
+            string clarity = _sanity >= _clarity ? "已清明" : $"还差 {_clarity - _sanity} 点";
+            string lunacy = _sanity <= _line ? "已癫狂" : $"再失去 {_sanity - _line} 点进入";
+            return $"理智 {_sanity}/{_max}\n" +
+                   $"<color={Ui.Hex(Palette.Gold)}>清明</color>：理智 ≥ {_clarity}（{clarity}）\n" +
+                   $"<color={Ui.Hex(Palette.Teal)}>癫狂</color>：理智 ≤ {_line}（{lunacy}）\n" +
+                   "理智归 0 崩溃";
         }
 
         readonly List<RectTransform> _tagViews = new List<RectTransform>();

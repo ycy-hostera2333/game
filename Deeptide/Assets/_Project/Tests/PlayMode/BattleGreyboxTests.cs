@@ -142,6 +142,11 @@ namespace Deeptide.View.Tests
             yield return WaitIdle();
             Assert.AreEqual(10, Engine.Player.Sanity);
             Assert.IsFalse(_screen.Enemies[0].Intent.Blurred);
+            // 清明线和悬停说明：界线数值和内核一致
+            var gauge = _screen.Player.Gauge;
+            Assert.AreEqual(Engine.Player.IsClarity, gauge.ClarityLit);
+            StringAssert.Contains($"理智 ≥ {Engine.Player.ClarityThreshold}（已清明）", gauge.Describe());
+            StringAssert.Contains($"理智 ≤ {Engine.Player.LunacyThreshold}（再失去 {10 - Engine.Player.LunacyThreshold} 点进入）", gauge.Describe());
 
             var costly = _screen.Hand.Cards.First(v => Engine.FindCard(v.Uid).SanityCost(false) > 0);
             int cost = Engine.FindCard(costly.Uid).SanityCost(false);
@@ -169,6 +174,9 @@ namespace Deeptide.View.Tests
                 if (!checkedLunacy && Engine.Player.IsLunatic)
                 {
                     checkedLunacy = true;
+                    Assert.IsFalse(_screen.Player.Gauge.ClarityLit, "癫狂时清明熄灭");
+                    StringAssert.Contains("（已癫狂）", _screen.Player.Gauge.Describe());
+                    StringAssert.Contains($"（还差 {Engine.Player.ClarityThreshold - Engine.Player.Sanity} 点）", _screen.Player.Gauge.Describe());
                     foreach (var view in _screen.Hand.Cards)
                         Assert.AreEqual(Engine.UsesMadFace(Engine.FindCard(view.Uid)), view.ShowsMadFace, $"{view.CardId} 的卡面");
                     Assert.AreEqual(Engine.IntentsBlurred, _screen.Enemies[0].Intent.Blurred);
