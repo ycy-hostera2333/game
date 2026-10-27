@@ -27,7 +27,8 @@ namespace Deeptide.Core.Actions
                 if (_target == null || _target.IsDead) return;
                 if (_source != null && _source.IsDead) return;
                 int dmg = DamageCalculator.Compute(e, _source, _target, _baseAmount, _kind);
-                e.ApplyDamage(_source, _target, dmg);
+                int hpLoss = e.ApplyDamage(_source, _target, dmg);
+                if (_kind == DamageKind.Attack) e.AttackHit(_source, _target, hpLoss);
             }
         }
     }
@@ -56,7 +57,8 @@ namespace Deeptide.Core.Actions
                 foreach (var en in e.State.AliveEnemies.ToList())
                 {
                     if (en.IsDead) continue;
-                    e.ApplyDamage(_source, en, DamageCalculator.Compute(e, _source, en, _baseAmount, _kind));
+                    int hpLoss = e.ApplyDamage(_source, en, DamageCalculator.Compute(e, _source, en, _baseAmount, _kind));
+                    if (_kind == DamageKind.Attack) e.AttackHit(_source, en, hpLoss);
                 }
             }
         }
@@ -81,7 +83,8 @@ namespace Deeptide.Core.Actions
             var alive = e.State.AliveEnemies.ToList();
             if (alive.Count == 0) return;
             var target = alive[e.Rng.Misc.NextInt(alive.Count)];
-            e.ApplyDamage(_source, target, DamageCalculator.Compute(e, _source, target, _baseAmount, _kind));
+            int hpLoss = e.ApplyDamage(_source, target, DamageCalculator.Compute(e, _source, target, _baseAmount, _kind));
+            if (_kind == DamageKind.Attack) e.AttackHit(_source, target, hpLoss);
         }
     }
 
@@ -101,11 +104,35 @@ namespace Deeptide.Core.Actions
         public override void Execute(BattleEngine e)
         {
             if (_target.IsDead) return;
-            int amount = BlockCalculator.Compute(_target, _baseAmount, _fromCard);
+            int amount = BlockCalculator.Compute(e, _target, _baseAmount, _fromCard);
             if (amount <= 0) return;
             e.SetBlock(_target, _target.Block + amount);
             e.Log.Add(BattleEventType.BlockGained, $"{_target.Name} 获得 {amount} 格挡（共 {_target.Block}）", _target.Name, amount: amount)
                 .Entity = _target.EntityId;
+        }
+    }
+
+    /// <summary>
+    /// 流血结算（策划/14 §1.4）：敌人回合开始时（行动前）失去等同于流血层数的生命，无视格挡，然后流血 −1。
+    /// 流血死了的敌人不再行动（EnemyAct 在这个动作之后才让它出招）。
+    /// </summary>
+    public sealed class BleedAction : GameAction
+    {
+        readonly EnemyState _target;
+
+        public BleedAction(EnemyState target) { _target = target; }
+
+        public override void Execute(BattleEngine e)
+        {
+            var en = _target;
+            int bleed = en.Statuses.Get(StatusId.Bleed);
+            if (en.IsDead || bleed <= 0) return;
+            e.Log.Add(BattleEventType.Bled, $"{en.Name} 流血 {bleed}", target: en.Name, amount: bleed).Entity = en.Index;
+            int before = en.Hp;
+            e.LoseHp(en, bleed);
+            int lost = before - en.Hp;
+            if (!en.IsDead) e.AddStatus(en, StatusId.Bleed, -1);
+            if (lost > 0) e.Notify(l => l.OnEnemyBled(e, en, lost));
         }
     }
 

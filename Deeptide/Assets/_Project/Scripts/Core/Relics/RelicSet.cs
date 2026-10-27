@@ -205,4 +205,63 @@ namespace Deeptide.Core.Relics
 
     /// <summary>收藏家的放大镜：卡牌奖励多 1 个选项（RunState 读取）。</summary>
     public sealed class CollectorsLens : Relic { }
+
+    // ==================== 狼人（策划/14 §2.7） ====================
+
+    /// <summary>起始遗物「狼牙吊坠」：每轮第一次变身时抽牌，第一次复归时获得格挡（遗物格挡，不减半）。</summary>
+    public sealed class WolfFangPendant : Relic
+    {
+        public override void OnTransform(BattleEngine e)
+        {
+            Trigger(e, $"变身，抽 {V("Draw")} 张牌");
+            e.Queue.AddToTop(new DrawCardsAction(V("Draw")));
+        }
+
+        public override void OnRevert(BattleEngine e)
+        {
+            Trigger(e, $"复归，获得 {V("Block")} 格挡");
+            e.Queue.AddToTop(new GainBlockAction(e.Player, V("Block"), false));
+        }
+    }
+
+    /// <summary>狼毛斗篷：回合结束时若处于兽形，获得格挡（遗物格挡，不减半）。</summary>
+    public sealed class WolfPeltCloak : Relic
+    {
+        public override void OnPlayerTurnEnd(BattleEngine e) =>
+            e.Queue.AddToBottom(new DelegateAction(en =>
+            {
+                if (!en.Player.IsLunatic) return;
+                Trigger(en, $"兽形，获得 {V("Block")} 格挡");
+                en.Queue.AddToTop(new GainBlockAction(en.Player, V("Block"), false));
+            }));
+    }
+
+    /// <summary>血碗：敌人因流血死亡时恢复生命。</summary>
+    public sealed class BloodBowl : Relic
+    {
+        public override void OnEnemyBled(BattleEngine e, EnemyState enemy, int amount)
+        {
+            if (!enemy.IsDead) return;
+            Trigger(e, $"{enemy.Name} 流血而死，恢复 {V("Heal")} 生命");
+            e.Heal(e.Player, V("Heal"));   // 当场回血：死的是最后一个敌人时战斗立刻结束，排队的效果会被清掉
+        }
+    }
+
+    // ==================== 角色特性（隐藏遗物，策划/14） ====================
+
+    /// <summary>
+    /// 狼人特性「兽血」（策划/14 §2.2）：癫狂即兽形。兽形时攻击每段 +Damage（和力量一样每段都加，卡面预览同步）；
+    /// 打出的牌获得的格挡减半，向下取整（在敏捷、脆弱之后）。减半是规则本身，不当作数值调。
+    /// 都按结算那一刻的形态判断：先挡后变身，格挡是满的；人狼同体在人形时结算兽形面，也拿不到 +Damage。
+    /// </summary>
+    public sealed class BeastBlood : Relic
+    {
+        public override int DamageBonus(BattleEngine e, Combatant source, Combatant target, DamageKind kind) =>
+            kind == DamageKind.Attack && source == e.Player && e.Player.IsLunatic ? V("Damage") : 0;
+
+        public override void CardBlockMultiplier(BattleEngine e, Combatant target, ref long num, ref long den)
+        {
+            if (target == e.Player && e.Player.IsLunatic) den *= 2;
+        }
+    }
 }

@@ -1,0 +1,5 @@
+id,name,title,max_hp,max_sanity,gold,relic,trait,dream_card,deck,text
+# 角色表（策划/14、09 M6.1）。relic 是起始遗物（rarity 必须是 Starter）；trait 是特性（relics.csv 里 rarity = Trait 的行，空 = 没有）；dream_card 是事件「梦中的导师」把打击变成的牌；deck 用分号分隔，「ID*N」表示 N 张，按书写顺序展开
+# 卡牌 / 遗物 / 药水表的 character 列填这里的 id，表示只属于这个角色；空着表示通用。max_sanity 不能低于 4（策划/14 §1.3）
+investigator,调查员,调查员,70,10,99,investigator_notes,,C06,B01*5;B02*3;C01;B03,收到失踪导师的信，坐大潮那天的末班船来到灰潮镇。守夜、堕落、传染三条路都走得通。
+werewolf,荒原猎户,狼人,75,6,99,wolf_fang_pendant,beast_blood,LC01,B01*4;B02*3;LB01;LB02;LB03,被海里上来的东西咬过，半个属于海。癫狂即兽形：攻击每段 +2，打出的牌给的格挡减半。

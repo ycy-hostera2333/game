@@ -36,6 +36,8 @@ namespace Deeptide.Core
         public readonly List<Card> DiscardPile = new List<Card>();
         public readonly List<Card> ExhaustPile = new List<Card>();
         public readonly List<Relic> Relics = new List<Relic>();
+        /// <summary>角色特性（隐藏遗物，见 BattleSetup.Traits）。</summary>
+        public readonly List<Relic> Traits = new List<Relic>();
         /// <summary>已打出的能力（同名能力叠加 Amount）。</summary>
         public readonly List<Power> Powers = new List<Power>();
         /// <summary>药水栏，null = 空位。</summary>

@@ -8,6 +8,8 @@ using Deeptide.Core.Cards;
 using Deeptide.Core.Content;
 using Deeptide.Core.Enemies;
 using Deeptide.Core.Map;
+using Deeptide.Core.Relics;
+using Deeptide.Core.Run;
 
 namespace Deeptide.Sim
 {
@@ -28,6 +30,8 @@ namespace Deeptide.Sim
         public static readonly MapConfig Map = new MapConfig();
         public static double HpEasy = 1.0;
         public static double HpHard = 1.0;
+        /// <summary>starter=base|prayer 改过的调查员起始牌组；null = 用角色表（characters.csv）里的。</summary>
+        public static List<string> StarterDeck;
 
         static readonly Dictionary<string, (int Min, int Max)> OriginalHp =
             EnemyLibrary.All.ToDictionary(d => d.Id, d => (d.HpMin, d.HpMax));
@@ -50,6 +54,7 @@ namespace Deeptide.Sim
                     case "starter":
                         if (val != "base" && val != "prayer") throw new ArgumentException("starter 只能是 base 或 prayer");
                         TestDecks.Starter[8] = val == "prayer" ? "C01" : "B02";
+                        StarterDeck = TestDecks.Starter.ToList();
                         break;
                     default:
                         int dot = key.IndexOf('.');
@@ -74,6 +79,15 @@ namespace Deeptide.Sim
                             string varName = key.Substring(dot + 1);
                             if (!enemy.Vars.ContainsKey(varName)) throw new ArgumentException($"{owner} 没有数值 {varName}");
                             enemy.Vars[varName] = int.Parse(val);
+                            break;
+                        }
+                        if (RelicLibrary.Exists(owner))
+                        {
+                            // 遗物数值，如 wolf_fang_pendant.Block=6（狼人调参用）
+                            var relic = RelicLibrary.Get(owner);
+                            string relicVar = key.Substring(dot + 1);
+                            if (!relic.Vars.ContainsKey(relicVar)) throw new ArgumentException($"{owner} 没有数值 {relicVar}");
+                            relic.Vars[relicVar] = int.Parse(val);
                             break;
                         }
                         var def = CardLibrary.Get(key.Substring(0, dot));
@@ -132,7 +146,18 @@ namespace Deeptide.Sim
             EncounterDef def;
             try { def = Encounters.Resolve(enc); }
             catch (KeyNotFoundException) { throw new ArgumentException($"未知遭遇：{enc}（可选 1 / 2 / 3 或遭遇表里的 ID）"); }
-            return new BattleSetup { Seed = seed, Deck = TestDecks.Get(deck), Enemies = def.Enemies.ToList(), Config = Tuning.Config };
+            var setup = new BattleSetup { Seed = seed, Deck = TestDecks.Get(deck), Enemies = def.Enemies.ToList(), Config = Tuning.Config };
+            string character = TestDecks.CharacterOf(deck);
+            if (character != CharacterIds.Investigator)
+            {
+                // 狼人的牌组用狼人的生命、理智上限、起始遗物和特性；调查员沿用 BattleSetup 的默认值，结果和加角色之前一致
+                var ch = CharacterLibrary.Get(character);
+                setup.MaxHp = setup.Hp = ch.MaxHp;
+                setup.MaxSanity = ch.MaxSanity;
+                setup.Relics = new List<string> { ch.StartingRelic };
+                if (ch.Trait.Length > 0) setup.Traits = new List<string> { ch.Trait };
+            }
+            return setup;
         }
 
         /// <summary>用种子 1..n 跑 n 场（不同参数之间共用同一组种子，比较时噪声更小）。</summary>

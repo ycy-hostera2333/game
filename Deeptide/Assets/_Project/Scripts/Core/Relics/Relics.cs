@@ -11,9 +11,14 @@ namespace Deeptide.Core.Relics
         public const string PawnbrokersScale = "pawnbrokers_scale";
         public const string AlchemistBelt = "alchemist_belt";
         public const string CollectorsLens = "collectors_lens";
+        /// <summary>狼人特性「兽血」（Trait）。</summary>
+        public const string BeastBlood = "beast_blood";
+        /// <summary>狼人起始遗物「狼牙吊坠」。</summary>
+        public const string WolfFangPendant = "wolf_fang_pendant";
     }
 
-    public enum RelicRarity { Starter, Common, Uncommon, Rare, Shop }
+    /// <summary>Trait = 角色特性：作为隐藏遗物挂在战斗上（BattleSetup.Traits），不进遗物栏、不会出现在任何奖励里（策划/14 §1、09 M6.2）。</summary>
+    public enum RelicRarity { Starter, Common, Uncommon, Rare, Shop, Trait }
 
     /// <summary>遗物静态数据，对应 Data/relics.csv 的一行。</summary>
     public sealed class RelicDef
@@ -21,6 +26,8 @@ namespace Deeptide.Core.Relics
         public string Id;
         public string Name;
         public RelicRarity Rarity;
+        /// <summary>归属角色（characters.csv 的 id），空 = 通用。</summary>
+        public string Character = "";
         /// <summary>流派倾向（守夜 / 堕落 / 传染 / 中立），只用于统计和奖励偏好。</summary>
         public string Tendency;
         public Dictionary<string, int> Vars = new Dictionary<string, int>();
@@ -117,6 +124,10 @@ namespace Deeptide.Core.Relics
             [RelicIds.PawnbrokersScale] = () => new PawnbrokersScale(),
             [RelicIds.AlchemistBelt] = () => new AlchemistBelt(),
             [RelicIds.CollectorsLens] = () => new CollectorsLens(),
+            [RelicIds.BeastBlood] = () => new BeastBlood(),
+            [RelicIds.WolfFangPendant] = () => new WolfFangPendant(),
+            ["wolf_pelt_cloak"] = () => new WolfPeltCloak(),
+            ["blood_bowl"] = () => new BloodBowl(),
         };
     }
 

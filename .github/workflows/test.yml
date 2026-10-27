@@ -47,3 +47,8 @@ jobs:
         run: |
           dotnet run -c Release --no-build --project Deeptide.Sim -- map --n 200
           dotnet run -c Release --no-build --project Deeptide.Sim -- runbatch --n 25 --cards 0
+
+      - name: 狼人冒烟测试（4 套牌组 × 3 遭遇；4 个流派各 25 局）
+        run: |
+          dotnet run -c Release --no-build --project Deeptide.Sim -- batch --deck wolf --n 50
+          dotnet run -c Release --no-build --project Deeptide.Sim -- runbatch --char werewolf --n 25 --cards 0

@@ -10,8 +10,11 @@ using Deeptide.Core.Run;
 
 namespace Deeptide.Sim
 {
-    /// <summary>跑局 AI 的流派偏好：决定抓什么牌、战斗里用哪种打法（策划/07 §5.3「三流派胜率差」）。</summary>
-    enum Archetype { Watch, Fall, Contagion, Mixed }
+    /// <summary>
+    /// 跑局 AI 的流派偏好：决定抓什么牌、战斗里用哪种打法（策划/07 §5.3「三流派胜率差」）。
+    /// 调查员：守夜 / 堕落 / 传染；狼人：狂猎 / 月相 / 血宴（策划/14 §2.4）。混合两个角色都能用。
+    /// </summary>
+    enum Archetype { Watch, Fall, Contagion, Mixed, Hunt, Moon, Feast }
 
     /// <summary>
     /// 跑局 AI（策划/09 M4.8）：战斗交给一步贪心的 Autoplayer，其余界面用简单规则——
@@ -30,8 +33,19 @@ namespace Deeptide.Sim
         public RunAutoplayer(Archetype arch)
         {
             _arch = arch;
-            _battle = new Autoplayer(BattleStyleOverride ??
-                (arch == Archetype.Watch ? PlayStyle.Sane : arch == Archetype.Fall ? PlayStyle.Mad : PlayStyle.Mixed));
+            _battle = new Autoplayer(BattleStyleOverride ?? StyleOf(arch));
+        }
+
+        /// <summary>战斗打法：守夜保持清明；堕落、狂猎往下走（狂猎常驻兽形）；其余不刻意往哪边走（月相靠牌在线上来回跨）。</summary>
+        static PlayStyle StyleOf(Archetype arch)
+        {
+            switch (arch)
+            {
+                case Archetype.Watch: return PlayStyle.Sane;
+                case Archetype.Fall:
+                case Archetype.Hunt: return PlayStyle.Mad;
+                default: return PlayStyle.Mixed;
+            }
         }
 
         public static Archetype ParseArchetype(string s)
@@ -42,12 +56,36 @@ namespace Deeptide.Sim
                 case "fall": return Archetype.Fall;
                 case "contagion": return Archetype.Contagion;
                 case "mixed": return Archetype.Mixed;
-                default: throw new ArgumentException($"未知流派：{s}（可选 watch / fall / contagion / mixed）");
+                case "hunt": return Archetype.Hunt;
+                case "moon": return Archetype.Moon;
+                case "feast": return Archetype.Feast;
+                default: throw new ArgumentException($"未知流派：{s}（调查员 watch / fall / contagion，狼人 hunt / moon / feast，都可以 mixed）");
             }
         }
 
-        public static string ArchetypeName(Archetype a) =>
-            a == Archetype.Watch ? "守夜" : a == Archetype.Fall ? "堕落" : a == Archetype.Contagion ? "传染" : "混合";
+        public static string ArchetypeName(Archetype a)
+        {
+            switch (a)
+            {
+                case Archetype.Watch: return "守夜";
+                case Archetype.Fall: return "堕落";
+                case Archetype.Contagion: return "传染";
+                case Archetype.Hunt: return "狂猎";
+                case Archetype.Moon: return "月相";
+                case Archetype.Feast: return "血宴";
+                default: return "混合";
+            }
+        }
+
+        /// <summary>runbatch 不指定 --arch 时跑哪几个流派。</summary>
+        public static string DefaultArchetypes(string character) =>
+            character == "werewolf" ? "hunt,moon,feast,mixed" : "watch,fall,contagion,mixed";
+
+        /// <summary>狼人理智上限低，事件、篝火里更护理智上限。</summary>
+        static bool IsWolf(RunState s) => s.Character == "werewolf";
+
+        /// <summary>角色的初始理智上限：调查员 10、狼人 6（惊醒、静思的判断用）。</summary>
+        static int BaseSanity(RunState s) => CharacterLibrary.Get(s.Character).MaxSanity;
 
         /// <summary>打完整局（或到达命令上限），返回执行的命令数。</summary>
         public int PlayRun(RunEngine run, int maxCommands = 20000)
@@ -141,7 +179,11 @@ namespace Deeptide.Sim
                         break;
                     case "hallucinogen":
                         if (_arch == Archetype.Fall && b.State.Turn == 1 && p.Sanity > 6) return BattleCommand.Potion(i, target);
+                        if (_arch == Archetype.Hunt && b.State.Turn == 1 && !p.IsLunatic) return BattleCommand.Potion(i, target);
                         if (p.Hp <= 12) return BattleCommand.Potion(i, target);
+                        break;
+                    case "bloody_bait":
+                        if ((big && b.State.Turn == 1) || alive.Count >= 3) return BattleCommand.Potion(i, target);
                         break;
                 }
                 if (p.Hp <= 10 && incoming >= p.Hp + p.Block) return BattleCommand.Potion(i, target);
@@ -163,7 +205,17 @@ namespace Deeptide.Sim
             ["U01"] = 1.0, ["U02"] = 1.3, ["U03"] = 1.6, ["U04"] = 0.6, ["U05"] = 1.4, ["U06"] = 1.3, ["U07"] = 1.3, ["U08"] = 1.5,
             ["U09"] = 1.5, ["U10"] = 1.0, ["U11"] = 1.4, ["U12"] = 1.4, ["U13"] = 1.2, ["U14"] = 1.0, ["U15"] = 1.2,
             ["R01"] = 1.2, ["R02"] = 1.2, ["R03"] = 1.8, ["R04"] = 1.3, ["R05"] = 2.0, ["R06"] = 0.9,
+            // 狼人（策划/14 §2.5、§2.8）：多段攻击在兽形里吃 +2，偏高；节奏牌、单纯回复偏低
+            ["LB01"] = 0.6, ["LB02"] = 0.6, ["LB03"] = 0.6,
+            ["LC01"] = 1.3, ["LC02"] = 1.2, ["LC03"] = 1.1, ["LC04"] = 1.0, ["LC05"] = 1.3, ["LC06"] = 1.3, ["LC07"] = 1.3, ["LC08"] = 0.9,
+            ["LC09"] = 0.9, ["LC10"] = 1.1, ["LC11"] = 1.0, ["LC12"] = 1.0,
+            ["LU01"] = 1.2, ["LU02"] = 1.5, ["LU03"] = 1.4, ["LU04"] = 1.4, ["LU05"] = 1.3, ["LU06"] = 1.3, ["LU07"] = 1.4, ["LU08"] = 1.2,
+            ["LU09"] = 1.2, ["LU10"] = 1.1, ["LU11"] = 1.3,
+            ["LR01"] = 1.4, ["LR02"] = 1.6, ["LR03"] = 1.6, ["LR04"] = 1.5,
         };
+
+        /// <summary>流派对应卡表 / 遗物表里的倾向名；混合返回 null。</summary>
+        static string ArchetypeTag(Archetype a) => a == Archetype.Mixed ? null : ArchetypeName(a);
 
         /// <summary>按流派给一张牌打分（越高越想要）。≥ 阈值才拿。</summary>
         public double CardScore(RunState s, string deckId)
@@ -180,6 +232,10 @@ namespace Deeptide.Sim
                 case Archetype.Watch: v += a == "守夜" ? 1.5 : a == "通用" ? 0.5 : a == "传染" ? 0.2 : -1.0; break;
                 case Archetype.Fall: v += a == "堕落" ? 1.5 : a == "通用" ? 0.5 : a == "传染" ? 0.2 : -1.0; break;
                 case Archetype.Contagion: v += a == "传染" ? 1.5 : a == "通用" ? 0.5 : -0.3; break;
+                // 狼人：血宴是桥梁流派（14 §2.4），另外两个流派拿它也不亏
+                case Archetype.Hunt: v += a == "狂猎" ? 1.5 : a == "通用" ? 0.5 : a == "血宴" ? 0.2 : -1.0; break;
+                case Archetype.Moon: v += a == "月相" ? 1.5 : a == "通用" ? 0.5 : a == "血宴" ? 0.2 : -1.0; break;
+                case Archetype.Feast: v += a == "血宴" ? 1.5 : a == "通用" ? 0.5 : -0.3; break;
                 default: v += a == "基础" ? 0 : 0.6; break;
             }
             int copies = s.Deck.Count(x => CardLibrary.StripUpgrade(x, out _) == def.Id);
@@ -333,8 +389,7 @@ namespace Deeptide.Sim
             var def = RelicLibrary.Get(id);
             if (def.Rarity == RelicRarity.Shop) return id == RelicIds.AlchemistBelt ? 2.0 : 2.4;
             string t = def.Tendency;
-            bool match = (_arch == Archetype.Watch && t == "守夜") || (_arch == Archetype.Fall && t == "堕落") ||
-                         (_arch == Archetype.Contagion && t == "传染") || t == "中立";
+            bool match = t == ArchetypeTag(_arch) || t == "中立";
             return (match ? 3.0 : 1.5) + (def.Rarity == RelicRarity.Rare ? 0.4 : 0);
         }
 
@@ -346,7 +401,7 @@ namespace Deeptide.Sim
             if (hp < 0.5 || (beforeBoss && hp < 0.85)) return Tagged(options, "rest");
             int purge = Tagged(options, "purge");
             if (purge >= 0 && s.Deck.Count(x => x == CardIds.Whispers) >= 2) return purge;
-            if (_arch == Archetype.Watch && s.MaxSanity < 10) return Tagged(options, "meditate");
+            if ((_arch == Archetype.Watch || IsWolf(s)) && s.MaxSanity < BaseSanity(s)) return Tagged(options, "meditate");
             int smith = Tagged(options, "smith");
             return smith >= 0 ? smith : Tagged(options, "rest");
         }
@@ -359,7 +414,8 @@ namespace Deeptide.Sim
             switch (s.Event.Id)
             {
                 case "forbidden_book":
-                    prefs.AddRange(_arch == Archetype.Fall ? new[] { "Read", "Copy" } : _arch == Archetype.Watch ? new[] { "Burn" } : new[] { "Copy", "Burn" });
+                    // 狼人上限只有 6，再降就很难复归（14 §6）
+                    prefs.AddRange(_arch == Archetype.Fall ? new[] { "Read", "Copy" } : _arch == Archetype.Watch || IsWolf(s) ? new[] { "Burn" } : new[] { "Copy", "Burn" });
                     break;
                 case "drowning_sailor":
                     if (s.Hp > 30) prefs.Add("Rescue");
@@ -377,7 +433,7 @@ namespace Deeptide.Sim
                     break;
                 case "asylum_ward":
                     prefs.Add("purge");
-                    if (_arch == Archetype.Fall || _arch == Archetype.Contagion) prefs.Add("Steal");
+                    if ((_arch == Archetype.Fall || _arch == Archetype.Contagion) && !IsWolf(s)) prefs.Add("Steal");
                     if (s.Gold >= 120 || s.Deck.Contains(CardIds.Whispers)) prefs.Add("Treat");
                     prefs.Add("meditate");
                     prefs.Add("Leave");
@@ -392,7 +448,7 @@ namespace Deeptide.Sim
                     prefs.Add("Leave");
                     break;
                 case "dream_mentor":
-                    prefs.Add(_arch == Archetype.Watch && (s.MaxSanity < 10 || hp < 0.6) ? "Wake" : "Follow");
+                    prefs.Add((_arch == Archetype.Watch || IsWolf(s)) && (s.MaxSanity < BaseSanity(s) || hp < 0.6) ? "Wake" : "Follow");
                     prefs.Add("Wake");
                     break;
             }

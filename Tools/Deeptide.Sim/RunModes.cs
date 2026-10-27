@@ -23,10 +23,20 @@ namespace Deeptide.Sim
     {
         static string Opt(Dictionary<string, string> o, string key, string fallback) => o.TryGetValue(key, out var v) ? v : fallback;
 
-        static RunConfig Config()
+        /// <summary>--char 选角色（characters.csv 的 id，默认调查员）；--set starter=… 只改调查员的起始牌组。</summary>
+        static RunConfig Config(Dictionary<string, string> o)
         {
             Tuning.ApplyHpForRuns();
-            return new RunConfig { Battle = Tuning.Config, Map = Tuning.Map };
+            string character = Opt(o, "char", CharacterIds.Investigator);
+            if (!CharacterLibrary.Exists(character))
+                throw new ArgumentException($"未知角色：{character}（可选 {string.Join(" / ", CharacterLibrary.All.Select(c => c.Id))}）");
+            return new RunConfig
+            {
+                Character = character,
+                Deck = character == CharacterIds.Investigator ? Tuning.StarterDeck?.ToList() : null,
+                Battle = Tuning.Config,
+                Map = Tuning.Map,
+            };
         }
 
         // ------------------------------------------------------------ map
@@ -95,14 +105,14 @@ namespace Deeptide.Sim
             ulong seed;
             if (o.TryGetValue("load", out var load))
             {
-                run = RunSaves.Read(load, Config());
+                run = RunSaves.Read(load, Config(o));
                 seed = run.State.Seed;
                 Console.WriteLine($"读取存档 {load}：种子 {seed}，第 {run.State.Floor} 层");
             }
             else
             {
                 seed = o.TryGetValue("seed", out var s) ? ulong.Parse(s) : (ulong)DateTime.Now.Ticks % 1_000_000;
-                run = RunEngine.NewRun(seed, Config());
+                run = RunEngine.NewRun(seed, Config(o));
                 Console.WriteLine($"新的一局，种子 {seed}");
             }
             var ai = new RunAutoplayer(RunAutoplayer.ParseArchetype(Opt(o, "arch", "mixed")));
@@ -234,7 +244,7 @@ namespace Deeptide.Sim
             ulong seed = ulong.Parse(Opt(o, "seed", "1"));
             var arch = RunAutoplayer.ParseArchetype(Opt(o, "arch", "mixed"));
             string logMode = Opt(o, "log", "boss");
-            var run = RunEngine.NewRun(seed, Config());
+            var run = RunEngine.NewRun(seed, Config(o));
             var ai = new RunAutoplayer(arch);
             RunAutoplayer.Debug = Opt(o, "debug", "0") == "1";
             Console.WriteLine($"种子 {seed}，AI 流派 {RunAutoplayer.ArchetypeName(arch)}");
@@ -281,7 +291,7 @@ namespace Deeptide.Sim
                 ? File.ReadAllLines(file).Select(x => x.Split('#')[0].Trim()).Where(x => x.Length > 0).Select(RunCommand.Parse).ToList()
                 : new List<RunCommand>();
             int from = int.Parse(Opt(o, "from", cmds.Count.ToString()));
-            var run = RunEngine.NewRun(seed, Config());
+            var run = RunEngine.NewRun(seed, Config(o));
             BattleEngine watched = null;
             int watchedFrom = 0;
             var lines = new List<string>();
@@ -356,7 +366,7 @@ namespace Deeptide.Sim
             string text = o.TryGetValue("cmds-file", out var file) ? File.ReadAllText(file) : Opt(o, "cmds", "");
             var cmds = text.Split(new[] { '\n', ',' }, StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim()).Where(x => x.Length > 0)
                 .Select(RunCommand.Parse).ToList();
-            var run = RunEngine.Replay(ulong.Parse(seedText), cmds, Config());
+            var run = RunEngine.Replay(ulong.Parse(seedText), cmds, Config(o));
             Console.WriteLine($"重放 {cmds.Count} 条命令：{run.State.Phase}，哈希 {run.Hash()}");
             Console.WriteLine(Summary(run));
             return 0;
@@ -377,8 +387,10 @@ namespace Deeptide.Sim
         public static int RunBatch(Dictionary<string, string> o)
         {
             int n = int.Parse(Opt(o, "n", "200"));
-            var archs = Opt(o, "arch", "watch,fall,contagion,mixed").Split(',').Select(RunAutoplayer.ParseArchetype).ToList();
+            string character = Config(o).Character;   // 先校验 --char，别等到并行里才报错
+            var archs = Opt(o, "arch", RunAutoplayer.DefaultArchetypes(character)).Split(',').Select(RunAutoplayer.ParseArchetype).ToList();
             bool verbose = Opt(o, "cards", "1") == "1";
+            if (character != CharacterIds.Investigator) Console.WriteLine($"角色：{character}");
             Console.WriteLine($"每个流派 {n} 局（种子 1..{n}），跑局 AI = 规则选牌 + 束搜索战斗（只适合做相对比较）");
             if (o.TryGetValue("set", out var spec)) Console.WriteLine($"参数覆盖：{spec}");
             Console.WriteLine();
@@ -394,7 +406,7 @@ namespace Deeptide.Sim
                     var r = new RunResult { Seed = seed };
                     try
                     {
-                        var run = RunEngine.NewRun(seed, Config());
+                        var run = RunEngine.NewRun(seed, Config(o));
                         new RunAutoplayer(arch).PlayRun(run);
                         r.Won = run.State.Phase == RunPhase.Victory;
                         r.Floor = run.State.Floor;
@@ -417,7 +429,7 @@ namespace Deeptide.Sim
                 var rates = all.Select(kv => kv.Value.Count(r => r.Won) / (double)n).ToList();
                 Console.WriteLine($"三流派胜率差（最高 − 最低，含混合）：{(rates.Max() - rates.Min()) * 100:F1} 个百分点（目标 ≤ 10）");
                 var pure = all.Where(kv => kv.Key != Archetype.Mixed).Select(kv => kv.Value.Count(r => r.Won) / (double)n).ToList();
-                if (pure.Count > 1) Console.WriteLine($"守夜 / 堕落 / 传染三流派胜率差：{(pure.Max() - pure.Min()) * 100:F1} 个百分点");
+                if (pure.Count > 1) Console.WriteLine($"三个流派（不含混合）胜率差：{(pure.Max() - pure.Min()) * 100:F1} 个百分点");
             }
             if (verbose) PrintPickRates(all.Values.SelectMany(x => x).Where(r => r.State != null).SelectMany(r => r.State.Stats.CardChoices));
             return all.Values.SelectMany(x => x).Any(r => r.Error != null) ? 1 : 0;
@@ -460,6 +472,7 @@ namespace Deeptide.Sim
             public List<CardChoiceRecord> CardChoices;
             /// <summary>遭遇 ID，或 event:事件 ID。</summary>
             public string Death;
+            public string Character;
 
             public RunSample(RunState s)
             {
@@ -472,11 +485,13 @@ namespace Deeptide.Sim
                 Battles = s.Stats.Battles;
                 CardChoices = s.Stats.CardChoices;
                 Death = s.Stats.DeathEncounter;
+                Character = s.Character;
             }
 
             public RunSample(RunTelemetry t)
             {
                 Won = t.Outcome == RunOutcome.Victory;
+                Character = t.Character;
                 HpAtBoss = t.HpAtBoss;
                 GoldEarned = t.GoldEarned;
                 ShopVisits = t.ShopVisits;
@@ -505,7 +520,7 @@ namespace Deeptide.Sim
             var easy = battles.Where(b => b.Room == RoomType.Battle && b.EncounterId.StartsWith("easy")).ToList();
             if (easy.Count > 0 && hard.Count > 0)
                 Console.WriteLine($"  其中简单池 回合 {easy.Average(b => b.Turns):F1} 掉血 {easy.Average(b => b.HpLost):F1}（目标 3–4 / 2–6），困难池 回合 {hard.Average(b => b.Turns):F1} 掉血 {hard.Average(b => b.HpLost):F1}（目标 4–6 / 4–9）");
-            if (battles.Count > 0) PrintSanity("  ", battles);
+            if (battles.Count > 0) PrintSanity("  ", battles, ok.Any(r => r.Character == "werewolf"));
             Console.WriteLine($"  金币收入 {ok.Average(r => r.GoldEarned):F0}（目标 300–400，不含事件）  商店 {ok.Average(r => r.ShopVisits):F1} 次  删卡 {ok.Average(r => r.CardsRemoved):F1}  最终牌组 {ok.Average(r => r.Deck.Count):F1} 张（目标 18–24）  疯语 {ok.Average(r => r.Deck.Count(c => c == CardIds.Whispers)):F1} 张");
             Console.WriteLine($"  普通战斗 {ok.Average(r => r.Battles.Count(b => b.Room == RoomType.Battle)):F1} 场（目标 7–9） 精英 {ok.Average(r => r.Battles.Count(b => b.Room == RoomType.Elite)):F1} 场（目标 1–3）");
             var deaths = ok.Where(r => r.Death != null).GroupBy(r => r.Death)
@@ -514,11 +529,13 @@ namespace Deeptide.Sim
         }
 
         /// <summary>07 §5.3 的三项理智指标。</summary>
-        internal static void PrintSanity(string indent, List<BattleRecord> battles)
+        internal static void PrintSanity(string indent, List<BattleRecord> battles, bool wolf = false)
         {
             double lunacyShare = battles.Count(b => b.EnteredLunacy) / (double)battles.Count;
             double turns = Math.Max(1, battles.Sum(b => b.Turns));
             Console.WriteLine($"{indent}进入过癫狂的战斗 {lunacyShare:P0}（目标 40–70%）  崩溃 {battles.Average(b => b.Collapses):F2} 次/场  清明回合占比 {battles.Sum(b => b.ClarityTurns) / turns:P0}  癫狂回合占比 {battles.Sum(b => b.LunacyTurns) / turns:P0}");
+            // 狼人（策划/14 §8）：「住在线上」有没有用上
+            if (wolf) Console.WriteLine($"{indent}变身 + 复归 {battles.Average(b => b.Transforms + b.Reverts):F1} 次/场（目标 ≥ 3）  兽形回合占比 {battles.Sum(b => b.LunacyTurns) / turns:P0}（目标 30–70%）");
         }
 
         internal static string DeathName(string cause) =>

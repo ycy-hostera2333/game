@@ -32,15 +32,22 @@ namespace Deeptide.Core
         }
     }
 
-    /// <summary>格挡公式（策划/02 §3.2）：只有卡牌给的格挡受敏捷和脆弱影响。</summary>
+    /// <summary>
+    /// 格挡公式（策划/02 §3.2）：只有卡牌给的格挡受敏捷、脆弱和监听器的乘法修正影响（狼人兽形减半，策划/14 §2.2）。
+    /// 卡面预览和实际结算都走这里。
+    /// </summary>
     public static class BlockCalculator
     {
-        public static int Compute(Combatant target, int baseAmount, bool fromCard)
+        public static int Compute(Combatant target, int baseAmount, bool fromCard) => Compute(null, target, baseAmount, fromCard);
+
+        public static int Compute(BattleEngine engine, Combatant target, int baseAmount, bool fromCard)
         {
             if (!fromCard) return Math.Max(0, baseAmount);
             long num = baseAmount + target.Statuses.Get(StatusId.Dexterity);
             long den = 1;
             if (target.Statuses.Get(StatusId.Frail) > 0) { num *= 3; den *= 4; }
+            if (engine != null)
+                foreach (var l in engine.Listeners) l.CardBlockMultiplier(engine, target, ref num, ref den);
             return num <= 0 ? 0 : (int)(num / den);
         }
     }

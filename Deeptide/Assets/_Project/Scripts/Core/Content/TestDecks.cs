@@ -25,7 +25,23 @@ namespace Deeptide.Core.Content
         public static readonly string[] PrototypeFallExtra = { "C06", "C07", "C08", "C09", "C10", "U09" };
         public static readonly string[] PrototypeMixedExtra = { "C01", "C03", "R05", "C08", "C06", "U09" };
 
-        public static readonly string[] Names = { "starter", "A", "B", "C", "D", "B0", "C0" };
+        /// <summary>狼人起始牌组：打击 ×4、防御 ×3、獠牙、嚎月、银链（策划/14 §2.3），和 characters.csv 一致。</summary>
+        public static readonly string[] WolfStarter =
+        {
+            "B01", "B01", "B01", "B01",
+            "B02", "B02", "B02",
+            "LB01", "LB02", "LB03",
+        };
+
+        public static readonly string[] HuntExtra = { "LC05", "LC06", "LC07", "LU01", "LU02", "LU03" };
+        public static readonly string[] MoonExtra = { "LC08", "LC09", "LC10", "LU05", "LU06", "LU08" };
+        public static readonly string[] FeastExtra = { "LC01", "LC02", "LC03", "LU09", "LU10", "LU11" };
+
+        /// <summary>W 开头的是狼人的牌组（W 起始、WH 狂猎、WM 月相、WB 血宴），开战时用狼人的属性、起始遗物和特性。</summary>
+        public static readonly string[] Names = { "starter", "A", "B", "C", "D", "B0", "C0", "W", "WH", "WM", "WB" };
+
+        /// <summary>牌组属于哪个角色（characters.csv 的 id）。</summary>
+        public static string CharacterOf(string name) => name.StartsWith("W") ? "werewolf" : "investigator";
 
         public static List<string> Get(string name)
         {
@@ -38,6 +54,10 @@ namespace Deeptide.Core.Content
                 case "D": return Starter.Concat(ContagionExtra).ToList();
                 case "B0": return Starter.Concat(PrototypeFallExtra).ToList();
                 case "C0": return Starter.Concat(PrototypeMixedExtra).ToList();
+                case "W": return WolfStarter.ToList();
+                case "WH": return WolfStarter.Concat(HuntExtra).ToList();
+                case "WM": return WolfStarter.Concat(MoonExtra).ToList();
+                case "WB": return WolfStarter.Concat(FeastExtra).ToList();
                 default: throw new ArgumentException($"未知牌组：{name}（可选 {string.Join(" / ", Names)}）");
             }
         }
@@ -53,6 +73,10 @@ namespace Deeptide.Core.Content
                 case "D": return "D 传染";
                 case "B0": return "B0 原型堕落";
                 case "C0": return "C0 原型混合";
+                case "W": return "W 狼人起始";
+                case "WH": return "WH 狂猎";
+                case "WM": return "WM 月相";
+                case "WB": return "WB 血宴";
                 default: return name;
             }
         }

@@ -19,7 +19,9 @@ namespace Deeptide.Sim
 
         public Autoplayer(PlayStyle style) { _style = style; }
 
+        /// <summary>狼人：狂猎常驻兽形（Mad），其余在线上来回跨（Mixed）。专门的狼人打法在 09 M6.4 调。</summary>
         public static PlayStyle StyleFor(string deck) =>
+            deck == "WH" ? PlayStyle.Mad : deck.StartsWith("W") ? PlayStyle.Mixed :
             deck.StartsWith("B") ? PlayStyle.Mad : deck.StartsWith("C") || deck == "D" ? PlayStyle.Mixed : PlayStyle.Sane;
 
         public void PlayTurn(BattleEngine e)
@@ -229,6 +231,9 @@ namespace Deeptide.Sim
                 int mindThreat = en.Behaviour.Moves.Max(m => m.SanityDamage);
                 v -= en.Hp * (1 + 0.25 * mindThreat);
                 v -= 2.0 * en.Statuses.Get(StatusId.Strength);
+                // 流血（策划/14 §1.4）：之后几回合一共还会掉 n + (n−1) + … 点，按八成算进已经造成的伤害
+                int bleed = en.Statuses.Get(StatusId.Bleed);
+                if (bleed > 0) v += 0.8 * Math.Min(en.Hp, bleed * (bleed + 1) / 2);
                 if (!en.Mindless) v += 4.0 * en.Fear / Math.Max(1, en.Will);
             }
 

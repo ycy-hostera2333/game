@@ -33,7 +33,10 @@ namespace Deeptide.Core
             t.Outcome = s.Outcome;
             t.EnemyTurn = s.EnemyTurn;
             t.CardsPlayedThisTurn = s.CardsPlayedThisTurn;
+            t.AttacksPlayedThisTurn = s.AttacksPlayedThisTurn;
             t.IntentsRevealedThisTurn = s.IntentsRevealedThisTurn;
+            t.TransformedThisRound = s.TransformedThisRound;
+            t.RevertedThisRound = s.RevertedThisRound;
             CopyStats(s.Stats, t.Stats);
 
             var p = s.Player;
@@ -58,6 +61,12 @@ namespace Deeptide.Core
             q.Potions.AddRange(p.Potions);   // 药水实例没有状态，可以共享
 
             var map = new Dictionary<BattleListener, BattleListener>();
+            foreach (var r in p.Traits)
+            {
+                var c = (Relic)r.CloneListener();
+                q.Traits.Add(c);
+                map[r] = c;
+            }
             foreach (var r in p.Relics)
             {
                 var c = (Relic)r.CloneListener();
@@ -118,6 +127,9 @@ namespace Deeptide.Core
         {
             b.Collapses = a.Collapses;
             b.CursesGained = a.CursesGained;
+            b.MaxHpGained = a.MaxHpGained;
+            b.Transforms = a.Transforms;
+            b.Reverts = a.Reverts;
             b.FirstLunacyTurn = a.FirstLunacyTurn;
             b.LunacyTurns = a.LunacyTurns;
             b.ClarityTurns = a.ClarityTurns;

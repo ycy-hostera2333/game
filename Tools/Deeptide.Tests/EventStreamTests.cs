@@ -25,7 +25,7 @@ namespace Deeptide.Tests
         static IEnumerable<TestCaseData> Matchups()
         {
             Deeptide.Tools.DataFiles.EnsureLoaded();   // 用例在测试发现阶段生成，早于 SetUpFixture
-            foreach (var deck in new[] { "starter", "B", "C", "D" })
+            foreach (var deck in new[] { "starter", "B", "C", "D", "WH", "WM", "WB" })
             foreach (var enc in EncounterLibrary.All)
                 yield return new TestCaseData(deck, enc.Id, (ulong)(enc.Id.Length * 7 + deck.Length)).SetName($"Mirror_{deck}_{enc.Id}");
         }
@@ -33,13 +33,23 @@ namespace Deeptide.Tests
         [TestCaseSource(nameof(Matchups))]
         public void MirrorMatchesKernel(string deck, string enc, ulong seed)
         {
-            var e = BattleEngine.Start(new BattleSetup
+            var setup = new BattleSetup
             {
                 Seed = seed,
                 Deck = TestDecks.Get(deck),
                 Enemies = EncounterLibrary.Get(enc).Enemies.ToList(),
                 Potions = new List<string> { "iron_tonic", null, "fear_powder" },
-            });
+            };
+            if (TestDecks.CharacterOf(deck) == "werewolf")
+            {
+                // 狼人：上限 6、兽血、狼牙吊坠、血腥诱饵——流血、变身 / 复归、饱餐都要能只靠事件流重建
+                setup.MaxHp = setup.Hp = 75;
+                setup.MaxSanity = 6;
+                setup.Relics = new List<string> { "wolf_fang_pendant" };
+                setup.Traits = new List<string> { "beast_blood" };
+                setup.Potions = new List<string> { "iron_tonic", null, "bloody_bait" };
+            }
+            var e = BattleEngine.Start(setup);
             var mirror = new EventMirror();
             mirror.Consume(e.Log);
             Assert.That(mirror.Diff(e), Is.Null);

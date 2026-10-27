@@ -33,13 +33,15 @@ namespace Deeptide.Core.Run
         /// <summary>第几夜（策划/12 §3.5）：试玩数据可以按第一夜 / 之后的夜分开看。0 = 加局外档之前的局。</summary>
         public int Night;
         public ulong Seed;
+        /// <summary>角色（characters.csv 的 id）。加角色之前的记录没有这个字段，读进来按调查员算。</summary>
+        public string Character = CharacterIds.Investigator;
         public RunOutcome Outcome;
         /// <summary>到达的层数。</summary>
         public int Floor;
         /// <summary>倒在哪：遭遇 ID，或 event:事件 ID。</summary>
         public string DeathCause;
         public double PlaySeconds;
-        /// <summary>按最终牌组判断的流派：守夜 / 堕落 / 传染 / 混合（见 <see cref="MainArchetype"/>）。</summary>
+        /// <summary>按最终牌组判断的流派：守夜 / 堕落 / 传染（狼人是狂猎 / 月相 / 血宴）/ 混合（见 <see cref="MainArchetype"/>）。</summary>
         public string Archetype;
 
         public int MaxHp, Hp, MaxSanity, Gold;
@@ -69,6 +71,7 @@ namespace Deeptide.Core.Run
                 RunIndex = stats.RunIndex,
                 Night = stats.Night,
                 Seed = s.Seed,
+                Character = s.Character,
                 Outcome = outcome,
                 Floor = s.Floor,
                 DeathCause = death,
@@ -91,20 +94,24 @@ namespace Deeptide.Core.Run
             };
         }
 
-        static readonly string[] Archetypes = { "守夜", "堕落", "传染" };
+        /// <summary>不算流派的 archetype 值：基础牌和各角色的通用牌。状态牌、诅咒按类型排除。</summary>
+        static readonly string[] NotArchetypes = { "基础", "通用" };
 
         /// <summary>
-        /// 牌组的主流派：只数守夜 / 堕落 / 传染三类牌，某一类占一半以上且至少 3 张就算它，否则算混合（含只有起始牌的牌组）。
-        /// 真人的构筑没有标签，这是给汇总分组用的粗略口径。
+        /// 牌组的主流派：只数流派牌（调查员是守夜 / 堕落 / 传染，狼人是狂猎 / 月相 / 血宴），某一类占一半以上且至少 3 张就算它，
+        /// 否则算混合（含只有起始牌的牌组）。真人的构筑没有标签，这是给汇总分组用的粗略口径。
         /// </summary>
         public static string MainArchetype(IEnumerable<string> deck)
         {
-            var counts = Archetypes.ToDictionary(a => a, a => 0);
+            var counts = new Dictionary<string, int>();
             foreach (var id in deck)
             {
-                var arch = CardLibrary.Get(CardLibrary.StripUpgrade(id, out _)).Archetype;
-                if (arch != null && counts.ContainsKey(arch)) counts[arch]++;
+                var def = CardLibrary.Get(CardLibrary.StripUpgrade(id, out _));
+                if (def.Type == CardType.Curse || def.Type == CardType.Status) continue;
+                if (string.IsNullOrEmpty(def.Archetype) || NotArchetypes.Contains(def.Archetype)) continue;
+                counts[def.Archetype] = counts.TryGetValue(def.Archetype, out int n) ? n + 1 : 1;
             }
+            if (counts.Count == 0) return "混合";
             int total = counts.Values.Sum();
             var top = counts.OrderByDescending(kv => kv.Value).First();
             return top.Value >= 3 && top.Value * 2 > total ? top.Key : "混合";

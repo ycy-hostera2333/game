@@ -16,6 +16,8 @@ namespace Deeptide.Core.Cards
         public string Name;
         public CardType Type;
         public Rarity Rarity;
+        /// <summary>归属角色（characters.csv 的 id），空 = 通用。奖励、商店、事件只出本角色和通用的牌（策划/14 §1.1）。</summary>
+        public string Character = "";
         public string Archetype;
         /// <summary>费用；X 费牌为 0，看 XCost。</summary>
         public int Cost;
@@ -126,7 +128,7 @@ namespace Deeptide.Core.Cards
         {
             int v = V(key);
             if (key.Contains("Damage")) return DamageCalculator.Compute(e, e.Player, target, v);
-            if (key.Contains("Block")) return BlockCalculator.Compute(e.Player, v, true);
+            if (key.Contains("Block")) return BlockCalculator.Compute(e, e.Player, v, true);
             return v;
         }
 

@@ -14,7 +14,8 @@ namespace Deeptide.Core
     /// </summary>
     public enum SanitySource { Card, Enemy, Erosion, Curse, Effect, Aura }
 
-    public enum StatusId { Strength, Dexterity, Vulnerable, Weak, Frail, Bound, Ward }
+    /// <summary>新状态加在末尾：顺序决定显示和哈希的排列。Bleed = 流血（敌人，策划/14 §1.4）。</summary>
+    public enum StatusId { Strength, Dexterity, Vulnerable, Weak, Frail, Bound, Ward, Bleed }
 
     /// <summary>牌所在的位置。Play = 正在结算的牌；None = 不在任何牌堆（刚生成，或能力牌打出后移出战斗）。</summary>
     public enum PileKind { Draw, Hand, Discard, Exhaust, Play, None }

@@ -35,7 +35,9 @@ namespace Deeptide.Core.Actions
 
             bool wasLunatic = p.IsLunatic;
             int before = p.Sanity;
-            e.SetSanity(before - _amount);
+            int floor = 0;   // 永夜：理智不会被扣到 1 以下
+            foreach (var l in e.Listeners) floor = Math.Max(floor, l.SanityFloor(e));
+            e.SetSanity(Math.Max(before - _amount, Math.Min(floor, before)));
             int lost = before - p.Sanity;
             if (lost <= 0) return;
 
@@ -45,12 +47,7 @@ namespace Deeptide.Core.Actions
             ev.Value = p.Sanity;
             e.Notify(l => l.OnSanityLost(e, lost, _source));
 
-            if (!wasLunatic && p.IsLunatic)
-            {
-                if (stats.FirstLunacyTurn == 0) stats.FirstLunacyTurn = e.State.Turn;
-                e.Log.Add(BattleEventType.LunacyEntered, "进入癫狂：双面牌翻到癫狂面，敌人意图变得模糊");
-                e.Notify(l => l.OnLunacyChanged(e, true));
-            }
+            if (!wasLunatic && p.IsLunatic) e.LunacyCrossed(true);
 
             // 最后插队，保证崩溃排在其他触发效果之前
             if (p.Sanity == 0) e.Queue.AddToTop(new CollapseAction());
@@ -96,11 +93,7 @@ namespace Deeptide.Core.Actions
             ev.Value = p.Sanity;
             ev.Value2 = overflow;
             e.Notify(l => l.OnSanityRestored(e, amount, overflow));
-            if (wasLunatic && !p.IsLunatic)
-            {
-                e.Log.Add(BattleEventType.LunacyLeft, "离开癫狂：双面牌翻回清醒面");
-                e.Notify(l => l.OnLunacyChanged(e, false));
-            }
+            if (wasLunatic && !p.IsLunatic) e.LunacyCrossed(false);
         }
     }
 
@@ -142,11 +135,7 @@ namespace Deeptide.Core.Actions
 
             bool wasLunatic = p.IsLunatic;
             e.SetSanity(Math.Min(cfg.CollapseSanityReset, p.MaxSanity));
-            if (wasLunatic && !p.IsLunatic)
-            {
-                e.Log.Add(BattleEventType.LunacyLeft, "离开癫狂：双面牌翻回清醒面");
-                e.Notify(l => l.OnLunacyChanged(e, false));
-            }
+            if (wasLunatic && !p.IsLunatic) e.LunacyCrossed(false, counts: false);   // 重置不算复归（策划/14 §1.2）
         }
     }
 }

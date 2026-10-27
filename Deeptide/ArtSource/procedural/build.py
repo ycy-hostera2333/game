@@ -37,11 +37,15 @@ CARD_TYPE = {}
 
 def load_types():
     csv = HERE.parents[1] / 'Assets' / '_Project' / 'Data' / 'cards.csv'
+    col = {}
     for line in csv.read_text(encoding='utf-8').splitlines():
-        if not line or line.startswith('#') or line.startswith('id,'):
+        if not line or line.startswith('#'):
             continue
         f = line.split(',')
-        CARD_TYPE[f[0]] = (f[2], f[1], f[8] == '1')
+        if f[0] == 'id':
+            col = {name: i for i, name in enumerate(f)}   # 按表头取列，表里加列不会错位
+            continue
+        CARD_TYPE[f[0]] = (f[col['type']], f[col['name']], f[col['dual']] == '1')
 
 
 def window_mask(kind, w=624, h=432):

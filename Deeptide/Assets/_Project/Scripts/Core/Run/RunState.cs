@@ -196,6 +196,8 @@ namespace Deeptide.Core.Run
         public int Collapses;
         public int LunacyTurns;
         public int ClarityTurns;
+        /// <summary>算数的变身 / 复归次数（每轮第一次跨线，策划/14 §1.2）。</summary>
+        public int Transforms, Reverts;
         public bool EnteredLunacy;
         public int PotionsUsed;
         /// <summary>战斗结束时非召唤物敌人剩余的生命（输了的时候看差多少）。</summary>
@@ -219,6 +221,8 @@ namespace Deeptide.Core.Run
         public int Version = RunEngine.SaveVersion;
         public ulong Seed;
         public ulong[] Rng;
+        /// <summary>角色（characters.csv 的 id）。加角色之前的存档没有这个字段，读进来按调查员算。</summary>
+        public string Character = CharacterIds.Investigator;
 
         public int MaxHp;
         public int Hp;

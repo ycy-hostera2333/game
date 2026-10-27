@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using Deeptide.Core.Cards;
-using Deeptide.Core.Content;
 using Deeptide.Core.Enemies;
 using Deeptide.Core.Map;
 using Deeptide.Core.Potions;
@@ -13,15 +12,16 @@ using Deeptide.Core.Relics;
 
 namespace Deeptide.Core.Run
 {
-    /// <summary>开局参数（策划/03 §1、06）。</summary>
+    /// <summary>开局参数（策划/03 §1、06、14）。生命、理智上限、金币、牌组、遗物留空就用角色表（characters.csv）里的值，填了就覆盖（测试、模拟器用）。</summary>
     public sealed class RunConfig
     {
-        public int MaxHp = 70;
-        public int MaxSanity = 10;
-        public int Gold = 99;
+        public string Character = CharacterIds.Investigator;
+        public int? MaxHp;
+        public int? MaxSanity;
+        public int? Gold;
         public int PotionSlots = 3;
-        public List<string> Deck = TestDecks.Starter.ToList();
-        public List<string> Relics = new List<string> { RelicIds.InvestigatorNotes };
+        public List<string> Deck;
+        public List<string> Relics;
         public BattleConfig Battle = new BattleConfig();
         public MapConfig Map = new MapConfig();
     }
@@ -67,16 +67,18 @@ namespace Deeptide.Core.Run
         {
             var e = new RunEngine(config);
             var c = e.Config;
+            var ch = CharacterLibrary.Get(c.Character);
             e.Rng = new RunRng(seed);
             e.State = new RunState
             {
                 Seed = seed,
-                MaxHp = c.MaxHp,
-                Hp = c.MaxHp,
-                MaxSanity = c.MaxSanity,
-                Gold = c.Gold,
-                Deck = c.Deck.ToList(),
-                Relics = c.Relics.ToList(),
+                Character = ch.Id,
+                MaxHp = c.MaxHp ?? ch.MaxHp,
+                Hp = c.MaxHp ?? ch.MaxHp,
+                MaxSanity = c.MaxSanity ?? ch.MaxSanity,
+                Gold = c.Gold ?? ch.Gold,
+                Deck = (c.Deck ?? ch.Deck).ToList(),
+                Relics = c.Relics?.ToList() ?? new List<string> { ch.StartingRelic },
                 Potions = Enumerable.Repeat<string>(null, c.PotionSlots).ToList(),
                 Map = MapGenerator.Generate(e.Rng.Map, c.Map),
                 Phase = RunPhase.Map,
@@ -397,10 +399,18 @@ namespace Deeptide.Core.Run
                 Hp = State.Hp,
                 MaxSanity = State.MaxSanity,
                 Relics = State.Relics.ToList(),
+                Traits = TraitsOf(State.Character),
                 Potions = State.Potions.ToList(),
                 PotionSlots = State.Potions.Count,
                 Config = Config.Battle,
             });
+        }
+
+        /// <summary>角色特性（隐藏遗物）。调查员没有。</summary>
+        static List<string> TraitsOf(string character)
+        {
+            var trait = CharacterLibrary.Get(character).Trait;
+            return string.IsNullOrEmpty(trait) ? new List<string>() : new List<string> { trait };
         }
 
         void FinishBattle()
@@ -421,12 +431,15 @@ namespace Deeptide.Core.Run
                 Collapses = s.Collapses,
                 LunacyTurns = s.LunacyTurns,
                 ClarityTurns = s.ClarityTurns,
+                Transforms = s.Transforms,
+                Reverts = s.Reverts,
                 EnteredLunacy = s.FirstLunacyTurn > 0,
                 PotionsUsed = s.PotionsUsed,
                 EnemyHpLeft = b.State.Enemies.Where(x => !x.Minion).Sum(x => x.Hp),
                 PlaysByCard = new Dictionary<string, int>(s.PlaysByCard),
             });
             State.Hp = b.Player.Hp;
+            State.MaxHp = b.Player.MaxHp;   // 饱餐会在战斗里永久加最大生命
             State.Potions = b.Player.Potions.Select(p => p?.Id).ToList();
             for (int i = 0; i < s.CursesGained; i++) State.Deck.Add(CardIds.Whispers);
             Battle = null;
@@ -694,7 +707,7 @@ namespace Deeptide.Core.Run
         {
             var s = State;
             var sb = new StringBuilder();
-            sb.Append(s.Phase).Append('|').Append(s.Row).Append(',').Append(s.Col).Append('|').Append(s.Floor)
+            sb.Append(s.Character).Append('|').Append(s.Phase).Append('|').Append(s.Row).Append(',').Append(s.Col).Append('|').Append(s.Floor)
               .Append("|hp ").Append(s.Hp).Append('/').Append(s.MaxHp).Append("|san ").Append(s.MaxSanity)
               .Append("|gold ").Append(s.Gold).Append("|pity ").Append(s.RarePity).Append("|pot% ").Append(s.PotionChance)
               .Append("|rm ").Append(s.Removals).Append("|fights ").Append(s.BattlesFought).Append('/').Append(s.NormalFights).Append('\n');

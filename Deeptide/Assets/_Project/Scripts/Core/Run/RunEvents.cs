@@ -67,8 +67,11 @@ namespace Deeptide.Core.Run
             {
                 string id = kv.Key;
                 bool ok = CanChoose(run, id, out var reason);
-                return new RunOption { Label = Format(kv.Value), Enabled = ok, Reason = reason, Tag = id, Do = () => Choose(run, st, id) };
+                return new RunOption { Label = FormatOption(run, kv.Value), Enabled = ok, Reason = reason, Tag = id, Do = () => Choose(run, st, id) };
             }).ToList();
+
+        /// <summary>选项文本。默认按 vars 替换；按角色变化的事件（梦中的导师）重写它。</summary>
+        protected virtual string FormatOption(RunEngine run, string text) => Format(text);
 
         protected virtual bool CanChoose(RunEngine run, string option, out string reason)
         {
@@ -343,24 +346,36 @@ namespace Deeptide.Core.Run
         }
     }
 
-    /// <summary>8 梦中的导师（第 9 层起，每局最多一次）：追随梦境（1 张打击变成梦魇之刃，保留升级）/ 惊醒（理智上限恢复到 10，恢复生命）。</summary>
+    /// <summary>
+    /// 8 梦中的导师（第 9 层起，每局最多一次）：追随梦境（1 张打击变成本角色的梦中之牌，保留升级）/ 惊醒（理智上限恢复到角色初始值，恢复生命）。
+    /// events.csv 里写的是调查员的版本（梦魇之刃、Sanity=10），按角色换成 characters.csv 的 dream_card 和 max_sanity（策划/14 §6）。
+    /// </summary>
     public sealed class DreamMentor : RunEvent
     {
         public override IEnumerable<string> Handles => new[] { "Follow", "Wake" };
+
+        protected override string FormatOption(RunEngine run, string text)
+        {
+            var ch = CharacterLibrary.Get(run.State.Character);
+            var investigator = CharacterLibrary.Get(CharacterIds.Investigator);
+            return Format(text.Replace("{Sanity}", ch.MaxSanity.ToString()))
+                .Replace(CardLibrary.Get(investigator.DreamCard).Name, CardLibrary.Get(ch.DreamCard).Name);
+        }
 
         protected override bool CanChoose(RunEngine run, string option, out string reason) =>
             option != "Follow" ? Need(true, null, out reason) : Need(run.State.Deck.Any(DeckQueries.IsStrike), "牌组里没有打击", out reason);
 
         protected override void Choose(RunEngine run, EventState st, string option)
         {
+            var ch = CharacterLibrary.Get(run.State.Character);
             if (option == "Follow")
             {
                 int k = run.State.Deck.FindIndex(DeckQueries.IsStrike);
-                run.State.Deck[k] = run.State.Deck[k].EndsWith("+", StringComparison.Ordinal) ? "C06+" : "C06";
+                run.State.Deck[k] = ch.DreamCard + (run.State.Deck[k].EndsWith("+", StringComparison.Ordinal) ? "+" : "");
             }
             else
             {
-                run.State.MaxSanity = Math.Max(run.State.MaxSanity, V("Sanity"));
+                run.State.MaxSanity = Math.Max(run.State.MaxSanity, ch.MaxSanity);
                 run.Heal(V("Heal"));
             }
             run.GoToMap();

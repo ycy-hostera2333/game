@@ -132,33 +132,48 @@ namespace Deeptide.Core
 
             State.Phase = BattlePhase.Resolving;
             bool mad = UsesMadFace(card);            // ① 锁定卡面
+            bool both = card.Def.Dual && _listeners.Any(l => l.ResolvesBothFaces(this, card));   // 人狼同体：两面都结算
             int cost = CostOf(card);
             int x = card.Def.XCost ? Player.Energy : 0;
             MoveCard(card, PileKind.Play);
             SetEnergy(Player.Energy - cost);         // ② 能量
             State.CardsPlayedThisTurn++;
+            if (card.Def.Type == CardType.Attack) State.AttacksPlayedThisTurn++;
             State.Stats.CardsPlayed++;
             State.Stats.PlaysByCard[card.Id] = State.Stats.PlaysByCard.TryGetValue(card.Id, out var plays) ? plays + 1 : 1;
+            string face = !card.Def.Dual ? "" : both ? "（两面）" : mad ? "（癫狂面）" : "（清醒面）";
             var ev = Log.Add(BattleEventType.CardPlayed,
-                $"打出 {card.Name}{(card.Def.Dual ? (mad ? "（癫狂面）" : "（清醒面）") : "")}{(card.Def.XCost ? $"（X={x}）" : "")}{(target != null ? " → " + target.Name : "")}",
+                $"打出 {card.Name}{face}{(card.Def.XCost ? $"（X={x}）" : "")}{(target != null ? " → " + target.Name : "")}",
                 "调查员", target?.Name);
             ev.CardUid = card.Uid;
             ev.Id = card.DeckId;
             ev.Source = BattleEvent.PlayerEntity;
             ev.Entity = target?.Index ?? BattleEvent.NoEntity;
-            ev.Flag = mad;
+            ev.Flag = mad || both;
             ev.Value = cost;
             ev.Value2 = x;
 
-            int sanityCost = card.SanityCost(mad, x);   // ③ 代价
-            if (sanityCost > 0) Queue.AddToBottom(new LoseSanityAction(sanityCost, SanitySource.Card));
-
-            card.Play(new PlayContext(this, card, target, mad, x));   // ④ 效果
+            if (both)
+            {
+                // 先清醒面（人形面）再癫狂面（兽形面），每一面照常 ③ 付代价 ④ 结算（策划/14 §2.5）。
+                // 兽形的 +2、格挡减半看结算那一刻的形态，所以人形面把你推进兽形之后，兽形面就吃得到加成
+                PayAndPlay(card, target, false, x);
+                PayAndPlay(card, target, true, x);
+            }
+            else PayAndPlay(card, target, mad, x);
             Queue.AddToBottom(new FinishCardAction(card));            // ⑤ 去向
-            Notify(l => l.OnCardPlayed(this, card, mad));
+            Notify(l => l.OnCardPlayed(this, card, mad || both));
 
             Settle();
             return true;
+        }
+
+        /// <summary>出牌的第 ③ 步（代价）和第 ④ 步（效果）。</summary>
+        void PayAndPlay(Card card, EnemyState target, bool mad, int x)
+        {
+            int sanityCost = card.SanityCost(mad, x);   // ③ 代价
+            if (sanityCost > 0) Queue.AddToBottom(new LoseSanityAction(sanityCost, SanitySource.Card));
+            card.Play(new PlayContext(this, card, target, mad, x));   // ④ 效果
         }
 
         EnemyState TargetAt(int index) =>
@@ -328,6 +343,12 @@ namespace Deeptide.Core
             Rng.Shuffle.Shuffle(p.DrawPile);
             PutInnateOnTop();
 
+            foreach (var id in Setup.Traits)
+            {
+                var trait = RelicLibrary.Create(id);
+                p.Traits.Add(trait);
+                AddListener(trait);
+            }
             foreach (var id in Setup.Relics)
             {
                 var relic = RelicLibrary.Create(id);
@@ -379,7 +400,9 @@ namespace Deeptide.Core
             var ev = Log.Add(BattleEventType.TurnStarted, $"—— 第 {State.Turn} 回合 ——", amount: State.Turn);
             ev.Value = State.Turn;
             State.CardsPlayedThisTurn = 0;
+            State.AttacksPlayedThisTurn = 0;
             SetIntentsRevealed(false);
+            SetRoundFlags(false, false);   // 新的一轮从这里开始，侵蚀推过线算这一轮的变身
 
             if (State.Turn >= Config.ErosionStartTurn)
                 Queue.AddToBottom(new LoseSanityAction(Config.ErosionAmount, SanitySource.Erosion));
@@ -428,6 +451,19 @@ namespace Deeptide.Core
         }
 
         void EnemyAct(EnemyState en)
+        {
+            if (en.IsDead) return;
+            if (en.Statuses.Get(StatusId.Bleed) > 0)
+            {
+                // 流血在行动前结算（策划/14 §1.4）；它触发的效果（嗜血……）结算完、确认还活着，才轮到它出招
+                Queue.AddToBottom(new BleedAction(en));
+                PushFlow(() => EnemyTakeTurn(en));
+                return;
+            }
+            EnemyTakeTurn(en);
+        }
+
+        void EnemyTakeTurn(EnemyState en)
         {
             if (en.IsDead) return;
             SetBlock(en, 0);
@@ -551,6 +587,46 @@ namespace Deeptide.Core
             if (State.IntentsRevealedThisTurn == revealed) return;
             State.IntentsRevealedThisTurn = revealed;
             Log.State(BattleEventType.IntentRevealChanged, BattleEvent.PlayerEntity, revealed ? 1 : 0);
+        }
+
+        internal void SetRoundFlags(bool transformed, bool reverted)
+        {
+            if (State.TransformedThisRound == transformed && State.RevertedThisRound == reverted) return;
+            State.TransformedThisRound = transformed;
+            State.RevertedThisRound = reverted;
+            Log.State(BattleEventType.RoundFlagsChanged, BattleEvent.PlayerEntity, (transformed ? 1 : 0) | (reverted ? 2 : 0));
+        }
+
+        /// <summary>
+        /// 理智跨过癫狂线（策划/01 §2.2）：写叙述事件，通知 OnLunacyChanged（每次都通知）。
+        /// 每轮第一次进入 / 离开癫狂另外通知 OnTransform / OnRevert——狼人的变身 / 复归（策划/14 §1.2）。
+        /// 崩溃把理智重置到 3 时 counts = false：那不是玩家或敌人推过去的，不算复归。
+        /// </summary>
+        internal void LunacyCrossed(bool entered, bool counts = true)
+        {
+            if (entered)
+            {
+                if (State.Stats.FirstLunacyTurn == 0) State.Stats.FirstLunacyTurn = State.Turn;
+                Log.Add(BattleEventType.LunacyEntered, "进入癫狂：双面牌翻到癫狂面，敌人意图变得模糊");
+            }
+            else Log.Add(BattleEventType.LunacyLeft, "离开癫狂：双面牌翻回清醒面");
+            Notify(l => l.OnLunacyChanged(this, entered));
+            if (!counts) return;
+
+            if (entered)
+            {
+                if (State.TransformedThisRound) return;
+                SetRoundFlags(true, State.RevertedThisRound);
+                State.Stats.Transforms++;
+                Notify(l => l.OnTransform(this));
+            }
+            else
+            {
+                if (State.RevertedThisRound) return;
+                SetRoundFlags(State.TransformedThisRound, true);
+                State.Stats.Reverts++;
+                Notify(l => l.OnRevert(this));
+            }
         }
 
         /// <summary>按 Uid 找手牌 / 牌堆里的牌，找不到返回 null。</summary>
@@ -680,7 +756,8 @@ namespace Deeptide.Core
 
         // ------------------------------------------------------------------ 结算工具（供动作调用）
 
-        internal void ApplyDamage(Combatant source, Combatant target, int amount)
+        /// <summary>造成伤害（先扣格挡）。返回实际扣掉的生命。</summary>
+        internal int ApplyDamage(Combatant source, Combatant target, int amount)
         {
             int absorbed = Math.Min(target.Block, amount);
             SetBlock(target, target.Block - absorbed);
@@ -696,6 +773,22 @@ namespace Deeptide.Core
             ev.Source = source?.EntityId ?? BattleEvent.NoEntity;
             ev.Value = hpLoss;
             AfterHpLoss(target, died, hpLoss);
+            return hpLoss;
+        }
+
+        /// <summary>攻击伤害的一段打完之后通知 OnAttackHit（倒刺爪）。效果伤害不通知。</summary>
+        internal void AttackHit(Combatant source, Combatant target, int hpLoss) =>
+            Notify(l => l.OnAttackHit(this, source, target, hpLoss));
+
+        /// <summary>永久增加最大生命，同时回复同样多的生命（饱餐）。跑局层在战斗结束时抄最大生命。</summary>
+        internal void GainMaxHp(int amount)
+        {
+            if (amount <= 0) return;
+            Player.MaxHp += amount;
+            Player.Hp += amount;
+            State.Stats.MaxHpGained += amount;
+            Log.State(BattleEventType.HpChanged, Player.EntityId, Player.Hp, value2: Player.MaxHp);
+            Log.Add(BattleEventType.Healed, $"最大生命 +{amount} → {Player.Hp}/{Player.MaxHp}", target: Player.Name, amount: amount).Entity = Player.EntityId;
         }
 
         internal void LoseHp(Combatant target, int amount)

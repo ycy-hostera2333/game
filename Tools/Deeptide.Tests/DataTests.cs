@@ -54,12 +54,15 @@ namespace Deeptide.Tests
             Assert.Throws<FormatException>(() => Csv.ParseVars("Damage=six"));
         }
 
-        static DataSource Modified(Func<string, string> cards = null, Func<string, string> enemies = null, Func<string, string> relics = null)
+        static DataSource Modified(Func<string, string> cards = null, Func<string, string> enemies = null, Func<string, string> relics = null,
+                                   Func<string, string> characters = null, Func<string, string> potions = null)
         {
             var src = DataFiles.Read();
             if (cards != null) src.Cards = cards(src.Cards);
             if (enemies != null) src.Enemies = enemies(src.Enemies);
             if (relics != null) src.Relics = relics(src.Relics);
+            if (characters != null) src.Characters = characters(src.Characters);
+            if (potions != null) src.Potions = potions(src.Potions);
             return src;
         }
 
@@ -72,7 +75,43 @@ namespace Deeptide.Tests
         [Test]
         public void Validation_RowWithoutClass()
         {
-            AssertError(Modified(cards: c => c + "Z99,不存在,Skill,Common,通用,1,,None,,,,Block=5,,获得 {Block} 格挡。,,,\n"), "Z99 没有对应的类");
+            AssertError(Modified(cards: c => c + "Z99,不存在,Skill,Common,,通用,1,,None,,,,Block=5,,获得 {Block} 格挡。,,,\n"), "Z99 没有对应的类");
+        }
+
+        // ---------------- 角色（09 M6.1）
+
+        [Test]
+        public void Validation_OwnerMustBeKnownCharacter()
+        {
+            AssertError(Modified(cards: c => c.Replace("C02,守夜灯,Skill,Common,investigator,", "C02,守夜灯,Skill,Common,nobody,")), "C02 的 character 列是不存在的角色 nobody");
+            // 起始牌组里的牌划错了角色：牌组那一行报错，归属检查照样进行，也不会误报「缺少默认角色」
+            var errors = GameData.Validate(Modified(cards: c => c.Replace("C01,祷告,Skill,Common,investigator,", "C01,祷告,Skill,Common,nobody,")));
+            Assert.That(errors.Any(e => e.Contains("C01 的 character 列是不存在的角色 nobody")), Is.True, string.Join("\n", errors));
+            Assert.That(errors.Any(e => e.Contains("缺少默认角色")), Is.False, string.Join("\n", errors));
+            AssertError(Modified(relics: r => r.Replace("old_pipe,旧烟斗,Common,,", "old_pipe,旧烟斗,Common,nobody,")), "old_pipe 的 character 列是不存在的角色 nobody");
+            AssertError(Modified(potions: p => p.Replace("iron_tonic,铁剂,Common,,", "iron_tonic,铁剂,Common,nobody,")), "iron_tonic 的 character 列是不存在的角色 nobody");
+        }
+
+        [Test]
+        public void Validation_CharacterDeckAndRelic()
+        {
+            AssertError(Modified(characters: c => c.Replace("C01;B03", "C01;X99")), "不存在的牌 X99");
+            AssertError(Modified(characters: c => c.Replace("B01*5", "B01*five")), "牌组写法错误");
+            AssertError(Modified(characters: c => c.Replace(",investigator_notes,", ",old_pipe,")), "稀有度不是 Starter");
+            AssertError(Modified(characters: c => c.Replace(",investigator_notes,", ",no_relic,")), "起始遗物 no_relic 不存在");
+            AssertError(Modified(characters: c => c.Replace("70,10,99", "70,3,99")), "理智上限 3 低于 4");
+        }
+
+        [Test]
+        public void Validation_OtherCharactersContentCannotStartInDeck()
+        {
+            // 另一个角色的牌不能放进调查员的起始牌组；默认角色（调查员）必须存在
+            var src = Modified(
+                cards: c => c.Replace("C02,守夜灯,Skill,Common,investigator,", "C02,守夜灯,Skill,Common,tester,"),
+                characters: c => c.Replace("C01;B03", "C02;B03") + "tester,测试员,测试,50,8,99,investigator_notes,,C02,B01*10,只在测试里出现。\n",
+                relics: r => r.Replace("investigator_notes,调查笔记,Starter,investigator,", "investigator_notes,调查笔记,Starter,,"));
+            AssertError(src, "investigator 的起始牌组里的 C02 属于角色 tester");
+            AssertError(Modified(characters: c => c.Replace("investigator,调查员", "detective,调查员")), "缺少默认角色 investigator");
         }
 
         [Test]

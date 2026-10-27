@@ -16,6 +16,8 @@ namespace Deeptide.Core
         public int Hp = 70;
         public int MaxSanity = 10;
         public List<string> Relics = new List<string> { RelicIds.InvestigatorNotes };
+        /// <summary>角色特性等隐藏遗物（relics.csv 里 rarity = Trait 的行）：和遗物一样监听，但不在遗物栏里（策划/14、09 M6.2）。</summary>
+        public List<string> Traits = new List<string>();
         /// <summary>药水栏的内容，null = 空位。长度不足 PotionSlots 时补空位。</summary>
         public List<string> Potions = new List<string>();
         public int PotionSlots = 3;
@@ -53,6 +55,10 @@ namespace Deeptide.Core
         public int Collapses;
         /// <summary>本场因崩溃永久加入牌组的疯语数，由跑局层读取。</summary>
         public int CursesGained;
+        /// <summary>本场永久增加的最大生命（饱餐），跑局层直接抄战斗结束时的最大生命。</summary>
+        public int MaxHpGained;
+        /// <summary>算数的变身 / 复归次数（每轮第一次，策划/14 §8「每场变身 + 复归 ≥ 3」）。</summary>
+        public int Transforms, Reverts;
         /// <summary>首次进入癫狂的回合，0 = 从未进入。</summary>
         public int FirstLunacyTurn;
         /// <summary>玩家行动阶段开始时处于癫狂的回合数。</summary>
@@ -96,8 +102,16 @@ namespace Deeptide.Core
         public bool EnemyTurn;
         /// <summary>本回合已经打出的牌数（左轮射击等「本回合第一张」判定）。</summary>
         public int CardsPlayedThisTurn;
+        /// <summary>本回合已经打出的攻击牌数（含正在结算的这张；围猎）。</summary>
+        public int AttacksPlayedThisTurn;
         /// <summary>本回合敌人意图不受癫狂模糊（点亮提灯）。</summary>
         public bool IntentsRevealedThisTurn;
+        /// <summary>
+        /// 本轮已经变身 / 复归过（每轮第一次进入 / 离开癫狂，策划/14 §1.2）。一轮 = 玩家回合开始到下一次玩家回合开始，
+        /// 中间的敌人回合算这一轮；回合开始的侵蚀算新的一轮。同一轮里再跨线照常翻面，只是不再触发「变身时 / 复归时」。
+        /// </summary>
+        public bool TransformedThisRound;
+        public bool RevertedThisRound;
         /// <summary>Phase = WaitingForChoice 时的选择内容。</summary>
         public PendingChoice Choice;
         public readonly BattleStats Stats = new BattleStats();

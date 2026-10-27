@@ -11,9 +11,12 @@ namespace Deeptide.Core.Run
     /// <summary>奖励、宝箱和商店（策划/06 §3–5）。卡牌奖励用 reward 流，商店用 shop 流。</summary>
     public sealed partial class RunEngine
     {
-        /// <summary>可以出现在奖励 / 商店里的角色牌（不含基础牌、状态牌和诅咒）。</summary>
-        public static IEnumerable<CardDef> CharacterCards(Rarity rarity) =>
-            CardLibrary.All.Where(d => d.Rarity == rarity && d.Type != CardType.Curse && d.Type != CardType.Status);
+        /// <summary>可以出现在奖励 / 商店里的角色牌：本角色和通用的，不含状态牌和诅咒。</summary>
+        public IEnumerable<CardDef> CharacterCards(Rarity rarity) =>
+            CardLibrary.All.Where(d => d.Rarity == rarity && d.Type != CardType.Curse && d.Type != CardType.Status && Mine(d.Character));
+
+        /// <summary>归属列 owner 的东西能不能在这一局出现（通用的，或者属于当前角色的，策划/14 §1.1）。</summary>
+        bool Mine(string owner) => CharacterLibrary.Allows(owner, State.Character);
 
         /// <summary>
         /// 抽一张卡的稀有度（策划/06 §4.1）：普通战斗 60 / 37 / 3，精英 50 / 40 / 10；
@@ -51,7 +54,7 @@ namespace Deeptide.Core.Run
         /// <summary>从某个稀有度里随机挑 count 张不同的牌（事件用）。</summary>
         internal List<string> RandomCards(Pcg32 rng, int count, Func<CardDef, bool> filter)
         {
-            var pool = CardLibrary.All.Where(d => d.Type != CardType.Curse && d.Type != CardType.Status && d.Rarity != Rarity.Basic && filter(d)).ToList();
+            var pool = CardLibrary.All.Where(d => d.Type != CardType.Curse && d.Type != CardType.Status && d.Rarity != Rarity.Basic && Mine(d.Character) && filter(d)).ToList();
             var result = new List<string>();
             for (int i = 0; i < count && pool.Count > 0; i++)
             {
@@ -76,7 +79,7 @@ namespace Deeptide.Core.Run
             for (int i = Array.IndexOf(order, rarity); i < order.Length + Array.IndexOf(order, rarity); i++)
             {
                 var r = order[i % order.Length];
-                var pool = RelicLibrary.All.Where(d => d.Rarity == r && !HasRelic(d.Id)).ToList();
+                var pool = RelicLibrary.All.Where(d => d.Rarity == r && !HasRelic(d.Id) && Mine(d.Character)).ToList();
                 if (pool.Count > 0) return pool[rng.NextInt(pool.Count)].Id;
             }
             return null;
@@ -85,7 +88,7 @@ namespace Deeptide.Core.Run
         internal string RollPotion(Pcg32 rng)
         {
             var rarity = rng.Percent() < 70 ? PotionRarity.Common : PotionRarity.Uncommon;
-            var pool = PotionLibrary.All.Where(d => d.Rarity == rarity).ToList();
+            var pool = PotionLibrary.All.Where(d => d.Rarity == rarity && Mine(d.Character)).ToList();
             return pool[rng.NextInt(pool.Count)].Id;
         }
 
@@ -196,12 +199,12 @@ namespace Deeptide.Core.Run
             for (int i = 0; i < 2; i++)
             {
                 var rarity = RollRelicRarity(rng);
-                var pool = RelicLibrary.All.Where(d => d.Rarity == rarity && !HasRelic(d.Id) && !relics.Contains(d.Id)).ToList();
-                if (pool.Count == 0) pool = RelicLibrary.All.Where(d => d.Rarity != RelicRarity.Starter && d.Rarity != RelicRarity.Shop && !HasRelic(d.Id) && !relics.Contains(d.Id)).ToList();
+                var pool = RelicLibrary.All.Where(d => d.Rarity == rarity && !HasRelic(d.Id) && !relics.Contains(d.Id) && Mine(d.Character)).ToList();
+                if (pool.Count == 0) pool = RelicLibrary.All.Where(d => d.Rarity != RelicRarity.Starter && d.Rarity != RelicRarity.Shop && !HasRelic(d.Id) && !relics.Contains(d.Id) && Mine(d.Character)).ToList();
                 if (pool.Count == 0) continue;
                 relics.Add(pool[rng.NextInt(pool.Count)].Id);
             }
-            var shopOnly = RelicLibrary.All.Where(d => d.Rarity == RelicRarity.Shop && !HasRelic(d.Id)).ToList();
+            var shopOnly = RelicLibrary.All.Where(d => d.Rarity == RelicRarity.Shop && !HasRelic(d.Id) && Mine(d.Character)).ToList();
             if (shopOnly.Count > 0) relics.Add(shopOnly[rng.NextInt(shopOnly.Count)].Id);
             foreach (var id in relics)
             {

@@ -5,7 +5,8 @@ namespace Deeptide.Core
 {
     /// <summary>
     /// 状态层数表（策划/02 §5）。
-    /// 回合制状态（易伤 / 虚弱 / 脆弱）在持有者回合结束时 −1；束缚在抽牌时清空；心防用掉为止。
+    /// 回合制状态（易伤 / 虚弱 / 脆弱）在持有者回合结束时 −1；束缚在抽牌时清空；心防用掉为止；
+    /// 流血在敌人回合开始时结算后 −1（BleedAction，策划/14 §1.4）。
     /// </summary>
     public sealed class StatusSet
     {
@@ -46,6 +47,7 @@ namespace Deeptide.Core
                 case StatusId.Frail: return "脆弱";
                 case StatusId.Bound: return "束缚";
                 case StatusId.Ward: return "心防";
+                case StatusId.Bleed: return "流血";
                 default: return id.ToString();
             }
         }

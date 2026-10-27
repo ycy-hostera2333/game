@@ -233,7 +233,9 @@ namespace Deeptide.Sim
         {
             int n = int.Parse(Opt(o, "n", "200"));
             string deckOpt = Opt(o, "deck", "all"), encOpt = Opt(o, "enc", "all");
-            var decks = deckOpt == "all" ? new[] { "A", "B", "C", "D" } : deckOpt.Split(',');
+            var decks = deckOpt == "all" ? new[] { "A", "B", "C", "D" }
+                : deckOpt == "wolf" ? new[] { "W", "WH", "WM", "WB" }
+                : deckOpt.Split(',');
             var encs = encOpt == "all" ? new[] { "1", "2", "3" }
                 : encOpt == "pools" ? EncounterLibrary.All.Select(x => x.Id).ToArray()
                 : encOpt.StartsWith("pool:") ? EncounterLibrary.InPool(Enum.Parse<EncounterPool>(encOpt.Substring(5), true)).Select(x => x.Id).ToArray()

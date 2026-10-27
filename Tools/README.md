@@ -42,7 +42,7 @@ dotnet run --project Deeptide.Sim -- auto --deck B --enc 3 --seed 7       # AI �
 dotnet run --project Deeptide.Sim -- replay --deck C --enc 2 --seed 42 --cmds "play 4 1, play 0 -1, end, ..."
 ```
 
-- `--deck`：`starter` 起始牌组 / `A` 守夜 / `B` 堕落 / `C` 混合 / `D` 传染；`B0` / `C0` 是纸面原型时期的旧版 B / C（用来和重构前对比）
+- `--deck`：`starter` 起始牌组 / `A` 守夜 / `B` 堕落 / `C` 混合 / `D` 传染；`B0` / `C0` 是纸面原型时期的旧版 B / C（用来和重构前对比）；狼人：`W` 起始牌组 / `WH` 狂猎 / `WM` 月相 / `WB` 血宴，W 开头的牌组按狼人的生命、理智上限 6、狼牙吊坠和兽血特性开战，`batch --deck wolf` 一次跑四套
 - `--enc`：`1` 教团侍僧 / `2` 侍僧 + 呓语者 / `3` 失魂镇民 ×2，或者 `encounters.csv` 里的 ID（如 `elite_nun`、`boss_priest`）
 - 对战输入：`2` 打第 2 张牌（需要目标时会追问）；`2 1` 打第 2 张、目标 1 号敌人；`p1` 用第 1 格药水；等待选择时输入选项编号；`e` 结束回合；`a` 让 AI 打这一回合；`l` 看完整日志；`q` 退出
 
@@ -71,6 +71,8 @@ dotnet run --project Deeptide.Sim -- runauto --seed 3 --arch watch --log boss   
 dotnet run --project Deeptide.Sim -c Release -- runbatch --n 1000     # 四个流派各 1000 局
 ```
 
+整局模式（`run` / `runview` / `runreplay` / `runauto` / `runbatch`）都接受 `--char 角色ID` 选角色（`Data/characters.csv` 的 id，默认 `investigator`）。重放命令文件时角色要和录的时候一样；读档（`--load`）用存档里记的角色。`--set starter=…` 只改调查员的起始牌组。跑局 AI 的流派：调查员 `watch` / `fall` / `contagion`，狼人 `hunt` / `moon` / `feast`，两个角色都能 `mixed`；`--char werewolf` 时 `runbatch` 默认跑狼人的三个加混合，并多打印「变身 + 复归次数 / 兽形回合占比」。`--set` 也能改遗物数值（如 `wolf_fang_pendant.Block=6`）。
+
 - `run`：地图 / 奖励 / 商店 / 篝火 / 事件都是「输入选项编号」；`d2` 丢第 2 格药水；`deck` 看牌组；`map` 看地图；`a` 让 AI 走一步、`A` 让 AI 打完当前战斗；`q` 存档退出。打完会把整局命令写进 `run_commands.txt`，可以用 `runreplay --seed N --cmds-file run_commands.txt` 重放
 - `runview`：不开交互进程，每次往命令文件里追加命令（`pick 2`、`play 0 1`、`end`、`choose 0`、`potion 1 -1`、`drop 0`，`#` 后面是注释）再运行一次。`--from K` 只打印第 K 条命令之后发生的事，`--deck 1` / `--map 1` 附带牌组和地图。Claude 的跑局试玩就是这样打的（`原型/试玩_跑局/`）
 - `runbatch`：输出 策划/07 §5.2 的生命账本（到达 Boss 时的生命）、§5.3 的指标（三流派胜率差、进入癫狂的战斗占比、堕落崩溃次数、守夜清明回合占比）、各类战斗的回合和掉血、经济、死因和每张牌的拾取率。`--arch watch,fall,contagion,mixed` 选流派，`--cards 0` 不打印拾取率，`--telemetry 目录` 把每局写成和游戏一样的遥测 JSON（拿来和真人对照）
@@ -84,7 +86,7 @@ dotnet run --project Deeptide.Sim -- telemetry                          # 读本
 dotnet run --project Deeptide.Sim -- telemetry --dir ../试玩记录 --editor 0   # 读收回来的记录，排除编辑器里打的
 ```
 
-输出：逐局列表（开局时间、本机第几局、按最终牌组判断的流派、结果、层数、用时、Boss 前生命、死因）；打完的局按 `runbatch` 同一套口径汇总（胜率、第 1 局胜率、单局用时、生命账本、各类战斗、理智指标、经济、死因）；按流派分组的理智指标；篝火 / 商店 / 每个事件选了什么；每类节点的真实用时；打出最多的牌；真人的拾取率。没打完、放弃的局只算进战斗统计。同一局收到两份时留最后写的那份。
+输出：逐局列表（开局时间、本机第几局、角色、按最终牌组判断的流派、结果、层数、用时、Boss 前生命、死因）；打完的局按 `runbatch` 同一套口径汇总（胜率、第 1 局胜率、单局用时、生命账本、各类战斗、理智指标、经济、死因）；按流派分组的理智指标；篝火 / 商店 / 每个事件选了什么；每类节点的真实用时；打出最多的牌；真人的拾取率。没打完、放弃的局只算进战斗统计。同一局收到两份时留最后写的那份。
 
 ## AI
 

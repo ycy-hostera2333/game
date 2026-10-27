@@ -19,9 +19,10 @@ namespace Deeptide.Core.Data
         public string Potions;
         public string Encounters;
         public string Events;
+        public string Characters;
 
         /// <summary>Data 目录下的文件名，外层按这个名字找文件。</summary>
-        public static readonly string[] FileNames = { "cards.csv", "enemies.csv", "relics.csv", "potions.csv", "encounters.csv", "events.csv" };
+        public static readonly string[] FileNames = { "cards.csv", "enemies.csv", "relics.csv", "potions.csv", "encounters.csv", "events.csv", "characters.csv" };
 
         /// <summary>按文件名取文本，供外层统一读取：DataSource.From(name => File.ReadAllText(dir + name))。</summary>
         public static DataSource From(Func<string, string> read) => new DataSource
@@ -32,6 +33,7 @@ namespace Deeptide.Core.Data
             Potions = read("potions.csv"),
             Encounters = read("encounters.csv"),
             Events = read("events.csv"),
+            Characters = read("characters.csv"),
         };
     }
 
@@ -49,11 +51,15 @@ namespace Deeptide.Core.Data
     /// <summary>
     /// 内容数据的载入与校验（策划/09 M2）。校验项：
     /// 每一行都有对应的类、每个类都有对应的行；文本里的 {变量} 都有定义；升级变量在基础变量里存在；
-    /// 敌人招式表里的每个招式都在 moves 列声明过，声明过的招式也都被用到。所有问题一次性列出来。
+    /// 敌人招式表里的每个招式都在 moves 列声明过，声明过的招式也都被用到；卡牌 / 遗物 / 药水的 character 列都指向存在的角色，
+    /// 角色的起始遗物和起始牌组都存在、且不属于别的角色。所有问题一次性列出来。
     /// </summary>
     public static class GameData
     {
         static readonly Regex Placeholder = new Regex(@"\{(\w+)\}");
+
+        /// <summary>角色的理智上限不能低于这个值（策划/14 §1.3）。</summary>
+        public const int MinMaxSanity = 4;
 
         public static bool IsLoaded { get; private set; }
 
@@ -69,12 +75,14 @@ namespace Deeptide.Core.Data
             PotionLibrary.Clear();
             EncounterLibrary.Clear();
             EventLibrary.Clear();
+            CharacterLibrary.Clear();
             foreach (var d in staged.Cards) CardLibrary.Add(d);
             foreach (var d in staged.Enemies) EnemyLibrary.Add(d);
             foreach (var d in staged.Relics) RelicLibrary.Add(d);
             foreach (var d in staged.Potions) PotionLibrary.Add(d);
             foreach (var d in staged.Encounters) EncounterLibrary.Add(d);
             foreach (var d in staged.Events) EventLibrary.Add(d);
+            foreach (var d in staged.Characters) CharacterLibrary.Add(d);
             IsLoaded = true;
         }
 
@@ -93,6 +101,9 @@ namespace Deeptide.Core.Data
             public readonly List<PotionDef> Potions = new List<PotionDef>();
             public readonly List<EncounterDef> Encounters = new List<EncounterDef>();
             public readonly List<EventDef> Events = new List<EventDef>();
+            public readonly List<CharacterDef> Characters = new List<CharacterDef>();
+            /// <summary>角色表里出现过的全部 id（含校验没通过的行），归属列的检查用它，免得一行写错就连带报一串「角色不存在」。</summary>
+            public readonly HashSet<string> SeenCharacters = new HashSet<string>();
         }
 
         static Staged Stage(DataSource source, out List<string> errors)
@@ -105,6 +116,8 @@ namespace Deeptide.Core.Data
             LoadTable(source.Potions, "potions.csv", errs, t => LoadPotions(t, errs, staged.Potions));
             LoadTable(source.Encounters, "encounters.csv", errs, t => LoadEncounters(t, errs, staged.Encounters, staged.Enemies));
             LoadTable(source.Events, "events.csv", errs, t => LoadEvents(t, errs, staged.Events));
+            LoadTable(source.Characters, "characters.csv", errs, t => LoadCharacters(t, errs, staged));
+            CheckOwners(staged, errs);
             errors = errs;
             return staged;
         }
@@ -174,6 +187,7 @@ namespace Deeptide.Core.Data
                     Name = row["name"],
                     Type = row.Enum<CardType>("type"),
                     Rarity = row.Enum<Rarity>("rarity"),
+                    Character = row["character"],
                     Archetype = row["archetype"],
                     XCost = cost == "X",
                     Cost = cost == "X" ? 0 : row.Int("cost"),
@@ -269,6 +283,7 @@ namespace Deeptide.Core.Data
                     Id = id,
                     Name = row["name"],
                     Rarity = row.Enum<RelicRarity>("rarity"),
+                    Character = row["character"],
                     Tendency = row["tendency"],
                     Vars = Csv.ParseVars(row["vars"]),
                     Text = row["text"],
@@ -298,6 +313,7 @@ namespace Deeptide.Core.Data
                     Id = id,
                     Name = row["name"],
                     Rarity = row.Enum<PotionRarity>("rarity"),
+                    Character = row["character"],
                     Target = row.Enum<CardTarget>("target"),
                     Vars = Csv.ParseVars(row["vars"]),
                     Text = row["text"],
@@ -380,6 +396,100 @@ namespace Deeptide.Core.Data
                 output.Add(def);
             });
             CheckClasses(table.FileName, ids, EventClasses.Factories.Keys, errors);
+        }
+
+        // ------------------------------------------------------------------ characters.csv
+
+        static void LoadCharacters(CsvTable table, List<string> errors, Staged staged)
+        {
+            var output = staged.Characters;
+            EachRow(table, errors, row =>
+            {
+                string id = row["id"];
+                if (id.Length == 0) throw new FormatException("id 为空");
+                staged.SeenCharacters.Add(id);
+                if (output.Any(d => d.Id == id)) throw new FormatException($"角色 ID 重复：{id}");
+                var def = new CharacterDef
+                {
+                    Id = id,
+                    Name = row["name"],
+                    Title = row["title"],
+                    MaxHp = row.Int("max_hp"),
+                    MaxSanity = row.Int("max_sanity"),
+                    Gold = row.Int("gold"),
+                    StartingRelic = row["relic"],
+                    Trait = row["trait"],
+                    DreamCard = row["dream_card"],
+                    Deck = ParseDeck(row["deck"]),
+                    Text = row["text"],
+                };
+                if (def.Name.Length == 0) throw new FormatException($"{id} 没有名字");
+                if (def.MaxHp <= 0) throw new FormatException($"{id} 的最大生命必须大于 0");
+                if (def.MaxSanity < MinMaxSanity) throw new FormatException($"{id} 的理智上限 {def.MaxSanity} 低于 {MinMaxSanity}");
+                if (def.Gold < 0) throw new FormatException($"{id} 的初始金币不能为负");
+
+                var relic = staged.Relics.FirstOrDefault(r => r.Id == def.StartingRelic);
+                if (relic == null) throw new FormatException($"{id} 的起始遗物 {def.StartingRelic} 不存在");
+                if (relic.Rarity != RelicRarity.Starter) throw new FormatException($"{id} 的起始遗物 {relic.Id} 的稀有度不是 Starter");
+                if (!CharacterLibrary.Allows(relic.Character, id)) throw new FormatException($"{id} 的起始遗物 {relic.Id} 属于角色 {relic.Character}");
+
+                if (def.Trait.Length > 0)
+                {
+                    var trait = staged.Relics.FirstOrDefault(r => r.Id == def.Trait);
+                    if (trait == null) throw new FormatException($"{id} 的特性 {def.Trait} 不存在");
+                    if (trait.Rarity != RelicRarity.Trait) throw new FormatException($"{id} 的特性 {trait.Id} 的稀有度不是 Trait");
+                    if (!CharacterLibrary.Allows(trait.Character, id)) throw new FormatException($"{id} 的特性 {trait.Id} 属于角色 {trait.Character}");
+                }
+
+                var dream = staged.Cards.FirstOrDefault(c => c.Id == def.DreamCard);
+                if (dream == null) throw new FormatException($"{id} 的梦中之牌 {def.DreamCard} 不存在");
+                if (!CharacterLibrary.Allows(dream.Character, id)) throw new FormatException($"{id} 的梦中之牌 {dream.Id} 属于角色 {dream.Character}");
+
+                if (def.Deck.Count == 0) throw new FormatException($"{id} 的起始牌组是空的");
+                foreach (var cardId in def.Deck.Distinct())
+                {
+                    var card = staged.Cards.FirstOrDefault(c => c.Id == CardLibrary.StripUpgrade(cardId, out _));
+                    if (card == null) throw new FormatException($"{id} 的起始牌组里有不存在的牌 {cardId}");
+                    if (!CharacterLibrary.Allows(card.Character, id)) throw new FormatException($"{id} 的起始牌组里的 {cardId} 属于角色 {card.Character}");
+                }
+                output.Add(def);
+            });
+            if (!staged.SeenCharacters.Contains(CharacterIds.Investigator))
+                errors.Add($"{table.FileName}：缺少默认角色 {CharacterIds.Investigator}（RunConfig 和旧存档默认用它）");
+        }
+
+        /// <summary>「B01*5;B02*3;C01」：ID*N 表示 N 张，按书写顺序展开。</summary>
+        static List<string> ParseDeck(string text)
+        {
+            var deck = new List<string>();
+            foreach (var item in Csv.ParseList(text))
+            {
+                int star = item.IndexOf('*');
+                if (star < 0)
+                {
+                    deck.Add(item);
+                    continue;
+                }
+                string id = item.Substring(0, star).Trim();
+                if (!int.TryParse(item.Substring(star + 1).Trim(), out int n) || n <= 0 || id.Length == 0)
+                    throw new FormatException($"牌组写法错误：{item}（应为 ID 或 ID*张数）");
+                for (int i = 0; i < n; i++) deck.Add(id);
+            }
+            return deck;
+        }
+
+        /// <summary>卡牌 / 遗物 / 药水表的 character 列只能填角色表里有的 id（空 = 通用）。角色表本身没载入时不查，免得一条错误刷满屏。</summary>
+        static void CheckOwners(Staged staged, List<string> errors)
+        {
+            var known = staged.SeenCharacters;
+            if (known.Count == 0) return;
+            void Check(string file, string id, string owner)
+            {
+                if (owner.Length > 0 && !known.Contains(owner)) errors.Add($"{file}：{id} 的 character 列是不存在的角色 {owner}");
+            }
+            foreach (var d in staged.Cards) Check("cards.csv", d.Id, d.Character);
+            foreach (var d in staged.Relics) Check("relics.csv", d.Id, d.Character);
+            foreach (var d in staged.Potions) Check("potions.csv", d.Id, d.Character);
         }
     }
 }

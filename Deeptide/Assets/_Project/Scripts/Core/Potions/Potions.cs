@@ -13,6 +13,8 @@ namespace Deeptide.Core.Potions
         public string Id;
         public string Name;
         public PotionRarity Rarity;
+        /// <summary>归属角色（characters.csv 的 id），空 = 通用。</summary>
+        public string Character = "";
         public CardTarget Target;
         public Dictionary<string, int> Vars = new Dictionary<string, int>();
         public string Text;
@@ -110,6 +112,7 @@ namespace Deeptide.Core.Potions
             ["fear_powder"] = () => new FearPowder(),
             ["berserk_tincture"] = () => new BerserkTincture(),
             ["warding_draught"] = () => new WardingDraught(),
+            ["bloody_bait"] = () => new BloodyBait(),
         };
     }
 
@@ -163,5 +166,11 @@ namespace Deeptide.Core.Potions
     public sealed class WardingDraught : Potion
     {
         public override void Use(PotionContext c) => c.Enqueue(new ApplyStatusAction(c.Player, StatusId.Ward, V("Ward")));
+    }
+
+    /// <summary>血腥诱饵（狼人专属，策划/14 §2.7）：对所有敌人施加流血。</summary>
+    public sealed class BloodyBait : Potion
+    {
+        public override void Use(PotionContext c) => c.Enqueue(new StatusAllEnemiesAction(StatusId.Bleed, V("Bleed")));
     }
 }

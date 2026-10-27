@@ -87,12 +87,14 @@ namespace Deeptide.Sim
         static string OutcomeName(RunOutcome o) =>
             o == RunOutcome.Victory ? "通关" : o == RunOutcome.Defeat ? "倒下" : o == RunOutcome.Abandoned ? "放弃" : "没打完";
 
+        static string CharacterName(string id) => CharacterLibrary.Exists(id) ? CharacterLibrary.Get(id).Name : id ?? "?";
+
         static void PrintRuns(List<RunTelemetry> runs)
         {
             Console.WriteLine("逐局（按开局时间）：");
-            Console.WriteLine("  开局时间             第几局  流派  结果    层数  用时    Boss 前生命  死因");
+            Console.WriteLine("  开局时间             第几局  角色    流派  结果    层数  用时    Boss 前生命  死因");
             foreach (var t in runs)
-                Console.WriteLine($"  {t.StartedAt ?? "?",-19}  {t.RunIndex,4}    {t.Archetype,-2}  {OutcomeName(t.Outcome),-4}  {t.Floor,4}  {t.PlaySeconds / 60,4:F0} 分  " +
+                Console.WriteLine($"  {t.StartedAt ?? "?",-19}  {t.RunIndex,4}    {CharacterName(t.Character),-3}  {t.Archetype,-2}  {OutcomeName(t.Outcome),-4}  {t.Floor,4}  {t.PlaySeconds / 60,4:F0} 分  " +
                                   $"{(t.HpAtBoss >= 0 ? t.HpAtBoss.ToString() : "-"),8}     {(t.DeathCause != null ? RunModes.DeathName(t.DeathCause) : "")}");
             Console.WriteLine();
         }
@@ -101,11 +103,13 @@ namespace Deeptide.Sim
         static void PrintArchetypes(List<RunTelemetry> runs)
         {
             Console.WriteLine("══ 按流派（看最终牌组；战斗统计含没打完的局）");
-            foreach (var g in runs.GroupBy(t => t.Archetype).OrderBy(g => g.Key))
+            bool many = runs.Select(t => t.Character).Distinct().Count() > 1;   // 有两个以上角色时按「角色·流派」分组
+            foreach (var g in runs.GroupBy(t => (t.Character, t.Archetype)).OrderBy(g => g.Key.Character).ThenBy(g => g.Key.Archetype))
             {
                 var battles = g.SelectMany(t => t.Battles).ToList();
                 int done = g.Count(t => t.Outcome == RunOutcome.Victory || t.Outcome == RunOutcome.Defeat);
-                Console.Write($"  {g.Key}  {g.Count()} 局（打完 {done}，通关 {Count(g, RunOutcome.Victory)}）  战斗 {battles.Count} 场");
+                string label = many ? $"{CharacterName(g.Key.Character)}·{g.Key.Archetype}" : g.Key.Archetype;
+                Console.Write($"  {label}  {g.Count()} 局（打完 {done}，通关 {Count(g, RunOutcome.Victory)}）  战斗 {battles.Count} 场");
                 if (battles.Count == 0)
                 {
                     Console.WriteLine();

@@ -37,6 +37,8 @@ namespace Deeptide.Core
         PotionUsed,
         ChoiceRequested,
         ChoiceMade,
+        /// <summary>敌人回合开始时流血结算（策划/14 §1.4）。Entity = 敌人，Amount = 流血层数。</summary>
+        Bled,
         Victory,
         Defeat,
 
@@ -59,6 +61,8 @@ namespace Deeptide.Core
         CounterChanged,
         /// <summary>本回合意图是否不受癫狂模糊（点亮提灯）。Value = 1 / 0。</summary>
         IntentRevealChanged,
+        /// <summary>本轮的变身 / 复归标记（策划/14 §1.2）。Value：1 = 已变身，2 = 已复归，按位或。</summary>
+        RoundFlagsChanged,
     }
 
     /// <summary>

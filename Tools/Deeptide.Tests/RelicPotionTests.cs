@@ -18,8 +18,8 @@ namespace Deeptide.Tests
         [Test]
         public void AllRelicsAndPotions_HaveDescriptions()
         {
-            Assert.That(RelicLibrary.All.Count, Is.EqualTo(20));
-            Assert.That(PotionLibrary.All.Count, Is.EqualTo(8));
+            Assert.That(RelicLibrary.All.Count(d => d.Rarity != RelicRarity.Trait), Is.EqualTo(23));   // 策划/05 §1 的 20 件 + 狼人 3 件（14 §2.7）；特性另算
+            Assert.That(PotionLibrary.All.Count, Is.EqualTo(9));   // 8 + 狼人的血腥诱饵
             foreach (var d in RelicLibrary.All) Assert.That(RelicLibrary.Create(d.Id).Description, Does.Not.Contain("{"), d.Id);
             foreach (var d in PotionLibrary.All) Assert.That(PotionLibrary.Create(d.Id).Description, Does.Not.Contain("{"), d.Id);
         }

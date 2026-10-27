@@ -1,10 +1,11 @@
-id,name,rarity,target,vars,text
-# 药水表（策划/05 §2）。rarity 可选 Common / Uncommon / Rare；target 填 Enemy 表示需要选目标
-smelling_salts,嗅盐,Common,None,Restore=5,恢复 {Restore} 理智。
-iron_tonic,铁剂,Common,None,Block=12,获得 {Block} 格挡。
-powder_flask,火药瓶,Common,None,Blast=10,对所有敌人造成 {Blast} 伤害。
-acid_vial,酸液瓶,Common,Enemy,Vulnerable=3,施加 {Vulnerable} 层易伤。
-hallucinogen,迷幻剂,Uncommon,None,Sanity=4;Draw=2,理智设为 {Sanity}（直接进入癫狂），抽 {Draw} 张牌。
-fear_powder,恐惧粉末,Uncommon,None,Fear=6,对所有敌人施加 {Fear} 恐惧。
-berserk_tincture,狂暴酊,Uncommon,None,Strength=2,获得 {Strength} 力量。
-warding_draught,护心符水,Uncommon,None,Ward=2,获得 {Ward} 层心防。
+id,name,rarity,character,target,vars,text
+# 药水表（策划/05 §2）。rarity 可选 Common / Uncommon / Rare；target 填 Enemy 表示需要选目标；character 是归属角色，空 = 通用
+smelling_salts,嗅盐,Common,,None,Restore=5,恢复 {Restore} 理智。
+iron_tonic,铁剂,Common,,None,Block=12,获得 {Block} 格挡。
+powder_flask,火药瓶,Common,,None,Blast=10,对所有敌人造成 {Blast} 伤害。
+acid_vial,酸液瓶,Common,,Enemy,Vulnerable=3,施加 {Vulnerable} 层易伤。
+hallucinogen,迷幻剂,Uncommon,,None,Sanity=4;Draw=2,理智设为 {Sanity}（直接进入癫狂），抽 {Draw} 张牌。
+fear_powder,恐惧粉末,Uncommon,investigator,None,Fear=6,对所有敌人施加 {Fear} 恐惧。
+berserk_tincture,狂暴酊,Uncommon,,None,Strength=2,获得 {Strength} 力量。
+warding_draught,护心符水,Uncommon,,None,Ward=2,获得 {Ward} 层心防。
+bloody_bait,血腥诱饵,Uncommon,werewolf,None,Bleed=5,对所有敌人施加 {Bleed} 流血。
