@@ -91,6 +91,17 @@ namespace Deeptide.Core.Run
             });
         }
 
+        /// <summary>
+        /// 行囊：药水栏 +1，再给一瓶随机药水（用 echo 流，不打乱奖励流）。15 §3.3 写的是「每章开始时」给一瓶，
+        /// Demo 只有一章，选的这一刻就是第一章开始；多章时在章初再调一次。
+        /// </summary>
+        void ApplySatchel()
+        {
+            var def = EchoLibrary.Get(EchoIds.Satchel);
+            for (int i = 0; i < def.Vars["Slots"]; i++) State.Potions.Add(null);
+            for (int i = 0; i < def.Vars["Potions"]; i++) TryAddPotion(RollPotion(Rng.Echo));
+        }
+
         void RerollEchoes()
         {
             var sel = State.Select;
@@ -107,6 +118,7 @@ namespace Deeptide.Core.Run
         void PickEcho(string id)
         {
             State.Echoes.Add(id);
+            if (id == EchoIds.Satchel) ApplySatchel();
             State.Stats.EchoChoices.Last().Picked = id;
             State.Select = null;
             GoToMap();

@@ -32,6 +32,15 @@ namespace Deeptide.Core
         public int WillGrowthNum = 3;
         public int WillGrowthDen = 2;
 
+        /// <summary>心防是否也抵消侵蚀（挡板）。默认只挡敌人的精神攻击和光环（策划/01 §2.3）。</summary>
+        public bool WardBlocksErosion = false;
+
+        /// <summary>每轮各有几次跨线算「变身 / 复归」（策划/14 §1.2）。默认 1；潮差改成 2。</summary>
+        public int CountedCrossingsPerRound = 1;
+
+        /// <summary>流血每几个敌人回合 −1（策划/14 §1.4）。默认 1：每回合；血入海改成 2（偶数回合才衰减）。</summary>
+        public int BleedDecayEvery = 1;
+
         /// <summary>震慑时保留的恐惧百分比（向下取整），最多保留到新意志 − 1，不会一挨恐惧就再次震慑。默认 0：清零。</summary>
         public int StunFearKeptPercent = 0;
 

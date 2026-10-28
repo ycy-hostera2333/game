@@ -1,8 +1,17 @@
 id,name,tier,character,tendency,vars,text
-# 回响表（策划/15 §3、09 M7.1）。tier 可选 Shallow（浅，第一章）/ Deep（深）/ Abyss（渊）；character 是归属角色，空 = 通用；
-# tendency 是流派倾向：专属回响只能填本角色的流派或「中立」，通用回响可以填任何角色的流派（对没有这个流派的角色按中立算，比如不眠对狼人）
-# 7.1 先放只改规则参数的 4 个，其余浅档回响在 7.2 补
+# 回响表（策划/15 §3、09 M7.1–7.2）。tier 可选 Shallow（浅，第一章）/ Deep（深）/ Abyss（渊）；character 是归属角色，空 = 通用；
+# tendency 是流派倾向：专属回响只能填本角色的流派或「中立」，通用回响可以填任何角色的流派（对没有这个流派的角色按中立算，比如挡板、不眠对狼人）
+# ---------------- 浅（第一章）：调查员 9 个，其中灯芯、浅滩、余悸、蔓延、笔记补页不给狼人（15 §3.3）
 wick,灯芯,Shallow,investigator,守夜,Margin=1,清明放宽 {Margin} 格：理智 ≥ 上限 − 2 即为清明。
+baffle,挡板,Shallow,,守夜,Ward=1,战斗开始时获得 {Ward} 层心防；心防也能抵消侵蚀。
 shoal,浅滩,Shallow,investigator,堕落,Line=1,癫狂线上移 {Line} 格：理智 ≤ 5 即为癫狂。
 sleepless,不眠,Shallow,,堕落,Deficit=3,战斗开始时，理智 = 上限 − {Deficit}。
 aftershock,余悸,Shallow,investigator,传染,Keep=50,震慑时恐惧不清零，保留一半（向下取整）。
+spread,蔓延,Shallow,investigator,传染,,敌人死亡时，身上的恐惧平均分给其他敌人。
+notes_addendum,笔记补页,Shallow,investigator,中立,,调查笔记在每场第一次从癫狂回到清醒时也触发一次。
+satchel,行囊,Shallow,,中立,Slots=1;Potions=1,药水栏 +{Slots}；每章开始时获得 {Potions} 瓶随机药水。
+sea_chart,海图,Shallow,,中立,,地图上，下一步能走的事件和精英显示具体是哪一个。
+# ---------------- 浅 · 狼人：一个流派一个
+deep_scar,深痕,Shallow,werewolf,狂猎,Damage=1,兽形时，攻击每段再 +{Damage}（兽血的 +2 变成 +3）。
+tidal_range,潮差,Shallow,werewolf,月相,Times=2,每轮前 {Times} 次变身、复归都算「变身：」「复归：」（原来只算第一次）。
+blood_to_sea,血入海,Shallow,werewolf,血宴,Every=2,流血改为每 {Every} 回合 −1（原来每回合 −1）。

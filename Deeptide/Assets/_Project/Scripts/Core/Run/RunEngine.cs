@@ -40,6 +40,8 @@ namespace Deeptide.Core.Run
         public string Reason;
         /// <summary>选项对应的卡牌（带 + 表示升级），表现层用来画卡面。</summary>
         public string CardId;
+        /// <summary>地图节点里会遇到什么（事件 ID 或遭遇 ID）：只有拿了回响「海图」的事件 / 精英节点才有，其余为 null。</summary>
+        public string Content;
         /// <summary>
         /// 给程序看的标签（AI 和表现层用）：node:房间类型、gold、relic:ID、potion:ID、cards、leave、card:ID、deck:下标、skip、
         /// shop:card:ID / shop:relic:ID / shop:potion:ID、remove、rest、smith、meditate、purge、drop:栏位、decline；事件选项是选项 ID。
@@ -257,11 +259,16 @@ namespace Deeptide.Core.Run
 
         List<RunOption> MapOptions()
         {
-            var options = NextNodes().Select(n => new RunOption
+            var options = NextNodes().Select(n =>
             {
-                Label = $"第 {n.Floor} 层 · {RoomName(n.Room)}（第 {n.Col + 1} 列）",
-                Tag = "node:" + n.Room,
-                Do = () => EnterNode(n.Row, n.Col, n.Room),
+                string content = PreviewNode(n, out string name);
+                return new RunOption
+                {
+                    Label = $"第 {n.Floor} 层 · {RoomName(n.Room)}{(content != null ? "：" + name : "")}（第 {n.Col + 1} 列）",
+                    Tag = "node:" + n.Room,
+                    Content = content,
+                    Do = () => EnterNode(n.Row, n.Col, n.Room),
+                };
             }).ToList();
             if (State.Row == State.Map.Height - 1)
                 options.Add(new RunOption { Label = $"第 {State.Map.BossFloor} 层 · Boss", Tag = "node:Boss", Do = () => EnterNode(State.Map.Height, 0, RoomType.Boss) });
@@ -346,26 +353,71 @@ namespace Deeptide.Core.Run
 
         internal string PickEncounter(EncounterPool pool)
         {
-            var last = State.RecentEncounters.LastOrDefault();
-            var options = EncounterLibrary.InPool(pool).Where(x => x.Id != last).ToList();
-            var id = options[Rng.Encounter.NextInt(options.Count)].Id;
+            var id = ChooseEncounter(pool, Rng.Encounter);
             State.RecentEncounters.Add(id);
             return id;
         }
 
+        string ChooseEncounter(EncounterPool pool, Pcg32 rng)
+        {
+            var last = State.RecentEncounters.LastOrDefault();
+            var options = EncounterLibrary.InPool(pool).Where(x => x.Id != last).ToList();
+            return options[rng.NextInt(options.Count)].Id;
+        }
+
         string PickElite()
         {
-            var all = EncounterLibrary.InPool(EncounterPool.Elite).ToList();
-            var fresh = all.Where(x => !State.ElitesSeen.Contains(x.Id)).ToList();
-            var id = (fresh.Count > 0 ? fresh : all)[Rng.Encounter.NextInt((fresh.Count > 0 ? fresh : all).Count)].Id;
+            var id = ChooseElite(Rng.Encounter);
             State.ElitesSeen.Add(id);
             return id;
         }
 
-        EventDef PickEvent()
+        string ChooseElite(Pcg32 rng)
         {
-            var options = EventLibrary.All.Where(d => !State.EventsSeen.Contains(d.Id) && State.Floor >= d.MinFloor).ToList();
-            return options.Count == 0 ? null : options[Rng.Event.NextInt(options.Count)];
+            var all = EncounterLibrary.InPool(EncounterPool.Elite).ToList();
+            var fresh = all.Where(x => !State.ElitesSeen.Contains(x.Id)).ToList();
+            var from = fresh.Count > 0 ? fresh : all;
+            return from[rng.NextInt(from.Count)].Id;
+        }
+
+        EventDef PickEvent() => ChooseEvent(Rng.Event, State.Floor);
+
+        EventDef ChooseEvent(Pcg32 rng, int floor)
+        {
+            var options = EventLibrary.All.Where(d => !State.EventsSeen.Contains(d.Id) && floor >= d.MinFloor).ToList();
+            return options.Count == 0 ? null : options[rng.NextInt(options.Count)];
+        }
+
+        /// <summary>
+        /// 回响「海图」（策划/15 §3.3）：现在走进这个节点会遇到哪个事件 / 哪组精英。用随机流的副本照进节点时的抽法算一遍，不改任何状态，
+        /// 所以和真的走进去结果一样。只能看下一步能走的节点：再往后的取决于路上见过什么，算不准。
+        /// 事件节点没有事件可出时会变成困难战斗，这时返回那场遭遇。没有海图、或不是事件 / 精英节点，返回 null。
+        /// </summary>
+        public string PreviewNode(MapNode node, out string name)
+        {
+            name = null;
+            if (!State.Echoes.Contains(EchoIds.SeaChart)) return null;
+            Pcg32 Copy(Pcg32 r) => Pcg32.FromRaw(r.State, r.Increment);
+            string id;
+            switch (node.Room)
+            {
+                case RoomType.Elite:
+                    id = ChooseElite(Copy(Rng.Encounter));
+                    break;
+                case RoomType.Event:
+                    var ev = ChooseEvent(Copy(Rng.Event), node.Floor);
+                    if (ev != null)
+                    {
+                        name = ev.Name;
+                        return ev.Id;
+                    }
+                    id = ChooseEncounter(EncounterPool.Hard, Copy(Rng.Encounter));
+                    break;
+                default:
+                    return null;
+            }
+            name = EncounterLibrary.Get(id).Name;
+            return id;
         }
 
         internal void GoToMap()

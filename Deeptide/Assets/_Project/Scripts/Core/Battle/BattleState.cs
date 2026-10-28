@@ -116,6 +116,8 @@ namespace Deeptide.Core
         /// </summary>
         public bool TransformedThisRound;
         public bool RevertedThisRound;
+        /// <summary>本轮已经算过几次变身 / 复归（上限 Config.CountedCrossingsPerRound，潮差是 2）。只是内部计数，表现层看上面两个标记就够，不写状态事件。</summary>
+        public int TransformsThisRound, RevertsThisRound;
         /// <summary>Phase = WaitingForChoice 时的选择内容。</summary>
         public PendingChoice Choice;
         public readonly BattleStats Stats = new BattleStats();

@@ -93,7 +93,7 @@ namespace Deeptide.Tests
 
         /// <summary>
         /// 真实数据 + 测试员：调查笔记改成通用（测试员也拿它当起始遗物），盐圈、铁剂划给测试员。
-        /// 传染牌归了测试员，调查员就没有传染这个流派了，传染回响「余悸」也跟着划给测试员（否则倾向校验不过）。
+        /// 传染牌归了测试员，调查员就没有传染这个流派了，传染回响「余悸」「蔓延」也跟着划给测试员（否则倾向校验不过）。
         /// </summary>
         static DataSource WithTester()
         {
@@ -104,7 +104,8 @@ namespace Deeptide.Tests
             src.Relics = src.Relics.Replace("investigator_notes,调查笔记,Starter,investigator,", "investigator_notes,调查笔记,Starter,,")
                                    .Replace("salt_circle,盐圈,Common,,", "salt_circle,盐圈,Common,tester,");
             src.Potions = src.Potions.Replace("iron_tonic,铁剂,Common,,", "iron_tonic,铁剂,Common,tester,");
-            src.Echoes = src.Echoes.Replace("aftershock,余悸,Shallow,investigator,", "aftershock,余悸,Shallow,tester,");
+            src.Echoes = src.Echoes.Replace("aftershock,余悸,Shallow,investigator,", "aftershock,余悸,Shallow,tester,")
+                                   .Replace("spread,蔓延,Shallow,investigator,", "spread,蔓延,Shallow,tester,");
             return src;
         }
 

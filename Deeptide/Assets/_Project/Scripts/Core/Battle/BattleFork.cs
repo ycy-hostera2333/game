@@ -38,6 +38,8 @@ namespace Deeptide.Core
             t.IntentsRevealedThisTurn = s.IntentsRevealedThisTurn;
             t.TransformedThisRound = s.TransformedThisRound;
             t.RevertedThisRound = s.RevertedThisRound;
+            t.TransformsThisRound = s.TransformsThisRound;
+            t.RevertsThisRound = s.RevertsThisRound;
             CopyStats(s.Stats, t.Stats);
 
             var p = s.Player;

@@ -20,7 +20,8 @@ namespace Deeptide.Core
             var p = s.Player;
             sb.Append("T").Append(N(s.Turn)).Append('|').Append(s.Phase).Append('|').Append(s.Outcome)
               .Append("|played ").Append(N(s.CardsPlayedThisTurn)).Append('/').Append(N(s.AttacksPlayedThisTurn)).Append(s.IntentsRevealedThisTurn ? "|reveal" : "")
-              .Append(s.TransformedThisRound ? "|xform" : "").Append(s.RevertedThisRound ? "|revert" : "").Append('\n');
+              .Append(s.TransformedThisRound ? "|xform" : "").Append(s.RevertedThisRound ? "|revert" : "")
+              .Append(s.TransformsThisRound > 1 ? "|xform" + N(s.TransformsThisRound) : "").Append(s.RevertsThisRound > 1 ? "|revert" + N(s.RevertsThisRound) : "").Append('\n');
             sb.Append("P ").Append(N(p.Hp)).Append('/').Append(N(p.MaxHp))
               .Append(" B").Append(N(p.Block)).Append(" E").Append(N(p.Energy)).Append('+').Append(N(p.EnergyNextTurn))
               .Append(" S").Append(N(p.Sanity)).Append('/').Append(N(p.MaxSanity));

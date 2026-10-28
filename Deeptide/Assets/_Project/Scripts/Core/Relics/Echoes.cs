@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Deeptide.Core.Actions;
 
 namespace Deeptide.Core.Relics
 {
@@ -10,6 +11,14 @@ namespace Deeptide.Core.Relics
         public const string Shoal = "shoal";
         public const string Sleepless = "sleepless";
         public const string Aftershock = "aftershock";
+        public const string Baffle = "baffle";
+        public const string Spread = "spread";
+        public const string NotesAddendum = "notes_addendum";
+        public const string Satchel = "satchel";
+        public const string SeaChart = "sea_chart";
+        public const string DeepScar = "deep_scar";
+        public const string TidalRange = "tidal_range";
+        public const string BloodToSea = "blood_to_sea";
     }
 
     /// <summary>回响的档位（策划/15 §3.1）：第一章浅、第二章深、第三章渊。Demo 下一版只有浅。</summary>
@@ -96,6 +105,14 @@ namespace Deeptide.Core.Relics
             [EchoIds.Shoal] = () => new Shoal(),
             [EchoIds.Sleepless] = () => new Sleepless(),
             [EchoIds.Aftershock] = () => new Aftershock(),
+            [EchoIds.Baffle] = () => new Baffle(),
+            [EchoIds.Spread] = () => new Spread(),
+            [EchoIds.NotesAddendum] = () => new NotesAddendum(),
+            [EchoIds.Satchel] = () => new RunLevelEcho(),
+            [EchoIds.SeaChart] = () => new RunLevelEcho(),
+            [EchoIds.DeepScar] = () => new DeepScar(),
+            [EchoIds.TidalRange] = () => new TidalRange(),
+            [EchoIds.BloodToSea] = () => new BloodToSea(),
         };
     }
 
@@ -125,5 +142,83 @@ namespace Deeptide.Core.Relics
     {
         public override void ModifyConfig(BattleConfig config) =>
             config.StunFearKeptPercent = Math.Max(config.StunFearKeptPercent, V("Keep"));
+    }
+
+    // ==================== 浅：加触发的 ====================
+
+    /// <summary>挡板：战斗开始时获得心防；心防也能抵消侵蚀。</summary>
+    public sealed class Baffle : Relic
+    {
+        public override void ModifyConfig(BattleConfig config) => config.WardBlocksErosion = true;
+
+        public override void OnCombatStart(BattleEngine e)
+        {
+            Trigger(e, $"获得 {V("Ward")} 层心防");
+            e.Queue.AddToBottom(new ApplyStatusAction(e.Player, StatusId.Ward, V("Ward")));
+        }
+    }
+
+    /// <summary>
+    /// 蔓延：敌人死亡时，身上的恐惧平均分给其他还活着、有心智、没被震慑的敌人（被震慑的接不住恐惧）（向下取整，除不尽的余数从前往后各 +1，总量不丢）。
+    /// 分到的恐惧照常可能震慑。
+    /// </summary>
+    public sealed class Spread : Relic
+    {
+        public override void OnEnemyDied(BattleEngine e, EnemyState enemy)
+        {
+            int fear = enemy.Fear;
+            var others = e.State.AliveEnemies.Where(x => x != enemy && !x.Mindless && !x.Stunned).ToList();
+            if (fear <= 0 || others.Count == 0) return;
+            Trigger(e, $"{enemy.Name} 的 {fear} 恐惧分给其他敌人");
+            var actions = new List<GameAction>();
+            for (int i = 0; i < others.Count; i++)
+            {
+                int share = fear / others.Count + (i < fear % others.Count ? 1 : 0);
+                if (share > 0) actions.Add(new ApplyFearAction(others[i], share));
+            }
+            e.Queue.AddToTop(actions.ToArray());
+        }
+    }
+
+    /// <summary>笔记补页：每场第一次从癫狂回到清醒时，调查笔记再触发一次（同样的能量和抽牌）。没有调查笔记就什么都不做。</summary>
+    public sealed class NotesAddendum : Relic
+    {
+        bool _used;
+
+        public override void OnLunacyChanged(BattleEngine e, bool entered)
+        {
+            if (entered || _used) return;
+            var notes = e.Player.Relics.FirstOrDefault(r => r.Id == RelicIds.InvestigatorNotes);
+            if (notes == null) return;
+            _used = true;
+            Trigger(e, $"调查笔记再触发一次：+{notes.V("Energy")} 能量，抽 {notes.V("Draw")} 张牌");
+            e.Queue.AddToTop(new GainEnergyAction(notes.V("Energy")), new DrawCardsAction(notes.V("Draw")));
+        }
+    }
+
+    /// <summary>行囊、海图：只改跑局层（药水栏、地图信息），在 RunEngine 里按 ID 处理；战斗里什么都不做。</summary>
+    public sealed class RunLevelEcho : Relic { }
+
+    // ==================== 浅 · 狼人（策划/15 §3.3） ====================
+
+    /// <summary>深痕：兽形时攻击每段再 +1，和兽血的 +2 合起来是 +3。</summary>
+    public sealed class DeepScar : Relic
+    {
+        public override int DamageBonus(BattleEngine e, Combatant source, Combatant target, DamageKind kind) =>
+            kind == DamageKind.Attack && source == e.Player && e.Player.IsLunatic ? V("Damage") : 0;
+    }
+
+    /// <summary>潮差：每轮前两次变身、复归都算「变身：/ 复归：」。</summary>
+    public sealed class TidalRange : Relic
+    {
+        public override void ModifyConfig(BattleConfig config) =>
+            config.CountedCrossingsPerRound = Math.Max(config.CountedCrossingsPerRound, V("Times"));
+    }
+
+    /// <summary>血入海：流血每两回合才 −1。</summary>
+    public sealed class BloodToSea : Relic
+    {
+        public override void ModifyConfig(BattleConfig config) =>
+            config.BleedDecayEvery = Math.Max(config.BleedDecayEvery, V("Every"));
     }
 }

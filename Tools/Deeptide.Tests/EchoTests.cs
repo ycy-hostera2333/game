@@ -105,6 +105,210 @@ namespace Deeptide.Tests
             Assert.That(dummy.Fear, Is.EqualTo(14), "一半是 20，最多留到新意志 15 − 1");
         }
 
+        // ---------------- 浅档的其余 8 个（09 M7.2）
+
+        static BattleEngine Inv(string[] echoes, string[] enemies = null, string[] relics = null) => BattleEngine.Start(new BattleSetup
+        {
+            Seed = 1,
+            Deck = Enumerable.Repeat("B02", 10).ToList(),
+            Enemies = (enemies ?? new[] { EnemyIds.Dummy }).ToList(),
+            Relics = (relics ?? new[] { RelicIds.InvestigatorNotes }).ToList(),
+            Echoes = echoes.ToList(),
+        });
+
+        static BattleEngine Wolf(params string[] echoes) => BattleEngine.Start(new BattleSetup
+        {
+            Seed = 1,
+            Deck = Enumerable.Repeat("B02", 10).ToList(),
+            Enemies = new List<string> { EnemyIds.Dummy },
+            MaxHp = 75, Hp = 75, MaxSanity = 6,
+            Relics = new List<string>(),
+            Traits = new List<string> { RelicIds.BeastBlood },
+            Echoes = echoes.ToList(),
+        });
+
+        static void EndTurns(BattleEngine e, int n) { for (int i = 0; i < n; i++) EndTurn(e); }
+
+        [Test]
+        public void Baffle_StartsWithWard_AndWardStopsErosion()
+        {
+            // 第 4 回合开始侵蚀：挡板的心防挡住，旧烟斗的心防挡不住（默认心防只挡敌人）
+            var baffle = Inv(new[] { EchoIds.Baffle }, relics: new string[0]);
+            Assert.That(baffle.Player.Statuses.Get(StatusId.Ward), Is.EqualTo(1));
+            EndTurns(baffle, 3);
+            Assert.That((baffle.State.Turn, baffle.Player.Sanity, baffle.Player.Statuses.Get(StatusId.Ward)), Is.EqualTo((4, 10, 0)));
+
+            var pipe = Inv(new string[0], relics: new[] { "old_pipe" });
+            EndTurns(pipe, 3);
+            Assert.That((pipe.Player.Sanity, pipe.Player.Statuses.Get(StatusId.Ward)), Is.EqualTo((9, 1)));
+        }
+
+        [Test]
+        public void Spread_SplitsFearOfTheDeadAmongTheRest()
+        {
+            var e = Inv(new[] { EchoIds.Spread }, new[] { EnemyIds.Dummy, EnemyIds.Dummy, EnemyIds.Dummy });
+            SetHand(e, "C11", "B01");
+            Play(e, 0, 0);   // 恐惧 5
+            e.State.Enemies[0].Hp = 1;
+            Play(e, 0, 0);   // 打死
+            Assert.That(e.State.Enemies.Skip(1).Select(x => x.Fear), Is.EqualTo(new[] { 3, 2 }), "5 分给两个：各 2，余 1 给前一个");
+
+            var plain = Inv(new string[0], new[] { EnemyIds.Dummy, EnemyIds.Dummy });
+            SetHand(plain, "C11", "B01");
+            Play(plain, 0, 0);
+            plain.State.Enemies[0].Hp = 1;
+            Play(plain, 0, 0);
+            Assert.That(plain.State.Enemies[1].Fear, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void NotesAddendum_FiresNotesAgainOnFirstRevert()
+        {
+            (int Energy, int Hand) Run(params string[] echoes)
+            {
+                var e = Inv(echoes);
+                e.SetSanity(5);
+                SetHand(e, "C08", "C04", "C08", "C04");
+                Play(e, 0);   // 5 → 3：进入癫狂，调查笔记触发
+                Play(e, 0);   // 3 → 5：回到清醒，笔记补页
+                Play(e, 0);
+                Play(e, 0);   // 第二次回到清醒：不再触发
+                return (e.Player.Energy, e.Player.Hand.Count);
+            }
+            var with = Run(EchoIds.NotesAddendum);
+            var without = Run();
+            Assert.That((with.Energy - without.Energy, with.Hand - without.Hand), Is.EqualTo((1, 2)), "多 1 能量、多抽 2 张，只一次");
+
+            var noNotes = Inv(new[] { EchoIds.NotesAddendum }, relics: new string[0]);
+            noNotes.SetSanity(5);
+            SetHand(noNotes, "C08", "C04");
+            int energy = noNotes.Player.Energy;
+            Play(noNotes, 0);
+            Play(noNotes, 0);
+            Assert.That(noNotes.Player.Energy, Is.EqualTo(energy + 1), "没有调查笔记：只有坠落自己的 +1");
+        }
+
+        [Test]
+        public void DeepScar_BeastFormAddsThreePerHit()
+        {
+            var e = Wolf(EchoIds.DeepScar);
+            SetHand(e, "B01", "B01");
+            var target = e.State.Enemies[0];
+            Assert.That(e.Player.Hand[0].PreviewValue(e, "Damage", target), Is.EqualTo(6), "人形不加");
+            e.SetSanity(4);
+            Assert.That(e.Player.Hand[0].PreviewValue(e, "Damage", target), Is.EqualTo(9));
+            int hp = target.Hp;
+            Play(e, 0);
+            Assert.That(hp - target.Hp, Is.EqualTo(9), "预览和实际一致");
+        }
+
+        [Test]
+        public void TidalRange_CountsTwoCrossingsEachWayPerRound()
+        {
+            foreach (var (echoes, counted) in new[] { (new[] { EchoIds.TidalRange }, 2), (new string[0], 1) })
+            {
+                var e = Wolf(echoes);
+                SetHand(e, "C08", "C04", "C08", "C04", "C08", "C04");
+                for (int i = 0; i < 6; i++) Play(e, 0);
+                Assert.That((e.State.Stats.Transforms, e.State.Stats.Reverts), Is.EqualTo((counted, counted)));
+                EndTurn(e);
+                SetHand(e, "C08");
+                Play(e, 0);
+                Assert.That(e.State.Stats.Transforms, Is.EqualTo(counted + 1), "新的一轮重新计数");
+            }
+        }
+
+        [Test]
+        public void BloodToSea_BleedDecaysEveryOtherTurn()
+        {
+            foreach (var (echoes, after) in new[] { (new[] { EchoIds.BloodToSea }, new[] { 4, 3, 3, 2 }), (new string[0], new[] { 3, 2, 1, 0 }) })
+            {
+                var e = Wolf(echoes);
+                var dummy = e.State.Enemies[0];
+                e.SetStatus(dummy, StatusId.Bleed, 4);
+                var seen = new List<int>();
+                for (int i = 0; i < 4; i++)
+                {
+                    EndTurn(e);
+                    seen.Add(dummy.Statuses.Get(StatusId.Bleed));
+                }
+                Assert.That(seen, Is.EqualTo(after));
+            }
+        }
+
+        [Test]
+        public void WerewolfPool_ExcludesTheFiveInvestigatorOnly()
+        {
+            var excluded = new[] { EchoIds.Wick, EchoIds.Shoal, EchoIds.Aftershock, EchoIds.Spread, EchoIds.NotesAddendum };
+            var pool = EchoLibrary.Pool(EchoTier.Shallow, "werewolf").Select(d => d.Id).ToList();
+            Assert.That(pool, Has.Count.EqualTo(7), "3 专属 + 4 通用（15 §3.3）");
+            Assert.That(pool.Intersect(excluded), Is.Empty);
+            Assert.That(EchoLibrary.Pool(EchoTier.Shallow, "investigator").Count(), Is.EqualTo(9));
+            for (ulong seed = 1; seed <= 200; seed++)
+            {
+                var run = RunEngine.NewRun(seed, Echoes("werewolf"));
+                Assert.That(run.State.Select.Echoes.Intersect(excluded), Is.Empty, $"种子 {seed}");
+                Assert.That(run.State.Select.Echoes.Select(id => EchoLibrary.TendencyFor(EchoLibrary.Get(id), "werewolf")).Distinct().Count(), Is.EqualTo(3));
+            }
+        }
+
+        /// <summary>开一局，选上指定的回响（第一组没有就重抽一次；两组都没有换下一个种子）。</summary>
+        static RunEngine RunWith(string echo, string character = "investigator", ulong from = 1)
+        {
+            for (ulong seed = from; seed < from + 200; seed++)
+            {
+                var run = RunEngine.NewRun(seed, Echoes(character));
+                for (int attempt = 0; attempt < 2; attempt++)
+                {
+                    int i = run.Options().FindIndex(o => o.Tag == "echo:" + echo);
+                    if (i >= 0)
+                    {
+                        Assert.That(run.Execute(RunCommand.Pick(i), out var error), Is.True, error);
+                        return run;
+                    }
+                    if (attempt == 0) run.Execute(RunCommand.Pick(run.Options().FindIndex(o => o.Tag == "reroll")), out _);
+                }
+            }
+            Assert.Fail($"200 个种子里都没抽到 {echo}");
+            return null;
+        }
+
+        [Test]
+        public void Satchel_AddsSlotAndPotion()
+        {
+            var run = RunWith(EchoIds.Satchel);
+            Assert.That(run.State.Potions, Has.Count.EqualTo(4));
+            Assert.That(run.State.Potions.Count(p => p != null), Is.EqualTo(1));
+            Assert.That(RunEngine.Replay(run.State.Seed, run.History, Echoes()).Hash(), Is.EqualTo(run.Hash()));
+        }
+
+        [Test]
+        public void SeaChart_PreviewMatchesWhatTheNodeTurnsOutToBe()
+        {
+            int checkedNodes = 0;
+            for (ulong from = 1; from <= 60; from += 3)
+            {
+                var run = RunWith(EchoIds.SeaChart, from: from);
+                var plain = RunEngine.NewRun(run.State.Seed);
+                var nodes = run.State.Map.Nodes.Where(n => n.Room == Deeptide.Core.Map.RoomType.Event || n.Room == Deeptide.Core.Map.RoomType.Elite).Take(2);
+                foreach (var node in nodes)
+                {
+                    Assert.That(plain.PreviewNode(node, out _), Is.Null, "没有海图看不到");
+                    var probe = RunEngine.Replay(run.State.Seed, run.History, Echoes());
+                    string preview = probe.PreviewNode(node, out string name);
+                    Assert.That(name, Is.Not.Null.And.Not.Empty);
+                    probe.EnterNode(node.Row, node.Col, node.Room);
+                    string actual = probe.State.Event?.Id ?? probe.State.Battle.EncounterId;
+                    Assert.That(actual, Is.EqualTo(preview), $"种子 {run.State.Seed} 第 {node.Floor} 层 {node.Room}");
+                    checkedNodes++;
+                }
+            }
+            Assert.That(checkedNodes, Is.GreaterThan(20));
+
+            var first = RunWith(EchoIds.SeaChart);
+            Assert.That(first.Options().All(o => o.Content == null), Is.True, "第 1 层全是普通战斗，不显示");
+        }
+
         // ---------------- 跑局
 
         static RunConfig Echoes(string character = "investigator") => new RunConfig { Character = character, Echoes = true };

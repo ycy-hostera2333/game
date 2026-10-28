@@ -32,6 +32,8 @@ namespace Deeptide.Sim
         public static double HpHard = 1.0;
         /// <summary>starter=base|prayer 改过的调查员起始牌组；null = 用角色表（characters.csv）里的。</summary>
         public static List<string> StarterDeck;
+        /// <summary>echoes=a,b：batch / tune 的每场战斗都挂上这些回响（看回响组合的强度，策划/15 §3.3）。整局模式用 --echo。</summary>
+        public static List<string> Echoes = new List<string>();
 
         static readonly Dictionary<string, (int Min, int Max)> OriginalHp =
             EnemyLibrary.All.ToDictionary(d => d.Id, d => (d.HpMin, d.HpMax));
@@ -51,6 +53,10 @@ namespace Deeptide.Sim
                     case "clarity": Config.ClarityMargin = int.Parse(val); break;
                     case "hp": HpEasy = HpHard = double.Parse(val, CultureInfo.InvariantCulture); break;
                     case "hpHard": HpHard = double.Parse(val, CultureInfo.InvariantCulture); break;
+                    case "echoes":
+                        Echoes = val.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim()).ToList();
+                        foreach (var id in Echoes) EchoLibrary.Get(id);
+                        break;
                     case "starter":
                         if (val != "base" && val != "prayer") throw new ArgumentException("starter 只能是 base 或 prayer");
                         TestDecks.Starter[8] = val == "prayer" ? "C01" : "B02";
@@ -137,6 +143,8 @@ namespace Deeptide.Sim
         public PlayStyle Style;
         public int N;
         public double WinRate, Turns, HpLost, Collapses, MinSanity, LunacyFightShare, FirstLunacy, LunacyTurnShare, ClarityTurnShare;
+        /// <summary>第 1 回合对敌人造成的伤害（看开局爆发，比如不眠 + 调查笔记）。</summary>
+        public double Turn1Damage;
     }
 
     static class Matchups
@@ -158,6 +166,7 @@ namespace Deeptide.Sim
                 setup.Relics = new List<string> { ch.StartingRelic };
                 if (ch.Trait.Length > 0) setup.Traits = new List<string> { ch.Trait };
             }
+            setup.Echoes = Tuning.Echoes.ToList();
             return setup;
         }
 
@@ -173,6 +182,7 @@ namespace Deeptide.Sim
             var firstLunacy = new int[n];
             var lunacyTurns = new int[n];
             var clarityTurns = new int[n];
+            var turn1Damage = new int[n];
 
             Parallel.For(0, n, i =>
             {
@@ -188,6 +198,7 @@ namespace Deeptide.Sim
                 firstLunacy[i] = s.FirstLunacyTurn;
                 lunacyTurns[i] = s.LunacyTurns;
                 clarityTurns[i] = s.ClarityTurns;
+                turn1Damage[i] = e.Log.Events.Where(x => x.Type == BattleEventType.Damage && x.Turn == 1 && x.Entity >= 0).Sum(x => x.Amount);
             });
 
             double totalTurns = turns.Sum();
@@ -207,6 +218,7 @@ namespace Deeptide.Sim
                 FirstLunacy = entered.Count > 0 ? entered.Average() : 0,
                 LunacyTurnShare = lunacyTurns.Sum() / totalTurns,
                 ClarityTurnShare = clarityTurns.Sum() / totalTurns,
+                Turn1Damage = turn1Damage.Average(),
             };
         }
     }

@@ -426,6 +426,7 @@ namespace Deeptide.Core
             State.AttacksPlayedThisTurn = 0;
             SetIntentsRevealed(false);
             SetRoundFlags(false, false);   // 新的一轮从这里开始，侵蚀推过线算这一轮的变身
+            State.TransformsThisRound = State.RevertsThisRound = 0;
 
             if (State.Turn >= Config.ErosionStartTurn)
                 Queue.AddToBottom(new LoseSanityAction(Config.ErosionAmount, SanitySource.Erosion));
@@ -622,7 +623,7 @@ namespace Deeptide.Core
 
         /// <summary>
         /// 理智跨过癫狂线（策划/01 §2.2）：写叙述事件，通知 OnLunacyChanged（每次都通知）。
-        /// 每轮第一次进入 / 离开癫狂另外通知 OnTransform / OnRevert——狼人的变身 / 复归（策划/14 §1.2）。
+        /// 每轮第一次进入 / 离开癫狂另外通知 OnTransform / OnRevert——狼人的变身 / 复归（策划/14 §1.2；潮差放宽到前两次）。
         /// 崩溃把理智重置到 3 时 counts = false：那不是玩家或敌人推过去的，不算复归。
         /// </summary>
         internal void LunacyCrossed(bool entered, bool counts = true)
@@ -638,14 +639,16 @@ namespace Deeptide.Core
 
             if (entered)
             {
-                if (State.TransformedThisRound) return;
+                if (State.TransformsThisRound >= Config.CountedCrossingsPerRound) return;
+                State.TransformsThisRound++;
                 SetRoundFlags(true, State.RevertedThisRound);
                 State.Stats.Transforms++;
                 Notify(l => l.OnTransform(this));
             }
             else
             {
-                if (State.RevertedThisRound) return;
+                if (State.RevertsThisRound >= Config.CountedCrossingsPerRound) return;
+                State.RevertsThisRound++;
                 SetRoundFlags(State.TransformedThisRound, true);
                 State.Stats.Reverts++;
                 Notify(l => l.OnRevert(this));

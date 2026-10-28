@@ -244,7 +244,7 @@ namespace Deeptide.Sim
             Console.WriteLine($"每组 {n} 场，种子 1..{n}，AI = 一步贪心（只适合做相对比较）");
             if (o.TryGetValue("set", out var spec)) Console.WriteLine($"参数覆盖：{spec}");
             Console.WriteLine();
-            Console.WriteLine("牌组      遭遇  胜率    平均回合  平均掉血  崩溃/场  最低理智  进入癫狂  首次癫狂  癫狂回合占比  清明回合占比");
+            Console.WriteLine("牌组      遭遇  胜率    平均回合  平均掉血  崩溃/场  最低理智  进入癫狂  首次癫狂  癫狂回合占比  清明回合占比  首回合伤害");
             foreach (var deck in decks)
             foreach (var enc in encs)
             {
@@ -252,7 +252,7 @@ namespace Deeptide.Sim
                 Console.WriteLine(
                     $"{TestDecks.Describe(deck),-8}  {enc,3}  {m.WinRate,6:P0}  {m.Turns,8:F1}  {m.HpLost,8:F1}  " +
                     $"{m.Collapses,7:F2}  {m.MinSanity,8:F1}  {m.LunacyFightShare,8:P0}  " +
-                    $"{(m.FirstLunacy > 0 ? m.FirstLunacy.ToString("F1") : "-"),8}  {m.LunacyTurnShare,12:P0}  {m.ClarityTurnShare,12:P0}");
+                    $"{(m.FirstLunacy > 0 ? m.FirstLunacy.ToString("F1") : "-"),8}  {m.LunacyTurnShare,12:P0}  {m.ClarityTurnShare,12:P0}  {m.Turn1Damage,10:F1}");
             }
             return 0;
         }

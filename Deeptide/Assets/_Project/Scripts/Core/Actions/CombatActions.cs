@@ -114,7 +114,7 @@ namespace Deeptide.Core.Actions
     }
 
     /// <summary>
-    /// 流血结算（策划/14 §1.4）：敌人回合开始时（行动前）失去等同于流血层数的生命，无视格挡，然后流血 −1。
+    /// 流血结算（策划/14 §1.4）：敌人回合开始时（行动前）失去等同于流血层数的生命，无视格挡，然后流血 −1（血入海：每两回合才 −1）。
     /// 流血死了的敌人不再行动（EnemyAct 在这个动作之后才让它出招）。
     /// </summary>
     public sealed class BleedAction : GameAction
@@ -132,7 +132,7 @@ namespace Deeptide.Core.Actions
             int before = en.Hp;
             e.LoseHp(en, bleed);
             int lost = before - en.Hp;
-            if (!en.IsDead) e.AddStatus(en, StatusId.Bleed, -1);
+            if (!en.IsDead && e.State.Turn % Math.Max(1, e.Config.BleedDecayEvery) == 0) e.AddStatus(en, StatusId.Bleed, -1);
             if (lost > 0) e.Notify(l => l.OnEnemyBled(e, en, lost));
         }
     }

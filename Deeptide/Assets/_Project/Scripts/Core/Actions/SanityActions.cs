@@ -3,7 +3,7 @@ using System;
 namespace Deeptide.Core.Actions
 {
     /// <summary>
-    /// 失去理智（策划/02 §3.3）。精神攻击先过祝圣银铃，再过心防；光环只过心防。
+    /// 失去理智（策划/02 §3.3）。精神攻击先过祝圣银铃，再过心防；光环只过心防；有挡板时侵蚀也过心防。
     /// 进入癫狂时通知触发器；归 0 时把崩溃插到队首——「先完整结算崩溃，再继续」。
     /// </summary>
     public sealed class LoseSanityAction : GameAction
@@ -26,7 +26,8 @@ namespace Deeptide.Core.Actions
                 foreach (var l in e.Listeners)
                     if (l.InterceptMindAttack(e, _amount)) return;
 
-            if ((_source == SanitySource.Enemy || _source == SanitySource.Aura) && p.Statuses.Get(StatusId.Ward) > 0)
+            bool wardable = _source == SanitySource.Enemy || _source == SanitySource.Aura || _source == SanitySource.Erosion && e.Config.WardBlocksErosion;
+            if (wardable && p.Statuses.Get(StatusId.Ward) > 0)
             {
                 e.AddStatus(p, StatusId.Ward, -1);
                 e.Log.Add(BattleEventType.WardConsumed, $"心防抵消了 {_amount} 点理智损失（剩余心防 {p.Statuses.Get(StatusId.Ward)}）");
