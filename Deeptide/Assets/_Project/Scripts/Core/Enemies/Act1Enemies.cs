@@ -19,6 +19,10 @@ namespace Deeptide.Core.Enemies
         public const string Nun = "nun";
         public const string Fisherman = "fisherman";
         public const string Priest = "drowned_priest";
+        /// <summary>第一章 Boss 鳞母和她的卵、倒影（策划/15 §2.3、09 M7.4）。</summary>
+        public const string ScaleMother = "scale_mother";
+        public const string ScaleEgg = "scale_egg";
+        public const string Mirror = "mirror";
         /// <summary>调试用稻草人：不行动，用于测试和数值试验。</summary>
         public const string Dummy = "dummy";
     }
@@ -40,6 +44,9 @@ namespace Deeptide.Core.Enemies
             [EnemyIds.Nun] = () => new FacelessNun(),
             [EnemyIds.Fisherman] = () => new NetFisherman(),
             [EnemyIds.Priest] = () => new DrownedPriest(),
+            [EnemyIds.ScaleMother] = () => new ScaleMother(),
+            [EnemyIds.ScaleEgg] = () => new ScaleEgg(),
+            [EnemyIds.Mirror] = () => new Mirror(),
             [EnemyIds.Dummy] = () => new TrainingDummy(),
         };
     }

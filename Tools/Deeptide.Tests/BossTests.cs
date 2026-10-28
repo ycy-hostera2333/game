@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using Deeptide.Core.Data;
 using Deeptide.Core.Enemies;
 using Deeptide.Core.Map;
 using Deeptide.Core.Relics;
@@ -13,46 +12,27 @@ namespace Deeptide.Tests
 {
     /// <summary>
     /// Boss 三选一、不公示（策划/09 M7.3、15 §2.1）：开局用地图流抽、读档不变、连续两局不重复、海图开局揭晓、遥测记 Boss。
-    /// 鳞母、倒影要到 7.4 才进表，这里用只在测试里存在的两个「Boss」（拿精英的敌人凑）代替。
+    /// 第一章的三个候选：溺亡司祭、鳞母、倒影（7.4 进表）。
     /// </summary>
     public class BossTests
     {
-        static readonly string[] TestBosses = { EncounterIds.Priest, "boss_test_a", "boss_test_b" };
+        static readonly string[] Bosses = { EncounterIds.Priest, "boss_scale_mother", "boss_mirror" };
 
-        static void WithThreeBosses(System.Action body)
-        {
-            var src = DataFiles.Read();
-            src.Encounters += "boss_test_a,Boss,测试 Boss 甲,lighthouse\nboss_test_b,Boss,测试 Boss 乙,nun\n";
-            try
-            {
-                GameData.Load(src);
-                body();
-            }
-            finally
-            {
-                DataFiles.Reload();
-            }
-        }
+        static ulong SeedWith(System.Func<string, bool> boss) =>
+            Enumerable.Range(1, 100).Select(i => (ulong)i).First(s => boss(RunEngine.NewRun(s).State.Boss));
 
         [Test]
-        public void OnlyPriest_AlwaysPriest_EvenWhenAvoided()
+        public void ThreeBosses_EachAboutAThird_AndSameSeedSameBoss()
         {
-            Assert.That(RunEngine.NewRun(1).State.Boss, Is.EqualTo(EncounterIds.Priest));
-            Assert.That(RunEngine.NewRun(2, new RunConfig { AvoidBoss = EncounterIds.Priest }).State.Boss, Is.EqualTo(EncounterIds.Priest), "只剩它一个时不避");
-        }
-
-        [Test]
-        public void ThreeBosses_EachAboutAThird_AndSameSeedSameBoss() => WithThreeBosses(() =>
-        {
-            var counts = TestBosses.ToDictionary(b => b, b => 0);
+            Assert.That(EncounterLibrary.InPool(EncounterPool.Boss).Select(d => d.Id), Is.EquivalentTo(Bosses));
+            var counts = Bosses.ToDictionary(b => b, b => 0);
             for (ulong seed = 1; seed <= 1000; seed++) counts[RunEngine.NewRun(seed).State.Boss]++;
             foreach (var kv in counts) Assert.That(kv.Value, Is.InRange(280, 390), $"{kv.Key} 出现 {kv.Value} 次");
             Assert.That(RunEngine.NewRun(77).State.Boss, Is.EqualTo(RunEngine.NewRun(77).State.Boss));
-            Assert.That(RunEngine.NewRun(77).State.Map.Nodes.Select(n => n.Room), Is.EqualTo(RunEngine.NewRun(77).State.Map.Nodes.Select(n => n.Room)));
-        });
+        }
 
         [Test]
-        public void ConsecutiveNights_NeverRepeatTheBoss() => WithThreeBosses(() =>
+        public void ConsecutiveNights_NeverRepeatTheBoss()
         {
             var profile = new Profile();
             string last = null;
@@ -66,27 +46,28 @@ namespace Deeptide.Tests
                 last = run.State.Boss;
                 seen.Add(last);
             }
-            Assert.That(seen, Is.EquivalentTo(TestBosses));
-        });
+            Assert.That(seen, Is.EquivalentTo(Bosses));
+        }
 
         [Test]
-        public void BossRoom_FightsTheDrawnBoss_AndSaveLoadKeepsIt() => WithThreeBosses(() =>
+        public void BossRoom_FightsTheDrawnBoss_AndSaveLoadKeepsIt()
         {
-            ulong seed = Enumerable.Range(1, 50).Select(i => (ulong)i).First(s => RunEngine.NewRun(s).State.Boss != EncounterIds.Priest);
-            var run = RunEngine.NewRun(seed);
-            string boss = run.State.Boss;
-            var loaded = RunEngine.Load(RunSaves.FromJson(RunSaves.ToJson(run.SaveState())));
-            Assert.That((loaded.State.Boss, loaded.Hash()), Is.EqualTo((boss, run.Hash())));
+            foreach (var target in Bosses)
+            {
+                var run = RunEngine.NewRun(SeedWith(b => b == target));
+                var loaded = RunEngine.Load(RunSaves.FromJson(RunSaves.ToJson(run.SaveState())));
+                Assert.That((loaded.State.Boss, loaded.Hash()), Is.EqualTo((target, run.Hash())));
 
-            loaded.EnterNode(loaded.State.Map.Height, 0, RoomType.Boss);
-            Assert.That(loaded.State.Battle.EncounterId, Is.EqualTo(boss));
-            Assert.That(loaded.Title, Does.Contain(EncounterLibrary.Get(boss).Name), "进门揭晓");
-        });
+                loaded.EnterNode(loaded.State.Map.Height, 0, RoomType.Boss);
+                Assert.That(loaded.State.Battle.EncounterId, Is.EqualTo(target));
+                Assert.That(loaded.Title, Does.Contain(EncounterLibrary.Get(target).Name), "进门揭晓");
+            }
+        }
 
         [Test]
         public void OldSaveWithoutBoss_ReadsAsPriest()
         {
-            var run = RunEngine.NewRun(9);
+            var run = RunEngine.NewRun(SeedWith(b => b == EncounterIds.Priest));
             var json = JObject.Parse(RunSaves.ToJson(run.SaveState()));
             Assert.That(json.Remove("Boss"), Is.True);
             var loaded = RunEngine.Load(RunSaves.FromJson(json.ToString()));
@@ -95,7 +76,7 @@ namespace Deeptide.Tests
         }
 
         [Test]
-        public void SeaChart_RevealsTheBossFromTheStart() => WithThreeBosses(() =>
+        public void SeaChart_RevealsTheBossFromTheStart()
         {
             var run = RunEngine.NewRun(5);
             var s = run.State;
@@ -110,12 +91,12 @@ namespace Deeptide.Tests
             var shown = run.Options().Single(o => o.Tag == "node:Boss");
             Assert.That(shown.Content, Is.EqualTo(s.Boss));
             Assert.That(shown.Label, Does.Contain(EncounterLibrary.Get(s.Boss).Name));
-        });
+        }
 
         [Test]
-        public void Story_OnlyThePriestCountsForPostscriptD_AndTelemetryHasBoss() => WithThreeBosses(() =>
+        public void Story_OnlyThePriestCountsForPostscriptD_AndTelemetryHasBoss()
         {
-            foreach (var boss in TestBosses)
+            foreach (var boss in Bosses)
             {
                 var state = new RunState { Boss = boss, Phase = RunPhase.Victory };
                 var profile = new Profile();
@@ -123,6 +104,6 @@ namespace Deeptide.Tests
                 Assert.That(profile.BeatPriest, Is.EqualTo(boss == EncounterIds.Priest), boss);
                 Assert.That(RunTelemetry.From(state).Boss, Is.EqualTo(boss));
             }
-        });
+        }
     }
 }

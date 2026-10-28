@@ -41,6 +41,7 @@ namespace Deeptide.Core
             t.TransformsThisRound = s.TransformsThisRound;
             t.RevertsThisRound = s.RevertsThisRound;
             CopyStats(s.Stats, t.Stats);
+            t.AttacksThisTurn.AddRange(s.AttacksThisTurn);   // 记下之后不再改，可以共用
 
             var p = s.Player;
             var q = new PlayerState

@@ -34,6 +34,11 @@ namespace Deeptide.Core
             AppendPile(sb, "hand", p.Hand);
             AppendPile(sb, "disc", p.DiscardPile);
             AppendPile(sb, "exh", p.ExhaustPile);
+            if (s.AttacksThisTurn.Count > 0)
+            {
+                sb.Append("\natk:");
+                foreach (var a in s.AttacksThisTurn) sb.Append(' ').Append(a.CardId).Append('=').Append(N(a.PerHit)).Append('x').Append(N(a.Hits));
+            }
             foreach (var en in s.Enemies)
             {
                 sb.Append("\nE").Append(N(en.Index)).Append(' ').Append(en.Def.Id).Append(' ').Append(N(en.Hp)).Append('/').Append(N(en.MaxHp))

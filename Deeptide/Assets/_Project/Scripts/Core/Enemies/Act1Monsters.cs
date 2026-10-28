@@ -1,3 +1,4 @@
+using System.Linq;
 using Deeptide.Core.Cards;
 
 namespace Deeptide.Core.Enemies
@@ -34,6 +35,10 @@ namespace Deeptide.Core.Enemies
             AddOption("Bite", 3);
             AddOption("Spines", 2);
         }
+
+        /// <summary>鳞母的「同族的气味」：鳞母在场、你癫狂时攻击 +Scent（数值在鳞母那一行，策划/15 §2.3）。困难池里的幼体没有鳞母，不受影响。</summary>
+        public override int BonusAttackDamage(BattleEngine e, EnemyState self) =>
+            e.Player.IsLunatic && e.State.AliveEnemies.Any(x => x.Def.Id == EnemyIds.ScaleMother) ? EnemyLibrary.Get(EnemyIds.ScaleMother).Vars["Scent"] : 0;
 
         public override void Perform(BattleEngine e, EnemyState self, EnemyMove m)
         {

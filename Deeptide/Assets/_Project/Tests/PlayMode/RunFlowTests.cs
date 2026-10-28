@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Deeptide.Core;
 using Deeptide.Core.Cards;
+using Deeptide.Core.Enemies;
 using Deeptide.Core.Map;
 using Deeptide.Core.Run;
 using Deeptide.View.Battle;
@@ -223,6 +224,7 @@ namespace Deeptide.View.Tests
             while (PlanPath(RunEngine.NewRun(seed).State.Map).Kinds < 6 && seed < 2026 + 200) seed++;
             Assert.AreEqual(6, PlanPath(RunEngine.NewRun(seed).State.Map).Kinds, "200 个种子里没有能走遍 6 种房间的地图");
             _boot.NewRun(seed, new RunConfig { MaxHp = 999 });
+            Run.State.Boss = EncounterIds.Priest;   // Boss 是三选一抽的（15 §2.1）；这条要打倒司祭，局外档才记 BeatPriest
             yield return null;
             var seenRooms = new HashSet<RoomType>();
             var shots = new HashSet<string>();

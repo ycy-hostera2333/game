@@ -17,6 +17,7 @@ namespace Deeptide.Tests
             Assert.That(run.State.Stats.Night, Is.EqualTo(p.Nights));
             run.State.EventsSeen.AddRange(events);
             run.State.Phase = end;
+            if (end == RunPhase.Victory) run.State.Boss = Deeptide.Core.Enemies.EncounterIds.Priest;   // 附言 D 只认打倒司祭；这里测的是附言顺序
             Story.Record(p, run.State);
             return ps?.Id;
         }

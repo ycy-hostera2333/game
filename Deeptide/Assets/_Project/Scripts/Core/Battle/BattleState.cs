@@ -28,6 +28,15 @@ namespace Deeptide.Core
         public BattleConfig Config = new BattleConfig();
     }
 
+    /// <summary>打出的一张攻击牌，按打出那一刻的数值记下来。</summary>
+    public sealed class PlayedAttack
+    {
+        public string CardId;
+        public string Name;
+        public int PerHit;
+        public int Hits;
+    }
+
     /// <summary>战斗内的独立随机流：洗牌、敌人 AI、其他（随机目标、随机弃牌、敌人生命、战斗中生成的牌）。</summary>
     public sealed class BattleRng
     {
@@ -118,6 +127,8 @@ namespace Deeptide.Core
         public bool RevertedThisRound;
         /// <summary>本轮已经算过几次变身 / 复归（上限 Config.CountedCrossingsPerRound，潮差是 2）。只是内部计数，表现层看上面两个标记就够，不写状态事件。</summary>
         public int TransformsThisRound, RevertsThisRound;
+        /// <summary>本回合打出的前两张攻击牌和打出时的数值（倒影「慢半拍」抄它们，策划/15 §2.3）。玩家回合开始清空。</summary>
+        public readonly List<PlayedAttack> AttacksThisTurn = new List<PlayedAttack>();
         /// <summary>Phase = WaitingForChoice 时的选择内容。</summary>
         public PendingChoice Choice;
         public readonly BattleStats Stats = new BattleStats();

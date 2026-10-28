@@ -139,7 +139,15 @@ namespace Deeptide.Core
             MoveCard(card, PileKind.Play);
             SetEnergy(Player.Energy - cost);         // ② 能量
             State.CardsPlayedThisTurn++;
-            if (card.Def.Type == CardType.Attack) State.AttacksPlayedThisTurn++;
+            if (card.Def.Type == CardType.Attack)
+            {
+                State.AttacksPlayedThisTurn++;
+                if (State.AttacksThisTurn.Count < 2)
+                {
+                    var (perHit, hits) = card.AttackValue(this, mad, target);
+                    State.AttacksThisTurn.Add(new PlayedAttack { CardId = card.DeckId, Name = card.Name, PerHit = perHit, Hits = hits });
+                }
+            }
             State.Stats.CardsPlayed++;
             State.Stats.PlaysByCard[card.Id] = State.Stats.PlaysByCard.TryGetValue(card.Id, out var plays) ? plays + 1 : 1;
             string face = !card.Def.Dual ? "" : both ? "（两面）" : mad ? "（癫狂面）" : "（清醒面）";
@@ -424,6 +432,7 @@ namespace Deeptide.Core
             ev.Value = State.Turn;
             State.CardsPlayedThisTurn = 0;
             State.AttacksPlayedThisTurn = 0;
+            State.AttacksThisTurn.Clear();
             SetIntentsRevealed(false);
             SetRoundFlags(false, false);   // 新的一轮从这里开始，侵蚀推过线算这一轮的变身
             State.TransformsThisRound = State.RevertsThisRound = 0;
@@ -565,6 +574,19 @@ namespace Deeptide.Core
             if (sanity == Player.Sanity) return;
             Player.Sanity = sanity;
             Log.State(BattleEventType.SanityChanged, BattleEvent.PlayerEntity, sanity, value2: Player.MaxSanity);
+            foreach (var en in State.AliveEnemies.ToList()) en.Behaviour.OnPlayerSanityChanged(this, en);   // 倒影的意志跟着理智走
+        }
+
+        /// <summary>
+        /// 让一个敌人从场上消失但不算被击倒（鳞卵孵化）：生命清零、写一条倒下的叙述事件，表现层照常移走它；
+        /// 不通知 OnEnemyDied（护崽、潮位、蔓延都不认）。
+        /// </summary>
+        internal void Despawn(EnemyState en, string text)
+        {
+            if (en.IsDead) return;
+            SetStunned(en, false);
+            SetHp(en, 0);
+            Log.Add(BattleEventType.EnemyDied, text, target: en.Name).Entity = en.Index;
         }
 
         internal void SetStatus(Combatant c, StatusId id, int amount)

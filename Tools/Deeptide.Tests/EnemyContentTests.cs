@@ -30,8 +30,9 @@ namespace Deeptide.Tests
             Assert.That(EncounterLibrary.InPool(EncounterPool.Easy).Count(), Is.EqualTo(4));
             Assert.That(EncounterLibrary.InPool(EncounterPool.Hard).Count(), Is.EqualTo(7));
             Assert.That(EncounterLibrary.InPool(EncounterPool.Elite).Count(), Is.EqualTo(3));
-            Assert.That(EncounterLibrary.InPool(EncounterPool.Boss).Single().Enemies, Is.EqualTo(new[] { EnemyIds.Priest }));
-            Assert.That(EnemyLibrary.All.Count(d => d.Id != EnemyIds.Dummy), Is.EqualTo(12), "8 普通 + 3 精英 + 1 Boss");
+            Assert.That(EncounterLibrary.InPool(EncounterPool.Boss).Select(x => x.Enemies.Single()),
+                Is.EquivalentTo(new[] { EnemyIds.Priest, EnemyIds.ScaleMother, EnemyIds.Mirror }), "第一章三选一（策划/15 §2.3）");
+            Assert.That(EnemyLibrary.All.Count(d => d.Id != EnemyIds.Dummy), Is.EqualTo(15), "8 普通 + 3 精英 + 3 Boss + 鳞卵");
         }
 
         [Test]

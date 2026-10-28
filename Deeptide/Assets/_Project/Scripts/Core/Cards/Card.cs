@@ -148,6 +148,20 @@ namespace Deeptide.Core.Cards
             return (DamageCalculator.Compute(e, e.Player, target, V(dmgKey)), hits);
         }
 
+        /// <summary>
+        /// 这张攻击牌打出时的数值（倒影「慢半拍」照它打你，策划/15 §2.3）：有卡面预览的用预览；群体攻击按 Damage 变量过一遍你的伤害修正；
+        /// 伤害不是固定变量的牌（按恐惧、按张数算的）记 0。
+        /// </summary>
+        public (int PerHit, int Hits) AttackValue(BattleEngine e, bool mad, EnemyState target)
+        {
+            var preview = PreviewAttack(e, mad, target);
+            if (preview != null) return preview.Value;
+            string dmgKey = mad && HasVar("MadDamage") ? "MadDamage" : "Damage";
+            if (!HasVar(dmgKey)) return (0, 1);
+            int hits = mad && HasVar("MadHits") ? V("MadHits") : HasVar("Hits") ? V("Hits") : 1;
+            return (DamageCalculator.Compute(e, e.Player, null, V(dmgKey)), hits);
+        }
+
         public abstract void Play(PlayContext ctx);
 
         /// <summary>回合结束时仍在手牌中（如疯语）。</summary>

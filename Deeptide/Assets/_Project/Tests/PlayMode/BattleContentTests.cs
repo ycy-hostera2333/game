@@ -50,7 +50,7 @@ namespace Deeptide.View.Tests
                     Relics = { RelicIds.InvestigatorNotes },
                     Potions = { "acid_vial", "powder_flask", "smelling_salts" },
                 });
-                Assert.AreEqual(enc.Enemies.Count, Screen.Enemies.Count, enc.Id);
+                Assert.AreEqual(Engine.State.Enemies.Count, Screen.Enemies.Count, enc.Id);   // 含开场就召唤的（鳞母的 2 只幼体）
                 AssertInSync(enc.Id);
 
                 int steps = 0;

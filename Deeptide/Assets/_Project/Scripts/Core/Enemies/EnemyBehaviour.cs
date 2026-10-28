@@ -163,6 +163,8 @@ namespace Deeptide.Core.Enemies
         public virtual void OnDamaged(BattleEngine e, EnemyState self) { }
         /// <summary>自己被震慑时（无面修女现形）。</summary>
         public virtual void OnStunned(BattleEngine e, EnemyState self) { }
+        /// <summary>玩家理智变了（倒影的意志跟着走）。在理智的状态修改里同步调用，可以直接改恐惧 / 意志、立刻震慑。</summary>
+        public virtual void OnPlayerSanityChanged(BattleEngine e, EnemyState self) { }
 
         /// <summary>意图对玩家完全隐藏（显示「?」，连类型都看不到）。</summary>
         public virtual bool IntentHidden(BattleEngine e, EnemyState self) => false;
