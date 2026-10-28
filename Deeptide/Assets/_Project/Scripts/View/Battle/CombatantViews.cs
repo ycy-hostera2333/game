@@ -39,6 +39,8 @@ namespace Deeptide.View.Battle
         Image _hpFrame, _blockBadge;
         TextMeshProUGUI _hpText, _blockText;
         protected TextMeshProUGUI NameText;
+        /// <summary>名字那一行现在写的字（含计数器：潮位、倒影抄的牌、卵的孵化倒计时）。测试用。</summary>
+        public string NameShown => NameText.text;
         readonly List<GameObject> _chips = new List<GameObject>();
         readonly Dictionary<StatusId, int> _statusAmounts = new Dictionary<StatusId, int>();
 

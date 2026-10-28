@@ -2,6 +2,8 @@ using System;
 using System.Collections;
 using System.Linq;
 using Deeptide.Core;
+using Deeptide.Core.Enemies;
+using Deeptide.Core.Map;
 using Deeptide.Core.Potions;
 using Deeptide.Core.Run;
 using Deeptide.View.Battle;
@@ -128,7 +130,47 @@ namespace Deeptide.View.Run
             Battle.Finished += () => StartCoroutine(AfterBattle());
             // 战斗界面自己建了一个提示框，抢回来：提示要画在顶栏和弹窗上面
             _tooltip.MakeCurrent();
+            if (Run.State.Battle?.Room == RoomType.Boss) RevealBoss();
         }
+
+        /// <summary>最近一次进 Boss 房间揭晓的 Boss 名字（测试用）。</summary>
+        public string LastReveal { get; private set; }
+
+        /// <summary>
+        /// 进 Boss 房间的揭晓（策划/15 §1.3、09 M7.6）：一层雾盖满屏幕，写着「今晚站在那儿的是」和 Boss 的名字，停一下再散开，露出战场。
+        /// 不挡点击（雾散之前就能出牌），读档回到 Boss 战也会再播一次。
+        /// </summary>
+        void RevealBoss()
+        {
+            var enc = EncounterLibrary.Get(Run.State.Battle.EncounterId);
+            LastReveal = enc.Name;
+            var fog = Ui.Box("BossReveal", _root, Palette.PaperShade);
+            fog.raycastTarget = false;
+            fog.rectTransform.Fill();
+            fog.transform.SetSiblingIndex(_modalLayer.GetSiblingIndex());
+            var shade = Ui.Box("Silhouette", fog.transform, new Color(Palette.Teal.r, Palette.Teal.g, Palette.Teal.b, 0.25f));
+            shade.sprite = Shapes.Silhouette(MapView.BossSilhouette(enc.Enemies[0]));
+            shade.raycastTarget = false;
+            shade.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 20), new Vector2(420, 620));
+            var line = Ui.Text("Line", fog.transform, "今晚站在那儿的是", 34, Palette.InkMid);
+            line.font = Fonts.Serif;
+            line.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 110), new Vector2(900, 50));
+            var name = Ui.Text("Name", fog.transform, enc.Name, 128, Palette.Teal);
+            name.font = Fonts.Serif;
+            name.fontStyle = FontStyles.Bold;
+            name.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, -20), new Vector2(1200, 160));
+
+            float speed = Mathf.Max(0.01f, BattleSpeed);
+            float hold = 1.1f / speed, fade = 1.3f / speed;
+            Tween.Alpha(fog, 0, fade, startDelay: hold);
+            Tween.Alpha(shade, 0, fade, startDelay: hold);
+            Tween.Alpha(line, 0, fade, startDelay: hold);
+            Tween.Alpha(name, 0, fade, startDelay: hold);
+            Destroy(fog.gameObject, hold + fade + 0.1f);
+            _reveal = fog;
+        }
+
+        Image _reveal;
 
         void DestroyBattle()
         {
@@ -366,7 +408,12 @@ namespace Deeptide.View.Run
 
         public void ExitToTitle(bool abandon) => _exit?.Invoke(abandon);
 
-        void OnDestroy() => Tween.StopAll(_toast);
+        void OnDestroy()
+        {
+            Tween.StopAll(_toast);
+            if (_reveal != null)
+                foreach (var g in _reveal.GetComponentsInChildren<Graphic>()) Tween.StopAll(g);
+        }
 
         public void Toast(string message)
         {

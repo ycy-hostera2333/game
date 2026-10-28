@@ -225,7 +225,7 @@ namespace Deeptide.Core.Run
                     case RunPhase.Event: return EventLibrary.Get(State.Event.Id).Name;
                     case RunPhase.Select: return State.Select.Title;
                     case RunPhase.Victory: return $"{EncounterLibrary.Get(State.Boss).Name}沉入深渊。Demo 通关！";
-                    default: return "调查员倒下了。";
+                    default: return $"{CharacterLibrary.Get(State.Character).Name}倒下了。";
                 }
             }
         }

@@ -6,6 +6,7 @@ using Deeptide.Core;
 using Deeptide.Core.Cards;
 using Deeptide.Core.Enemies;
 using Deeptide.Core.Map;
+using Deeptide.Core.Relics;
 using Deeptide.Core.Run;
 using Deeptide.View.Battle;
 using Deeptide.View.Run;
@@ -108,7 +109,8 @@ namespace Deeptide.View.Tests
             Assert.IsNotNull(Screen);
             Assert.AreEqual(CharacterIds.Investigator, Run.State.Character);
             Assert.IsNull(_boot.Title);
-            Assert.AreEqual(RunPhase.Map, Screen.Shown);
+            Assert.AreEqual(RunPhase.Select, Screen.Shown, "信下面压着回响选择（09 M7.6）");
+            Assert.AreEqual(SelectPurpose.Echo, Run.State.Select.Purpose);
             Assert.IsTrue(File.Exists(TestSave), "开局就该存一次档");
             var t0 = ReadTelemetry();
             Assert.AreEqual(RunOutcome.Unfinished, t0.Outcome);
@@ -126,6 +128,23 @@ namespace Deeptide.View.Tests
             Assert.IsTrue(Screen.ClickModal("Disembark"));
             yield return null;
             Assert.IsNull(Screen.ModalName);
+
+            // 回响（策划/15 §3）：三张大卡 + 重抽；重抽一次换一组，按钮变灰；选一个进地图
+            Assert.AreEqual(Run.Options().Count, Screen.CountOptions(), "三张回响卡和重抽都要画出来");
+            Assert.AreEqual(RunEngine.EchoChoices, Run.State.Select.Echoes.Count);
+            Assert.AreEqual(RunEngine.EchoChoices, Texts().Count(t => t.name == "Tendency"), "每张卡写出倾向");
+            yield return Shot("20_echo");
+            var before = Run.State.Select.Echoes.ToList();
+            Assert.IsTrue(Screen.ClickOption(Run.Options().FindIndex(o => o.Tag == "reroll")));
+            yield return null;
+            CollectionAssert.AreNotEqual(before, Run.State.Select.Echoes, "重抽换了一组");
+            Assert.IsFalse(Screen.ClickOption(Run.Options().FindIndex(o => o.Tag == "reroll")), "每局只能重抽一次");
+            string echo = Run.State.Select.Echoes[0];
+            Assert.IsTrue(Screen.ClickOption(0));
+            yield return null;
+            Assert.AreEqual(RunPhase.Map, Screen.Shown);
+            CollectionAssert.AreEqual(new[] { echo }, Run.State.Echoes);
+            Assert.AreEqual(echo != EchoIds.SeaChart, Screen.Map.BossFogged, "Boss 节点被雾遮着，除非拿了海图");
             var map = Run.State.Map;
             Assert.AreEqual(map.Nodes.Count + 1, Screen.Map.NodeCount, "每个节点 + Boss 都要画出来");
             CollectionAssert.AreEquivalent(map.InRow(0).Select(n => (n.Row, n.Col)), Screen.Map.Choosable);
@@ -160,6 +179,8 @@ namespace Deeptide.View.Tests
             Assert.AreEqual("werewolf", Run.State.Character);
             Assert.AreEqual(6, Run.State.MaxSanity);
             Assert.IsTrue(Screen.ClickModal("Disembark"));
+            yield return null;
+            yield return PickEcho(EchoIds.SeaChart, EchoIds.Satchel, EchoIds.TidalRange);   // 后面要核对兽形的数值：别拿不眠、深痕
             Run.State.Potions[0] = "bloody_bait";   // 给流血状态一个来源（开战时药水栏抄进战斗）
             yield return null;
             var node = Run.State.Map.InRow(0).First(n => n.Room == RoomType.Battle);
@@ -215,20 +236,24 @@ namespace Deeptide.View.Tests
 
         /// <summary>
         /// 一路打到 Boss 结算：生命给到 999，保证简单策略也能走完整局；路线预先规划好，把商店、事件、篝火、宝箱、精英都走一遍。
+        /// 从信之后的回响开始（09 M7.6）；Boss 是三选一抽的，这里固定成 boss。顺路检查：回响图标挂在理智条旁边、
+        /// 地图上 Boss 节点被雾遮着（拿了海图就写名字）、进 Boss 房间的揭晓、鳞卵的孵化倒计时。
         /// </summary>
-        [UnityTest, Timeout(900000)]
-        public IEnumerator FullRunReachesBossVictory()
+        IEnumerator PlayFullRun(string character, string boss, string tag)
         {
-            // 找一张有路线能走遍 6 种房间的地图（Boss 必经）
+            // 找一张有路线能走遍 6 种房间的地图（Boss 必经）。地图只看种子，和角色无关
             ulong seed = 2026;
             while (PlanPath(RunEngine.NewRun(seed).State.Map).Kinds < 6 && seed < 2026 + 200) seed++;
             Assert.AreEqual(6, PlanPath(RunEngine.NewRun(seed).State.Map).Kinds, "200 个种子里没有能走遍 6 种房间的地图");
-            _boot.NewRun(seed, new RunConfig { MaxHp = 999 });
-            Run.State.Boss = EncounterIds.Priest;   // Boss 是三选一抽的（15 §2.1）；这条要打倒司祭，局外档才记 BeatPriest
+            _boot.NewRun(seed, new RunConfig { MaxHp = 999, Character = character });
+            Run.State.Boss = boss;
+            Screen.CloseModal();
             yield return null;
-            var seenRooms = new HashSet<RoomType>();
+            string bossName = EncounterLibrary.Get(boss).Name;
+            _seenRooms.Clear();
             var shots = new HashSet<string>();
-            bool revealChecked = false;
+            bool revealChecked = false, fogChecked = false, iconsChecked = false, bossRevealed = false;
+            _eggSeen = false;
             int steps = 0;
             while (!Run.IsOver && steps++ < 8000)
             {
@@ -242,7 +267,15 @@ namespace Deeptide.View.Tests
                 }
                 if (steps % 200 == 0) Debug.Log($"[RunFlowTests] 第 {steps} 步：第 {s.Floor} 层 {s.Phase}，生命 {s.Hp}/{s.MaxHp}");
                 string shot = ShotName(s);
-                if (shot != null && shots.Add(shot)) yield return Shot(shot);
+                if (shot != null && shots.Add(shot)) yield return Shot($"{shot}_{tag}");
+                if (s.Phase == RunPhase.Map && s.Row == s.Map.Height - 1 && shots.Add("22_map_fog")) yield return Shot($"22_map_boss_{tag}");
+                if (s.Phase == RunPhase.Map && s.Row >= 0 && !fogChecked)
+                {
+                    fogChecked = true;
+                    bool known = Run.RevealedBoss != null;
+                    Assert.AreEqual(!known, Screen.Map.BossFogged, "地图上的 Boss 节点：不知道是谁就被雾遮着");
+                    Assert.AreEqual(known ? bossName : null, Screen.Map.BossNameShown);
+                }
                 if (s.Phase == RunPhase.Event || s.Phase == RunPhase.Shop || s.Phase == RunPhase.Campfire)
                 {
                     var plate = Screen.Panel.GetComponentInChildren<Illustration>();
@@ -267,12 +300,30 @@ namespace Deeptide.View.Tests
                 {
                     case RunPhase.Map:
                         var node = ChooseNode();
-                        seenRooms.Add(node.Room);
+                        _seenRooms.Add(node.Room);
                         Assert.IsTrue(Screen.Map.ClickNode(node.Row, node.Col), $"点不了节点 {node.Row},{node.Col}");
+                        if (node.Room == RoomType.Boss)
+                        {
+                            yield return null;
+                            Assert.AreEqual(bossName, Screen.LastReveal, "进 Boss 房间揭晓是谁");
+                            bossRevealed = true;
+                            yield return Shot($"50_reveal_{tag}");
+                        }
                         break;
                     case RunPhase.Battle:
                         Assert.AreEqual(RunPhase.Battle, Screen.Shown);
                         Assert.IsNotNull(Screen.Battle);
+                        if (!iconsChecked)
+                        {
+                            iconsChecked = true;
+                            Assert.AreEqual(Run.State.Echoes.Count, Screen.Battle.Player.Gauge.EchoIcons.Count, "回响图标挂在理智条旁边");
+                        }
+                        var egg = Screen.Battle.Enemies.FirstOrDefault(v => v.DefId == EnemyIds.ScaleEgg && v.NameShown.Contains("孵化"));
+                        if (egg != null && !_eggSeen)
+                        {
+                            _eggSeen = true;
+                            yield return Shot($"51_eggs_{tag}");
+                        }
                         yield return BattleStep();
                         break;
                     default:
@@ -282,25 +333,38 @@ namespace Deeptide.View.Tests
                 yield return null;
             }
             yield return WaitSettled();
+            Assert.IsTrue(bossRevealed, "这一局走到了 Boss 房间");
+            Assert.AreEqual(1, Run.State.Echoes.Count, "开局选了一个回响");
             Assert.AreEqual(RunPhase.Victory, Run.State.Phase, $"没有通关：{Run.Title}");
             Assert.AreEqual(RunPhase.Victory, Screen.Shown);
             Assert.IsNotNull(Screen.Panel, "通关后应该显示结算面板");
             Assert.IsFalse(File.Exists(TestSave), "一局结束要删档");
             var tel = ReadTelemetry();
             Assert.AreEqual(RunOutcome.Victory, tel.Outcome);
+            Assert.AreEqual(boss, tel.Boss);
+            CollectionAssert.AreEqual(Run.State.Echoes, tel.Echoes);
             Assert.AreEqual(Run.State.Path.Count, tel.Nodes.Count, "遥测里每个节点一条");
             Assert.AreEqual(Run.State.Stats.Battles.Count, tel.Battles.Count);
             Assert.Greater(tel.PlaySeconds, 0, "单局用时");
             Assert.That(tel.Nodes.Select(n => n.Seconds), Is.Ordered, "节点的进入时间递增");
-            // 通关文案（策划/12 §8.3）；局外档记下打倒过司祭（下次附言 D 才有资格出现）
             Assert.IsTrue(Texts().Any(t => t.text == Story.VictoryTitle), "结算标题应该是「天还没亮」");
             Assert.IsTrue(Texts().Any(t => t.name == "Marks" && t.text.Contains(Story.ActEnd) && t.text.Contains("第 1 夜")));
+            yield return Shot($"29_victory_{tag}");
+            Debug.Log($"[RunFlowTests] {character} 对 {bossName}：种子 {seed}，{steps} 步通关，回响 {Run.State.Echoes[0]}，走过的房间：{string.Join("、", _seenRooms)}；牌组 {Run.State.Deck.Count} 张");
+            foreach (var room in new[] { RoomType.Battle, RoomType.Elite, RoomType.Campfire, RoomType.Treasure, RoomType.Shop, RoomType.Event, RoomType.Boss })
+                Assert.Contains(room, _seenRooms.ToList(), $"这条路线没走到 {room}");
+        }
+
+        readonly HashSet<RoomType> _seenRooms = new HashSet<RoomType>();
+        bool _eggSeen;
+
+        /// <summary>调查员打到溺亡司祭：局外档记下打倒过司祭（附言 D 的条件），回到标题不会把通关记成放弃。</summary>
+        [UnityTest, Timeout(900000)]
+        public IEnumerator FullRunReachesBossVictory()
+        {
+            yield return PlayFullRun(CharacterIds.Investigator, EncounterIds.Priest, "priest");
             Assert.IsTrue(_boot.Profile.BeatPriest);
             Assert.IsTrue(ProfileFiles.Read().BeatPriest, "局外档要写到盘上");
-            yield return Shot("29_victory");
-            Debug.Log($"[RunFlowTests] 种子 {seed}，{steps} 步通关，走过的房间：{string.Join("、", seenRooms)}；牌组 {Run.State.Deck.Count} 张");
-            foreach (var room in new[] { RoomType.Battle, RoomType.Elite, RoomType.Campfire, RoomType.Treasure, RoomType.Shop, RoomType.Event, RoomType.Boss })
-                Assert.Contains(room, seenRooms.ToList(), $"这条路线没走到 {room}");
 
             // 结算 → 回到标题，没有存档了；回到标题不会把通关记成放弃
             Assert.IsTrue(Screen.Panel.GetComponentsInChildren<UnityEngine.UI.Button>().Any(b => b.name == "Back"));
@@ -311,12 +375,76 @@ namespace Deeptide.View.Tests
             Assert.AreEqual(RunOutcome.Victory, ReadTelemetry().Outcome);
         }
 
+        /// <summary>狼人打到鳞母（09 M7.6）：卵的孵化倒计时写在名字后面；打倒的不是司祭，附言 D 的条件不记。</summary>
+        [UnityTest, Timeout(900000)]
+        public IEnumerator WerewolfFullRunBeatsScaleMother()
+        {
+            yield return PlayFullRun("werewolf", "boss_scale_mother", "mother");
+            Assert.IsTrue(_eggSeen, "鳞母产过卵，卵的名字后面写着孵化倒计时");
+            Assert.IsFalse(_boot.Profile.BeatPriest, "打倒鳞母不算打倒司祭");
+        }
+
+        /// <summary>
+        /// 倒影（09 M7.6）：拿海图开局就知道 Boss 是谁，地图上 Boss 节点写名字、没有雾；直接走到最后一层进 Boss 房间，揭晓；
+        /// 打的时候名字后面写着它下回合抄哪张牌。生命给到 999，打到结算。
+        /// </summary>
+        [UnityTest, Timeout(600000)]
+        public IEnumerator SeaChartRevealsMirror_AndItShowsWhatItCopies()
+        {
+            // 开局就给海图的种子（新的局外档：没有要避开的 Boss，开局和直接 NewRun 一样）
+            ulong seed = Enumerable.Range(1, 400).Select(i => (ulong)i)
+                .First(x => RunEngine.NewRun(x, new RunConfig { Echoes = true }).State.Select.Echoes.Contains(EchoIds.SeaChart));
+            _boot.NewRun(seed, new RunConfig { MaxHp = 999 });
+            Run.State.Boss = "boss_mirror";
+            yield return null;
+            yield return PickEcho(EchoIds.SeaChart);
+            Assert.IsFalse(Screen.Map.BossFogged, "拿了海图：雾散了");
+            Assert.AreEqual("倒影", Screen.Map.BossNameShown);
+
+            // 直接站到最后一层，下一步就是 Boss
+            var s = Run.State;
+            s.Row = s.Map.Height - 1;
+            s.Col = s.Map.InRow(s.Row).First().Col;
+            s.Floor = s.Row + 1;
+            Screen.Map.Refresh(Run);
+            yield return null;
+            yield return Shot("22_map_boss_known");
+            // 揭晓按正常速度播，截图里才看得到雾
+            RunScreen.BattleSpeed = 1;
+            Assert.IsTrue(Screen.Map.ClickNode(s.Map.Height, 0));
+            yield return null;
+            Assert.AreEqual("倒影", Screen.LastReveal);
+            yield return Shot("50_reveal_mirror");
+            yield return new WaitForSeconds(2.6f);
+            Screen.Battle.Director.Speed = RunScreen.BattleSpeed = 40;
+
+            bool copySeen = false;
+            int steps = 0;
+            while (Run.State.Phase == RunPhase.Battle && steps++ < 3000)
+            {
+                yield return WaitSettled();
+                var battle = Screen.Battle;
+                if (battle != null && !copySeen && battle.Enemies[0].NameShown.Contains("抄："))
+                {
+                    copySeen = true;
+                    yield return Shot("51_mirror_copy");
+                }
+                yield return BattleStep();
+                yield return null;
+            }
+            yield return WaitSettled();
+            Assert.IsTrue(copySeen, "倒影的名字后面要写出它下回合抄哪张牌");
+            Assert.AreEqual(RunPhase.Victory, Run.State.Phase, $"没有打倒倒影：{Run.Title}");
+            Assert.AreEqual("boss_mirror", ReadTelemetry().Boss);
+        }
+
         /// <summary>战斗中保存退出 → 继续：回到这场战斗的开头，和刚进入时完全一样；打完在奖励界面退出 → 继续：还在奖励界面。</summary>
         [UnityTest]
         public IEnumerator ContinueResumesSavedRun()
         {
             _boot.NewRun(77);
             yield return null;
+            yield return PickEcho();
             var first = Run.State.Map.InRow(0).First();
             Assert.IsTrue(Screen.Map.ClickNode(0, first.Col));
             yield return WaitSettled();
@@ -460,8 +588,7 @@ namespace Deeptide.View.Tests
         public IEnumerator MapHoverHighlightsPaths()
         {
             _boot.NewRun(31);
-            Screen.CloseModal();    // 收起开局的信，截图里要看地图
-            yield return null;
+            yield return PickEcho();    // 收起开局的信、选回响，截图里要看地图
             yield return null;
             var map = Run.State.Map;
             var target = map.InRow(3).First();
@@ -557,7 +684,10 @@ namespace Deeptide.View.Tests
 
         bool _boughtCard;
 
-        /// <summary>和 BattleContentTests 一样的出牌策略：有选择选第一项；能打攻击先打攻击，目标是下标最小的活敌人；都打不了结束回合。</summary>
+        /// <summary>
+        /// 和 BattleContentTests 一样的出牌策略：有选择选第一项；能打攻击先打攻击，目标是下标最小的活敌人；都打不了结束回合。
+        /// 会把自己打崩溃的代价牌不打：崩溃扣 10% 最大生命，给 999 血也挡不住理智上限只有 6 的狼人一直崩。
+        /// </summary>
         IEnumerator BattleStep()
         {
             var battle = Screen.Battle;
@@ -571,11 +701,13 @@ namespace Deeptide.View.Tests
             var target = engine.State.Enemies.FirstOrDefault(en => !en.IsDead);
             int targetIndex = target?.Index ?? -1;
             var hand = engine.Player.Hand;
+            bool Safe(int i) => engine.CanPlay(i, out _) &&
+                hand[i].SanityCost(engine.UsesMadFace(hand[i]), hand[i].Def.XCost ? engine.Player.Energy : 0) < engine.Player.Sanity;
             int pick = -1;
             for (int i = 0; i < hand.Count && pick < 0; i++)
-                if (hand[i].Def.Type == CardType.Attack && engine.CanPlay(i, out _)) pick = i;
+                if (hand[i].Def.Type == CardType.Attack && Safe(i)) pick = i;
             for (int i = 0; i < hand.Count && pick < 0; i++)
-                if (engine.CanPlay(i, out _)) pick = i;
+                if (Safe(i)) pick = i;
             if (pick >= 0) Assert.IsTrue(battle.Controller.Play(pick, hand[pick].Def.Target == CardTarget.Enemy ? targetIndex : -1));
             else Assert.IsTrue(battle.Controller.EndTurn());
         }
@@ -590,6 +722,27 @@ namespace Deeptide.View.Tests
             Assert.AreEqual(s.Floor <= 0 ? "出发" : $"第 {s.Floor} 层", Screen.TopBar.FloorText, $"{where}：层数");
             for (int i = 0; i < s.Potions.Count; i++) Assert.AreEqual(s.Potions[i], Screen.TopBar.PotionIds[i], $"{where}：药水栏 {i}");
             CollectionAssert.AreEquivalent(s.Relics.Distinct(), Screen.TopBar.RelicIds, $"{where}：遗物");
+        }
+
+        /// <summary>
+        /// 开局的回响（09 M7.6）：收起信，选 prefer 里第一个出现的；都没有就重抽一次再找，还没有就选第一张。
+        /// </summary>
+        IEnumerator PickEcho(params string[] prefer)
+        {
+            Screen.CloseModal();
+            yield return null;
+            Assert.AreEqual(SelectPurpose.Echo, Run.State.Select?.Purpose, "开局先选回响");
+            int Find() => Run.Options().FindIndex(o => prefer.Any(id => o.Tag == "echo:" + id));
+            int pick = Find();
+            if (pick < 0 && prefer.Length > 0)
+            {
+                Assert.IsTrue(Screen.ClickOption(Run.Options().FindIndex(o => o.Tag == "reroll")));
+                yield return null;
+                pick = Find();
+            }
+            Assert.IsTrue(Screen.ClickOption(System.Math.Max(0, pick)));
+            yield return null;
+            Assert.AreEqual(RunPhase.Map, Screen.Shown);
         }
 
         /// <summary>等到能操作：战斗事件播完、打完后的横幅等待结束。</summary>
@@ -612,7 +765,9 @@ namespace Deeptide.View.Tests
                 case RunPhase.Map: return s.Row < 0 ? null : "23_map";
                 case RunPhase.Battle: return "24_battle";
                 case RunPhase.Reward: return "25_reward";
-                case RunPhase.Select: return s.Select.Purpose == SelectPurpose.AddCard ? "26_select_card" : s.Select.Purpose == SelectPurpose.DiscardPotion ? null : "26_select_deck";
+                case RunPhase.Select:
+                    return s.Select.Purpose == SelectPurpose.AddCard ? "26_select_card" : s.Select.Purpose == SelectPurpose.Echo ? null
+                        : s.Select.Purpose == SelectPurpose.DiscardPotion ? null : "26_select_deck";
                 case RunPhase.Shop: return "27_shop";
                 case RunPhase.Campfire: return "28_campfire";
                 case RunPhase.Event: return "28_event";

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Deeptide.Core.Relics;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -165,6 +166,41 @@ namespace Deeptide.View.Battle
 
         /// <summary>癫狂那一侧的名字（测试用）。</summary>
         public string LunacyName => _lunacyName;
+
+        /// <summary>理智条左下角竖着排的回响图标（策划/15 §3.1「显示在理智条旁边」、09 M7.6）。底色按档位，悬停看效果。名字叫「Echo 回响 id」。</summary>
+        public readonly List<Image> EchoIcons = new List<Image>();
+
+        public void SetEchoes(IEnumerable<string> echoes)
+        {
+            foreach (var icon in EchoIcons) Destroy(icon.gameObject);
+            EchoIcons.Clear();
+            var root = (RectTransform)transform;
+            foreach (var id in echoes)
+            {
+                if (!EchoLibrary.Exists(id)) continue;
+                var def = EchoLibrary.Get(id);
+                var (back, text) = Palette.EchoTier(def.Tier);
+                var icon = Ui.Box("Echo " + id, root, back, true);
+                icon.sprite = Shapes.RoundRect(8);
+                icon.type = Image.Type.Sliced;
+                icon.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(-Width / 2 - 34, -Height / 2 + 20 + EchoIcons.Count * 46), new Vector2(40, 40));
+                Ui.Border(icon, Palette.Ink, 2);
+                var art = Ui.Box("Art", icon.transform, text);
+                art.raycastTarget = false;
+                art.rectTransform.Fill(4);
+                if (!ArtSprites.Apply(art, "echo_" + id, text))
+                {
+                    art.color = new Color(0, 0, 0, 0);
+                    var glyph = Ui.Text("Glyph", icon.transform, def.Name.Substring(0, 1), 24, text);
+                    glyph.font = Fonts.Serif;
+                    glyph.fontStyle = FontStyles.Bold;
+                    glyph.rectTransform.Fill();
+                }
+                string tip = $"回响 · {def.Name}\n{EchoLibrary.Create(id).Description}";
+                TooltipTrigger.Add(icon, () => tip);
+                EchoIcons.Add(icon);
+            }
+        }
 
         public void SetWard(int ward)
         {

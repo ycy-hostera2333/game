@@ -224,6 +224,10 @@ namespace Deeptide.View
         public static readonly Color Moss = new Color32(0x3D, 0x6B, 0x2E, 0xFF);
         public static readonly Color MossLight = new Color32(0x8F, 0xC2, 0x7A, 0xFF);
 
+        /// <summary>回响档位的底色和字色（策划/15 §7.2）：浅 = 浅灰纸、深 = 深青、渊 = 渊黑。</summary>
+        public static (Color Back, Color Text) EchoTier(Deeptide.Core.Relics.EchoTier tier) =>
+            tier == Deeptide.Core.Relics.EchoTier.Shallow ? (PaperMid, Ink) : tier == Deeptide.Core.Relics.EchoTier.Deep ? (Teal, Pale) : (AbyssCard, Pale);
+
         /// <summary>流派色（10 §4.2）：守夜 = 金，堕落 = 血，传染 = 紫，其余淡墨。</summary>
         public static Color Faction(string archetype, bool dark = false)
         {

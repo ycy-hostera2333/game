@@ -137,13 +137,17 @@ namespace Deeptide.Core.Enemies
         public override string Passive =>
             $"慢半拍：重复你上回合打出的第一张攻击牌，按你打出时的数值；没打就凝视。镜面：意志 = 你的理智 × {V("WillPerSanity")}。生命一半以下龟裂：抄前两张";
 
+        /// <summary>
+        /// 名字后面的提示（09 M7.6「它会抄哪张牌」）：下回合要抄的牌和数值；没抄到就是凝视，不写。
+        /// 只看计数器、不看意图：表现层收到计数器变化时意图可能还没换上。
+        /// </summary>
         public override string CounterText(EnemyState self)
         {
-            string phase = self.Counter(Phase) == 2 ? "龟裂 · " : "";
-            if (self.Intent?.Id == "Echo") return $"{phase}抄：{_name1} {self.Counter(Copy1)}×{self.Counter(Copy1Hits)}";
-            if (self.Intent?.Id == "Echo2")
-                return $"{phase}抄：{_name1} {self.Counter(Copy1)}×{self.Counter(Copy1Hits)}、{_name2} {self.Counter(Copy2)}×{self.Counter(Copy2Hits)}";
-            return phase.Length > 0 ? "龟裂" : null;
+            string phase = self.Counter(Phase) == 2 ? "龟裂" : "";
+            if (self.Counter(Copy1Hits) <= 0) return phase.Length > 0 ? phase : null;
+            string copy = $"抄：{_name1} {self.Counter(Copy1)}×{self.Counter(Copy1Hits)}";
+            if (self.Counter(Copy2Hits) > 0) copy += $"、{_name2} {self.Counter(Copy2)}×{self.Counter(Copy2Hits)}";
+            return phase.Length > 0 ? $"{phase} · {copy}" : copy;
         }
 
         public override void OnSpawned(BattleEngine e, EnemyState self)

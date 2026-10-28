@@ -65,6 +65,7 @@ namespace Deeptide.View.Run
         {
             if (_artMat != null) Destroy(_artMat);
             if (_startRing != null) Tween.StopAll(_startRing.rectTransform);
+            if (_bossFog != null) Tween.StopAll(_bossFog);
         }
 
         void Build(RectTransform root)
@@ -184,6 +185,7 @@ namespace Deeptide.View.Run
         {
             _run = run;
             if (_map != run.State.Map) Rebuild(run.State.Map);
+            UpdateBossFog(run);
             var s = run.State;
             bool choosing = s.Phase == RunPhase.Map;
 
@@ -227,6 +229,7 @@ namespace Deeptide.View.Run
         {
             _map = map;
             foreach (Transform c in _edges) Destroy(c.gameObject);
+            if (_bossFog != null) Tween.StopAll(_bossFog);
             foreach (Transform c in _nodeLayer) Destroy(c.gameObject);
             _nodes.Clear();
             _edgeViews.Clear();
@@ -253,7 +256,67 @@ namespace Deeptide.View.Run
             }
             foreach (var n in map.Nodes) AddNode(n.Row, n.Col, n.Room);
             AddNode(map.Height, 0, RoomType.Boss);
+            BuildBossFog(_nodes[(map.Height, 0)]);
         }
+
+        // ------------------------------------------------------------------ Boss 节点的雾（策划/15 §1.3、09 M7.6）
+
+        Image _bossFog, _bossShade, _bossPlate;
+        TextMeshProUGUI _bossName;
+
+        /// <summary>Boss 节点还被雾遮着（不知道是谁）。测试用。</summary>
+        public bool BossFogged => _bossFog != null && _bossFog.gameObject.activeSelf;
+        /// <summary>Boss 节点下面写出来的名字（拿了海图才有），没有为 null。测试用。</summary>
+        public string BossNameShown => _bossName != null && _bossName.gameObject.activeSelf ? _bossName.text : null;
+
+        /// <summary>雾：一层半透明的纸色圆盖住半沉的礼拜堂，中间一个深渊青的「?」，慢慢呼吸。知道是谁之后换成剪影和名字。</summary>
+        void BuildBossFog(MapNodeView boss)
+        {
+            var rt = (RectTransform)boss.transform;
+            _bossFog = Ui.Box("Fog", rt, new Color(Palette.PaperShade.r, Palette.PaperShade.g, Palette.PaperShade.b, 0.86f));
+            _bossFog.sprite = Shapes.Circle;
+            _bossFog.raycastTarget = false;
+            _bossFog.rectTransform.Fill(-18);
+            var mark = Ui.Text("Unknown", _bossFog.transform, "?", 150, Palette.Teal);
+            mark.font = Fonts.Serif;
+            mark.fontStyle = FontStyles.Bold;
+            mark.rectTransform.Fill();
+            Tween.Alpha(_bossFog, 0.7f, 2.4f, Ease.InOutSine, -1, CycleMode.Yoyo);
+
+            // 知道是谁：礼拜堂前面垫一块纸色圆，上面是墨色剪影（青色的礼拜堂上看不清青色的剪影）
+            _bossPlate = Ui.Box("Plate", rt, Palette.PaperMid);
+            _bossPlate.sprite = Shapes.Circle;
+            _bossPlate.raycastTarget = false;
+            _bossPlate.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 10), new Vector2(BossSize * 0.62f, BossSize * 0.62f));
+            _bossShade = Ui.Box("Silhouette", rt, Palette.Ink);
+            _bossShade.raycastTarget = false;
+            _bossShade.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 10), new Vector2(BossSize * 0.45f, BossSize * 0.6f));
+            _bossName = RunUi.Label(rt, "", new Vector2(0, -BossSize * 0.58f), new Vector2(360, 44), 32, Palette.Teal);
+            _bossName.font = Fonts.Serif;
+            _bossName.fontStyle = FontStyles.Bold;
+            _bossName.outlineWidth = 0.25f;
+            _bossName.outlineColor = Palette.Paper;
+            _bossName.name = "BossName";
+        }
+
+        void UpdateBossFog(RunEngine run)
+        {
+            if (_bossFog == null) return;
+            string id = run.RevealedBoss;
+            bool known = id != null;
+            _bossFog.gameObject.SetActive(!known);
+            _bossShade.gameObject.SetActive(known);
+            _bossPlate.gameObject.SetActive(known);
+            _bossName.gameObject.SetActive(known);
+            if (!known) return;
+            var enc = Deeptide.Core.Enemies.EncounterLibrary.Get(id);
+            _bossName.text = enc.Name;
+            _bossShade.sprite = Shapes.Silhouette(BossSilhouette(enc.Enemies[0]));
+        }
+
+        /// <summary>Boss 的剪影种类（地图上、进门揭晓用）：鳞母是兽形，其余人形。</summary>
+        public static SilhouetteKind BossSilhouette(string enemyId) =>
+            enemyId == Deeptide.Core.Enemies.EnemyIds.ScaleMother ? SilhouetteKind.Beast : SilhouetteKind.Humanoid;
 
         const int StartColumnKey = -1;
 
@@ -460,8 +523,17 @@ namespace Deeptide.View.Run
         /// <summary>节点图标一律墨色，只有 Boss（深海之物）用深渊青（10 §2.2）。</summary>
         public static Color IconColor(RoomType room) => room == RoomType.Boss ? Palette.Teal : Palette.Ink;
 
-        /// <summary>开局就知道的 Boss 名字（回响「海图」），不知道为 null。</summary>
-        public string RevealedBossName => _run?.RevealedBoss is string id ? Deeptide.Core.Enemies.EncounterLibrary.Get(id).Name : null;
+        /// <summary>开局就知道的 Boss（回响「海图」）：名字 + 它的被动说明（15 §1.3「剪影、名字和考点」），不知道为 null。</summary>
+        public string RevealedBossName
+        {
+            get
+            {
+                if (!(_run?.RevealedBoss is string id)) return null;
+                var enc = Deeptide.Core.Enemies.EncounterLibrary.Get(id);
+                var passive = Deeptide.Core.Enemies.EnemyLibrary.CreateBehaviour(Deeptide.Core.Enemies.EnemyLibrary.Get(enc.Enemies[0])).Passive;
+                return string.IsNullOrEmpty(passive) ? enc.Name : $"{enc.Name}\n<size=80%>{passive}</size>";
+            }
+        }
 
         /// <param name="bossName">Boss 节点：知道是谁（海图）就写名字，否则只说不知道（策划/15 §1.3）。</param>
         public static string Describe(RoomType room, string bossName = null)

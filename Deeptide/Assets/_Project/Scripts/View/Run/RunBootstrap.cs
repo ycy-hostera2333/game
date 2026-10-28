@@ -65,6 +65,7 @@ namespace Deeptide.View.Run
             }
             config ??= new RunConfig();
             config.AvoidBoss = Profile.LastBoss;   // 连续两局不碰同一个 Boss（策划/15 §2.1）
+            config.Echoes = true;                  // 信之后选回响（策划/15 §3、09 M7.6）
             var run = RunEngine.NewRun(seed, config);
             var postscript = Story.BeginNight(Profile, run.State);
             ProfileFiles.Write(Profile);

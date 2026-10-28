@@ -174,6 +174,7 @@ namespace Deeptide.View.Battle
             var field = Ui.Rect("Field", _root).Fill();
             field.pivot = new Vector2(0.5f, 0);
             _player = PlayerView.Create(field, setup.Character);
+            _player.Gauge.SetEchoes(setup.Echoes);
             var playerRt = (RectTransform)_player.transform;
             playerRt.Place(new Vector2(0.5f, 0), new Vector2(-460, 600), playerRt.sizeDelta);
             // 敌人区 x = -60..860（10 §6.1、§5.1）

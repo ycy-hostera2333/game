@@ -145,6 +145,9 @@ namespace Deeptide.View.Run
                 case SelectPurpose.UpgradeCard:
                     DeckChoice(root, screen, sel, options);
                     break;
+                case SelectPurpose.Echo:
+                    EchoChoice(root, screen, sel, options);
+                    break;
                 default:
                     PotionChoice(root, screen, sel.Title, options);
                     break;
@@ -187,6 +190,52 @@ namespace Deeptide.View.Run
                 cards.Add(new GridCard { Id = o.CardId, Name = $"Option {i}", Click = Pick(screen, i, o), Alt = upgrade ? o.CardId + "+" : null });
             }
             CardGrid(root, new Vector2(0, -60), new Vector2(1640, 820), cards, upgrade ? "升级后" : null);
+        }
+
+        /// <summary>
+        /// 回响（策划/15 §3、09 M7.6）：信之后、地图之前，三张大卡 3 选 1。卡底按档位换色（浅 = 浅灰纸、深 = 深青、渊 = 渊黑），
+        /// 倾向用流派色写在名字下面（不属于本角色流派的按中立）；下面是「重抽」。卡和按钮都叫「Option 下标」。
+        /// </summary>
+        static void EchoChoice(RectTransform root, RunScreen screen, SelectState sel, List<RunOption> options)
+        {
+            Ui.Box("Night", root, Palette.Abyss, true).rectTransform.Fill();
+            RunUi.Title(root, sel.Title, new Vector2(0, 390), new Vector2(1600, 70), 42, Palette.Pale);
+            RunUi.Label(root, "选一个带进这一夜。回响不进遗物栏，也不能移除；战斗里挂在理智条旁边。", new Vector2(0, 330), new Vector2(1400, 40), 24,
+                new Color(Palette.Pale.r, Palette.Pale.g, Palette.Pale.b, 0.7f));
+            var echoes = Enumerable.Range(0, options.Count).Where(i => options[i].Tag != null && options[i].Tag.StartsWith("echo:", StringComparison.Ordinal)).ToList();
+            for (int k = 0; k < echoes.Count; k++)
+            {
+                int i = echoes[k];
+                EchoCard(root, screen, i, options[i], sel.EchoTier, new Vector2((k - (echoes.Count - 1) / 2f) * 480, 0));
+            }
+            for (int i = 0; i < options.Count; i++)
+                if (!echoes.Contains(i))
+                    RunUi.Button(root, $"Option {i}", options[i].Label, new Vector2(0, -390), new Vector2(380, 72), Pick(screen, i, options[i]), options[i].Enabled, options[i].Reason);
+        }
+
+        static void EchoCard(RectTransform root, RunScreen screen, int index, RunOption o, EchoTier tier, Vector2 pos)
+        {
+            string id = o.Tag.Substring("echo:".Length);
+            var def = EchoLibrary.Get(id);
+            string tendency = EchoLibrary.TendencyFor(def, screen.Run.State.Character);
+            var (back, text) = Palette.EchoTier(tier);
+
+            var card = Ui.Box($"Option {index}", root, back, true);
+            card.sprite = Shapes.RoundRect(18);
+            card.type = Image.Type.Sliced;
+            card.rectTransform.Place(new Vector2(0.5f, 0.5f), pos, new Vector2(420, 560));
+            Ui.Border(card, Palette.Ink, 3);
+            var btn = card.gameObject.AddComponent<Button>();
+            btn.targetGraphic = card;
+            btn.onClick.AddListener(() => Pick(screen, index, o)());
+
+            Icon(card.transform, "echo_" + id, def.Name.Substring(0, 1), text, new Vector2(0.5f, 1), new Vector2(0, -130), 150);
+            RunUi.Title(card.transform, def.Name, new Vector2(0, 40), new Vector2(380, 70), 52, text);
+            var tag = RunUi.Label(card.transform, tendency, new Vector2(0, -12), new Vector2(380, 34), 24, Palette.Faction(tendency, tier != EchoTier.Shallow));
+            tag.fontStyle = FontStyles.Bold;
+            tag.name = "Tendency";
+            var body = RunUi.Label(card.transform, EchoLibrary.Create(id).Description, new Vector2(0, -150), new Vector2(360, 220), 26, text, TextAlignmentOptions.Top);
+            body.name = "Effect";
         }
 
         static void PotionChoice(RectTransform root, RunScreen screen, string title, List<RunOption> options)
