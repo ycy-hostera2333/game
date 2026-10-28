@@ -896,6 +896,14 @@ namespace Deeptide.Core
             return (erosion, aura);
         }
 
+        /// <summary>现在结束回合，手牌里的牌（疯语）会让你失去的理智。理智条的「疯语预告」用，按当前手牌算，出牌、抽牌后要重新取。</summary>
+        public int TurnEndSanityLoss()
+        {
+            int sum = 0;
+            foreach (var c in Player.Hand) sum += c.TurnEndSanityLoss;
+            return sum;
+        }
+
         /// <summary>某个实体当前的显示名（事件里只有编号时用）。</summary>
         public string NameOf(int entity) =>
             entity == BattleEvent.PlayerEntity ? Player.Name : entity >= 0 && entity < State.Enemies.Count ? State.Enemies[entity].Name : "";

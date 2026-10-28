@@ -397,6 +397,48 @@ namespace Deeptide.View.Tests
             yield return Shot("15_powers");
         }
 
+        /// <summary>
+        /// 理智条的预告按来源分开（策划/10 §6.2）：手里的疯语（回合结束扣）、侵蚀、光环各一个标签，数字和内核一致。
+        /// 灯塔守望者的刺目强光每回合开始扣理智，第 3 回合起下回合有侵蚀，两者同时出现时不能合成一个标签。
+        /// </summary>
+        [UnityTest]
+        public IEnumerator SanityForecastSplitsBySource()
+        {
+            _boot.Deck = new[] { "S01", "S01", "S01", "B02", "B02", "B02", "B02", "B02", "B02", "B02" };
+            _boot.Enemies = new[] { "lighthouse" };
+            _boot.Launch(new BattleLaunch { Seed = 2 });
+            yield return null;
+            _screen = _boot.Screen;
+            _screen.Director.Speed = 20;
+            yield return WaitIdle();
+
+            bool sawCurse = false, sawBoth = false;
+            for (int guard = 0; guard < 40 && Engine.State.Turn <= 3; guard++)
+            {
+                Assert.AreEqual(BattleOutcome.Ongoing, Engine.State.Outcome);
+                int curse = Engine.TurnEndSanityLoss();
+                var (erosion, aura) = Engine.UpcomingSanityLoss();
+                var tags = _screen.Player.Gauge.Tags;
+                string at = $"第 {Engine.State.Turn} 回合，标签 [{string.Join(", ", tags)}]";
+                Assert.AreEqual(curse > 0, tags.Any(t => t.Contains($"疯语 −{curse}<")), $"疯语预告，{at}");
+                Assert.AreEqual(erosion > 0, tags.Any(t => t.Contains($"侵蚀 −{erosion}<")), $"侵蚀预告，{at}");
+                Assert.AreEqual(aura > 0, tags.Any(t => t.Contains($"光环 −{aura}<")), $"光环预告，{at}");
+                sawCurse |= curse > 0;
+                if (erosion > 0 && aura > 0 && !sawBoth)
+                {
+                    sawBoth = true;
+                    yield return Shot("16_sanity_forecast");
+                }
+
+                var hand = Engine.Player.Hand;
+                int pick = hand.FindIndex(c => c.Id == "B02" && Engine.CanPlay(hand.IndexOf(c), out _));
+                Assert.IsTrue(pick >= 0 ? _screen.Controller.Play(pick) : _screen.Controller.EndTurn());
+                yield return WaitIdle();
+            }
+            Assert.IsTrue(sawCurse, "这个种子前 3 回合应该抽到过疯语");
+            Assert.IsTrue(sawBoth, "第 3 回合应该同时预告侵蚀和光环");
+        }
+
         /// <summary>程序化的测试角色图（64 × 128）：一个椭圆的轮廓，里面一半排线。</summary>
         static Texture2D TestActor()
         {

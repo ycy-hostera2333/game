@@ -717,7 +717,7 @@ namespace Deeptide.View.Battle
             }
             bool ongoing = engine.State.Outcome == BattleOutcome.Ongoing;
             var (erosion, aura) = ongoing ? engine.UpcomingSanityLoss() : (0, 0);
-            Gauge.SetForecast(ongoing ? mind : 0, !engine.IntentsBlurred, erosion, aura);
+            Gauge.SetForecast(ongoing ? engine.TurnEndSanityLoss() : 0, ongoing ? mind : 0, !engine.IntentsBlurred, erosion, aura);
             Gauge.SetWard(p.Statuses.Get(StatusId.Ward));
             Gauge.SetValue(p.Sanity, p.MaxSanity, p.LunacyThreshold, p.ClarityThreshold);
         }

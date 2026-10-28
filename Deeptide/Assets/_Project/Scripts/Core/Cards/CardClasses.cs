@@ -241,8 +241,10 @@ namespace Deeptide.Core.Cards
     {
         public override void Play(PlayContext c) { }
 
+        public override int TurnEndSanityLoss => V("Loss");
+
         public override void OnTurnEndInHand(BattleEngine e) =>
-            e.Queue.AddToBottom(new Actions.LoseSanityAction(V("Loss"), SanitySource.Curse));
+            e.Queue.AddToBottom(new Actions.LoseSanityAction(TurnEndSanityLoss, SanitySource.Curse));
     }
 
     /// <summary>S02 缠网：网缚渔夫塞进来的状态牌，1 费消耗、没有效果。打掉它能降低收网的伤害。</summary>

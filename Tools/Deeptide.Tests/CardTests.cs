@@ -277,6 +277,19 @@ namespace Deeptide.Tests
         }
 
         [Test]
+        public void Whispers_TurnEndPreviewMatchesActualLoss()
+        {
+            var e = Battle(TwoDummies);
+            SetHand(e, "S01", "B01", "S01");
+            Assert.That(e.TurnEndSanityLoss(), Is.EqualTo(2), "理智条的疯语预告：每张 1 点");
+            Play(e, 1, 0);
+            Assert.That(e.TurnEndSanityLoss(), Is.EqualTo(2), "打掉别的牌不影响");
+            int before = e.Player.Sanity;
+            EndTurn(e);   // 稻草人不攻击，第 2 回合开始也还没有侵蚀：只有疯语
+            Assert.That(before - e.Player.Sanity, Is.EqualTo(2), "实际扣的和预告一致");
+        }
+
+        [Test]
         public void TentacleLash_MadFaceHitsAllAndHurtsSelf()
         {
             var e = Battle(TwoDummies);

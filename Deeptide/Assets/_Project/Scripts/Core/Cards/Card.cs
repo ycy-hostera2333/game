@@ -152,6 +152,9 @@ namespace Deeptide.Core.Cards
 
         /// <summary>回合结束时仍在手牌中（如疯语）。</summary>
         public virtual void OnTurnEndInHand(BattleEngine e) { }
+
+        /// <summary>回合结束时仍在手牌中会失去的理智（疯语）。理智条预告用，OnTurnEndInHand 实际扣的也是这个数。</summary>
+        public virtual int TurnEndSanityLoss => 0;
     }
 
     /// <summary>

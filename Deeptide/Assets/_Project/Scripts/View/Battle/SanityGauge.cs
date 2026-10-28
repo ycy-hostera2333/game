@@ -8,7 +8,8 @@ namespace Deeptide.View.Battle
     /// <summary>
     /// 理智条（策划/10 §6.2）：竖向，每点理智一格。清明段描金、癫狂段深渊底；癫狂线青色虚线标在右侧，清明线金色虚线标在左侧，
     /// 进入清明时「清明」两字点亮；悬停理智条显示两条界线的数值和还差多少。
-    /// 预告三件事：敌人本回合的精神攻击（虚线框，癫狂时不显示）、下回合开始的侵蚀 / 光环（斜线）、悬停代价牌要付的理智（闪烁）。
+    /// 预告按扣的先后：回合结束时手里的疯语（斜线）→ 敌人本回合的精神攻击（虚线框，癫狂时不显示）→ 下回合开始的侵蚀、光环（斜线），
+    /// 每种来源一个标签；另外悬停代价牌时闪烁要付的理智。
     /// 坐标原点在理智条中心，单位是 1920×1080 参考分辨率。
     /// </summary>
     public sealed class SanityGauge : MonoBehaviour
@@ -34,7 +35,7 @@ namespace Deeptide.View.Battle
         int _sanity, _max, _line = 4, _clarity;
         string _lunacyName = "癫狂", _lunacyEnter = "进入癫狂", _lunacyVerb = "进入";
         TextMeshProUGUI _lunacyLabel;
-        int _mind, _erosion, _aura, _cost = -1;
+        int _curse, _mind, _erosion, _aura, _cost = -1;
         bool _mindVisible;
 
         public int Sanity => _sanity;
@@ -136,8 +137,10 @@ namespace Deeptide.View.Battle
             Redraw();
         }
 
-        public void SetForecast(int mind, bool mindVisible, int erosion, int aura)
+        /// <param name="curse">现在结束回合，手里的疯语要扣的理智。</param>
+        public void SetForecast(int curse, int mind, bool mindVisible, int erosion, int aura)
         {
+            _curse = curse;
             _mind = mind;
             _mindVisible = mindVisible;
             _erosion = erosion;
@@ -217,7 +220,9 @@ namespace Deeptide.View.Battle
         void Redraw()
         {
             if (_segs.Count == 0) return;
-            int afterMind = _sanity - (_mindVisible ? _mind : 0);
+            // 按扣的先后从顶上往下数：疯语（回合结束）→ 精神攻击（敌人回合）→ 侵蚀、光环（下回合开始）
+            int afterCurse = _sanity - _curse;
+            int afterMind = afterCurse - (_mindVisible ? _mind : 0);
             int afterTurn = afterMind - (_erosion + _aura);
             for (int i = 0; i < _segs.Count; i++)
             {
@@ -229,9 +234,9 @@ namespace Deeptide.View.Battle
 
                 s.Fill.color = lit ? (lunacy ? Palette.Lunacy : Palette.Ink) : lunacy ? Palette.Abyss : new Color(0, 0, 0, 0);
                 s.Outline.color = clarity ? Palette.Gold : lunacy ? Palette.Teal : Fade(Palette.InkMid, 0.5f);
-                s.Dashed.enabled = _mindVisible && lit && level > afterMind;
+                s.Dashed.enabled = _mindVisible && lit && level <= afterCurse && level > afterMind;
                 s.Dashed.color = Palette.Teal;
-                s.Hatch.enabled = lit && level <= afterMind && level > afterTurn;
+                s.Hatch.enabled = lit && (level > afterCurse || level <= afterMind && level > afterTurn);
                 s.Hatch.color = lunacy ? Fade(Palette.Abyss, 0.75f) : Fade(Palette.Paper, 0.8f);
             }
 
@@ -253,10 +258,11 @@ namespace Deeptide.View.Battle
             _value.color = lunatic ? Palette.Teal : Palette.Ink;
 
             _tagTexts.Clear();
-            if (_mindVisible && _mind > 0) _tagTexts.Add($"<color={Ui.Hex(Palette.Teal)}>精神攻击 −{_mind}</color>");
-            int turnLoss = _erosion + _aura;
-            if (turnLoss > 0)
-                _tagTexts.Add($"<color={Ui.Hex(Palette.Teal)}>{(_erosion > 0 ? "侵蚀" : "光环")} −{turnLoss}</color>");
+            string teal = Ui.Hex(Palette.Teal);
+            if (_curse > 0) _tagTexts.Add($"<color={teal}>疯语 −{_curse}</color>");
+            if (_mindVisible && _mind > 0) _tagTexts.Add($"<color={teal}>精神攻击 −{_mind}</color>");
+            if (_erosion > 0) _tagTexts.Add($"<color={teal}>侵蚀 −{_erosion}</color>");
+            if (_aura > 0) _tagTexts.Add($"<color={teal}>光环 −{_aura}</color>");
             if (_cost > 0)
             {
                 int after = _sanity - _cost;
