@@ -15,8 +15,10 @@ namespace Deeptide.Core.Run
         public int Nights;
         /// <summary>倒下过。</summary>
         public bool Died;
-        /// <summary>打倒过溺亡司祭。</summary>
+        /// <summary>打倒过溺亡司祭（打倒鳞母、倒影不算：附言 D 要碰上司祭才会出现，15 §9）。</summary>
         public bool BeatPriest;
+        /// <summary>上一局的 Boss：下一局开局避开它，连续两局不重复（策划/15 §2.1）。开局时就记，没打到也算。</summary>
+        public string LastBoss;
         /// <summary>前几夜见过的事件。</summary>
         public List<string> EventsSeen = new List<string>();
         /// <summary>信上已经出现的附言，按出现顺序。</summary>
@@ -65,12 +67,13 @@ namespace Deeptide.Core.Run
         public static string NightLabel(int night) => $"第 {night} 夜";
 
         /// <summary>
-        /// 开一局新的：夜数 +1，抄进这一局（Stats.Night、Stats.EventsBefore），再按顺序看下一条附言能不能出现。
+        /// 开一局新的：夜数 +1，抄进这一局（Stats.Night、Stats.EventsBefore），记下这一局的 Boss（下一局避开），再按顺序看下一条附言能不能出现。
         /// 返回这一夜新出现的附言，没有为 null。调用前先把上一局（放弃的存档）Record 进来。
         /// </summary>
         public static Postscript BeginNight(Profile p, RunState run)
         {
             p.Nights++;
+            p.LastBoss = run.Boss;
             run.Stats.Night = p.Nights;
             run.Stats.EventsBefore = p.EventsSeen.ToList();
             var next = Postscripts.FirstOrDefault(ps => !p.Postscripts.Contains(ps.Id));
@@ -84,7 +87,7 @@ namespace Deeptide.Core.Run
         {
             bool changed = false;
             if (run.Phase == RunPhase.Defeat && !p.Died) changed = p.Died = true;
-            if (run.Phase == RunPhase.Victory && !p.BeatPriest) changed = p.BeatPriest = true;
+            if (run.Phase == RunPhase.Victory && run.Boss == Enemies.EncounterIds.Priest && !p.BeatPriest) changed = p.BeatPriest = true;
             foreach (var id in run.EventsSeen)
                 if (!p.EventsSeen.Contains(id))
                 {

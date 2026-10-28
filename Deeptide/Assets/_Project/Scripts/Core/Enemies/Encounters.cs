@@ -6,6 +6,12 @@ namespace Deeptide.Core.Enemies
 {
     public enum EncounterPool { Easy, Hard, Elite, Boss }
 
+    public static class EncounterIds
+    {
+        /// <summary>溺亡司祭：加 Boss 三选一之前唯一的 Boss，旧存档没有 Boss 字段时按它算；打倒它才解锁附言 D（策划/12、15 §9）。</summary>
+        public const string Priest = "boss_priest";
+    }
+
     /// <summary>一组遭遇，对应 Data/encounters.csv 的一行（策划/04 §3）。</summary>
     public sealed class EncounterDef
     {

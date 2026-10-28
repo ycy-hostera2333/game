@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Deeptide.Core;
 using Deeptide.Core.Cards;
+using Deeptide.Core.Enemies;
 using Deeptide.Core.Map;
 using Deeptide.Core.Potions;
 using Deeptide.Core.Random;
@@ -474,6 +475,8 @@ namespace Deeptide.Sim
             /// <summary>遭遇 ID，或 event:事件 ID。</summary>
             public string Death;
             public string Character;
+            /// <summary>本章 Boss（开局抽的，没打到也有）。旧遥测没有，为 null。</summary>
+            public string Boss;
 
             public RunSample(RunState s)
             {
@@ -487,6 +490,7 @@ namespace Deeptide.Sim
                 CardChoices = s.Stats.CardChoices;
                 Death = s.Stats.DeathEncounter;
                 Character = s.Character;
+                Boss = s.Boss;
             }
 
             public RunSample(RunTelemetry t)
@@ -501,6 +505,7 @@ namespace Deeptide.Sim
                 Battles = t.Battles;
                 CardChoices = t.CardChoices;
                 Death = t.DeathCause;
+                Boss = t.Boss;
             }
         }
 
@@ -510,6 +515,14 @@ namespace Deeptide.Sim
             var battles = ok.SelectMany(r => r.Battles).ToList();
             var reachedBoss = ok.Where(r => r.HpAtBoss >= 0).ToList();
             Console.WriteLine($"  到达 Boss {reachedBoss.Count / (double)n:P0}，到达时生命中位数 {Median(reachedBoss.Select(r => r.HpAtBoss))}（目标 40–50）；Boss 战胜率 {(reachedBoss.Count == 0 ? 0 : ok.Count(r => r.Won) / (double)reachedBoss.Count):P0}");
+            // 三个 Boss 各自的出场占比和 Boss 战胜率（策划/15 §5.4：三个 Boss 之间胜率差 ≤ 15 个百分点）
+            var bosses = ok.Where(r => r.Boss != null).GroupBy(r => r.Boss).OrderBy(g => g.Key).ToList();
+            if (bosses.Count > 1)
+                Console.WriteLine("  Boss：" + string.Join("、", bosses.Select(g =>
+                {
+                    int reached = g.Count(r => r.HpAtBoss >= 0);
+                    return $"{EncounterLibrary.Get(g.Key).Name} {g.Count() / (double)ok.Count:P0}（Boss 战胜率 {(reached == 0 ? 0 : g.Count(r => r.Won) / (double)reached):P0}）";
+                })));
             foreach (var room in new[] { RoomType.Battle, RoomType.Elite, RoomType.Boss })
             {
                 var bs = battles.Where(b => b.Room == room).ToList();

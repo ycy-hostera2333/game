@@ -10,7 +10,7 @@ aftershock,余悸,Shallow,investigator,传染,Keep=50,震慑时恐惧不清零�
 spread,蔓延,Shallow,investigator,传染,,敌人死亡时，身上的恐惧平均分给其他敌人。
 notes_addendum,笔记补页,Shallow,investigator,中立,,调查笔记在每场第一次从癫狂回到清醒时也触发一次。
 satchel,行囊,Shallow,,中立,Slots=1;Potions=1,药水栏 +{Slots}；每章开始时获得 {Potions} 瓶随机药水。
-sea_chart,海图,Shallow,,中立,,地图上，下一步能走的事件和精英显示具体是哪一个。
+sea_chart,海图,Shallow,,中立,,开局就知道本章 Boss 是谁；地图上，下一步能走的事件和精英显示具体是哪一个。
 # ---------------- 浅 · 狼人：一个流派一个
 deep_scar,深痕,Shallow,werewolf,狂猎,Damage=1,兽形时，攻击每段再 +{Damage}（兽血的 +2 变成 +3）。
 tidal_range,潮差,Shallow,werewolf,月相,Times=2,每轮前 {Times} 次变身、复归都算「变身：」「复归：」（原来只算第一次）。

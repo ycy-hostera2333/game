@@ -36,6 +36,8 @@ namespace Deeptide.Core.Run
         /// <summary>角色（characters.csv 的 id）。加角色之前的记录没有这个字段，读进来按调查员算。</summary>
         public string Character = CharacterIds.Investigator;
         public RunOutcome Outcome;
+        /// <summary>本章 Boss（遭遇 ID，开局就抽好的，没打到也记）。加三选一之前的记录没有这个字段。</summary>
+        public string Boss;
         /// <summary>到达的层数。</summary>
         public int Floor;
         /// <summary>倒在哪：遭遇 ID，或 event:事件 ID。</summary>
@@ -75,6 +77,7 @@ namespace Deeptide.Core.Run
                 Night = stats.Night,
                 Seed = s.Seed,
                 Character = s.Character,
+                Boss = s.Boss,
                 Outcome = outcome,
                 Floor = s.Floor,
                 DeathCause = death,

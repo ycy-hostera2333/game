@@ -460,7 +460,11 @@ namespace Deeptide.View.Run
         /// <summary>节点图标一律墨色，只有 Boss（深海之物）用深渊青（10 §2.2）。</summary>
         public static Color IconColor(RoomType room) => room == RoomType.Boss ? Palette.Teal : Palette.Ink;
 
-        public static string Describe(RoomType room)
+        /// <summary>开局就知道的 Boss 名字（回响「海图」），不知道为 null。</summary>
+        public string RevealedBossName => _run?.RevealedBoss is string id ? Deeptide.Core.Enemies.EncounterLibrary.Get(id).Name : null;
+
+        /// <param name="bossName">Boss 节点：知道是谁（海图）就写名字，否则只说不知道（策划/15 §1.3）。</param>
+        public static string Describe(RoomType room, string bossName = null)
         {
             switch (room)
             {
@@ -470,7 +474,7 @@ namespace Deeptide.View.Run
                 case RoomType.Shop: return "商店\n买卡、遗物、药水，或者付钱删牌";
                 case RoomType.Campfire: return "篝火\n休息、锻造或静思";
                 case RoomType.Treasure: return "宝箱\n1 件遗物和一些金币";
-                default: return "Boss\n溺亡司祭";
+                default: return bossName != null ? $"Boss\n{bossName}" : "Boss\n今晚站在那儿的，你还不知道是谁";
             }
         }
     }
@@ -519,7 +523,7 @@ namespace Deeptide.View.Run
                 view._glyph.fontStyle = FontStyles.Bold;
                 view._glyph.rectTransform.Fill();
             }
-            TooltipTrigger.Add(disc, () => MapView.Describe(room));
+            TooltipTrigger.Add(disc, () => MapView.Describe(room, map.RevealedBossName));
             return view;
         }
 

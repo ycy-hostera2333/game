@@ -29,6 +29,8 @@ namespace Deeptide.Core.Run
         /// 现在只有模拟器的 --echo 打开；Unity 等回响界面（M7.6）做好再打开。
         /// </summary>
         public bool Echoes;
+        /// <summary>上一局的 Boss（局外档记的）：开局抽 Boss 时避开它，连续两局不重复（策划/15 §2.1）。控制台没有局外档，留空就是纯随机。</summary>
+        public string AvoidBoss;
     }
 
     /// <summary>当前界面上的一个选项。Do 只在 Execute 时调用，选项列表每次都从状态重新算出来，所以不需要存档。</summary>
@@ -91,6 +93,7 @@ namespace Deeptide.Core.Run
                 Map = MapGenerator.Generate(e.Rng.Map, c.Map),
                 Phase = RunPhase.Map,
             };
+            e.State.Boss = e.PickBoss(c.AvoidBoss);
             if (c.Echoes) e.OfferEchoes(EchoTier.Shallow);
             e.SavePoint();
             return e;
@@ -102,6 +105,7 @@ namespace Deeptide.Core.Run
             if (state.Version < 1 || state.Version > SaveVersion) throw new InvalidOperationException($"存档版本 {state.Version} 和当前版本 {SaveVersion} 不一致");
             // 版本 1 → 2：没有回响字段（读进来就是空的、0 次重抽），回响随机流由 RunRng.Load 补上
             state.Version = SaveVersion;
+            state.Boss ??= EncounterIds.Priest;   // Boss 三选一之前的存档
             var e = new RunEngine(config) { State = state, Rng = RunRng.Load(state.Rng, state.Seed) };
             if (state.Phase == RunPhase.Battle) e.CreateBattle();
             return e;
@@ -220,7 +224,7 @@ namespace Deeptide.Core.Run
                     case RunPhase.Campfire: return "篝火";
                     case RunPhase.Event: return EventLibrary.Get(State.Event.Id).Name;
                     case RunPhase.Select: return State.Select.Title;
-                    case RunPhase.Victory: return "溺亡司祭沉入深渊。Demo 通关！";
+                    case RunPhase.Victory: return $"{EncounterLibrary.Get(State.Boss).Name}沉入深渊。Demo 通关！";
                     default: return "调查员倒下了。";
                 }
             }
@@ -271,7 +275,16 @@ namespace Deeptide.Core.Run
                 };
             }).ToList();
             if (State.Row == State.Map.Height - 1)
-                options.Add(new RunOption { Label = $"第 {State.Map.BossFloor} 层 · Boss", Tag = "node:Boss", Do = () => EnterNode(State.Map.Height, 0, RoomType.Boss) });
+            {
+                string boss = RevealedBoss;
+                options.Add(new RunOption
+                {
+                    Label = $"第 {State.Map.BossFloor} 层 · Boss{(boss != null ? "：" + EncounterLibrary.Get(boss).Name : "")}",
+                    Tag = "node:Boss",
+                    Content = boss,
+                    Do = () => EnterNode(State.Map.Height, 0, RoomType.Boss),
+                });
+            }
             return options;
         }
 
@@ -316,7 +329,7 @@ namespace Deeptide.Core.Run
                     break;
                 case RoomType.Boss:
                     State.Stats.HpAtBoss = State.Hp;
-                    StartBattle(EncounterLibrary.InPool(EncounterPool.Boss).First().Id, room);
+                    StartBattle(State.Boss, room);
                     break;
                 case RoomType.Event:
                     var ev = PickEvent();
@@ -350,6 +363,21 @@ namespace Deeptide.Core.Run
             }
             SavePoint();
         }
+
+        /// <summary>
+        /// 开局抽本章 Boss（策划/15 §2.1）：从 Boss 池里等概率抽一个，避开上一局的（只剩它一个时不避）。用地图流，地图生成完之后它就不再用了，
+        /// 所以多抽这一次不影响别的。候选只有一个时不抽随机数：只有溺亡司祭的时候，整局结果和加三选一之前一样。
+        /// </summary>
+        string PickBoss(string avoid)
+        {
+            var all = EncounterLibrary.InPool(EncounterPool.Boss).Select(d => d.Id).ToList();
+            var options = all.Where(id => id != avoid).ToList();
+            if (options.Count == 0) options = all;
+            return options.Count == 1 ? options[0] : options[Rng.Map.NextInt(options.Count)];
+        }
+
+        /// <summary>开局就知道的 Boss（拿了回响「海图」，15 §3.3），不知道为 null。进了 Boss 房间以后看战斗标题。</summary>
+        public string RevealedBoss => State.Echoes.Contains(EchoIds.SeaChart) ? State.Boss : null;
 
         internal string PickEncounter(EncounterPool pool)
         {
@@ -774,7 +802,7 @@ namespace Deeptide.Core.Run
         {
             var s = State;
             var sb = new StringBuilder();
-            sb.Append(s.Character).Append('|').Append(s.Phase).Append('|').Append(s.Row).Append(',').Append(s.Col).Append('|').Append(s.Floor)
+            sb.Append(s.Character).Append('|').Append(s.Boss).Append('|').Append(s.Phase).Append('|').Append(s.Row).Append(',').Append(s.Col).Append('|').Append(s.Floor)
               .Append("|hp ").Append(s.Hp).Append('/').Append(s.MaxHp).Append("|san ").Append(s.MaxSanity)
               .Append("|gold ").Append(s.Gold).Append("|pity ").Append(s.RarePity).Append("|pot% ").Append(s.PotionChance)
               .Append("|rm ").Append(s.Removals).Append("|fights ").Append(s.BattlesFought).Append('/').Append(s.NormalFights).Append('\n');

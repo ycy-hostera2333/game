@@ -261,6 +261,11 @@ namespace Deeptide.Core.Run
         public List<string> Potions = new List<string>();
 
         public MapData Map;
+        /// <summary>
+        /// 本章的 Boss（encounters.csv 里 Boss 池的 id）：开局就抽好，但不公示，进了 Boss 房间才揭晓（策划/15 §2.1、09 M7.3）。
+        /// 加三选一之前的存档没有这个字段，读进来按溺亡司祭算。
+        /// </summary>
+        public string Boss;
         /// <summary>当前所在节点（-1 = 还没出发）。</summary>
         public int Row = -1;
         public int Col = -1;
