@@ -51,6 +51,66 @@ MonoBehaviour:
     Texture: {fileID: 2800000, guid: ce119dcf751234a43a761ba7772d8dcd, type: 3}
   - Id: C16
     Texture: {fileID: 2800000, guid: bc3dcd2ad50607046a4e03bfe80e9105, type: 3}
+  - Id: LB01
+    Texture: {fileID: 2800000, guid: fde01c596b3007f478847d25a1adda9e, type: 3}
+  - Id: LB02
+    Texture: {fileID: 2800000, guid: b86fcd93a049cec4da85346b203ef7e8, type: 3}
+  - Id: LB03
+    Texture: {fileID: 2800000, guid: 0e8654cbcaf0a704eb74db79fb9e5fa9, type: 3}
+  - Id: LC01
+    Texture: {fileID: 2800000, guid: 09b109722f2fcf74cb5b9b0c0ef18a79, type: 3}
+  - Id: LC02
+    Texture: {fileID: 2800000, guid: 43d1157931a17724d80042da43db8616, type: 3}
+  - Id: LC03
+    Texture: {fileID: 2800000, guid: 9969ae5efabda3a4582b055e029c970c, type: 3}
+  - Id: LC04
+    Texture: {fileID: 2800000, guid: 08af23ff6bdbf9346bda893c8658adb6, type: 3}
+  - Id: LC05
+    Texture: {fileID: 2800000, guid: 7d8d9265691190c44ba894ee80df9d49, type: 3}
+  - Id: LC06
+    Texture: {fileID: 2800000, guid: de5b5aafebeef3c479319414ae1cde9d, type: 3}
+  - Id: LC07
+    Texture: {fileID: 2800000, guid: a6546a8852c8d2f4da1ae2fd24d9ace7, type: 3}
+  - Id: LC08
+    Texture: {fileID: 2800000, guid: ca998e92830b7cb4a868b7e6cd2ae09d, type: 3}
+  - Id: LC09
+    Texture: {fileID: 2800000, guid: f884c4f930dc3f24cafc9f8de2f144b5, type: 3}
+  - Id: LC10
+    Texture: {fileID: 2800000, guid: ce661ede3cb012b4ab4e4e04a76340cc, type: 3}
+  - Id: LC11
+    Texture: {fileID: 2800000, guid: 0635fdc04f1af794981b245c929f1ecd, type: 3}
+  - Id: LC12
+    Texture: {fileID: 2800000, guid: 5a674ccd22587424bb48a9683a2636fe, type: 3}
+  - Id: LR01
+    Texture: {fileID: 2800000, guid: 3ca4cda792a117b449b55a66a1777f74, type: 3}
+  - Id: LR02
+    Texture: {fileID: 2800000, guid: c9705f95f6487574aa8cd6b93c5318ac, type: 3}
+  - Id: LR03
+    Texture: {fileID: 2800000, guid: 5d9217bd426c89c4798a97f9a8dfee33, type: 3}
+  - Id: LR04
+    Texture: {fileID: 2800000, guid: 2be7c831ba23612418577402b57f4f43, type: 3}
+  - Id: LU01
+    Texture: {fileID: 2800000, guid: 1307311948952114f8303206854f48b7, type: 3}
+  - Id: LU02
+    Texture: {fileID: 2800000, guid: bf3e9290ffda6cf4ba4c1b9b6cc7d9dc, type: 3}
+  - Id: LU03
+    Texture: {fileID: 2800000, guid: acd3ef0280c86034591b5eb45d7816b4, type: 3}
+  - Id: LU04
+    Texture: {fileID: 2800000, guid: b7409038e3ab53149b55a0a2bc8f8bff, type: 3}
+  - Id: LU05
+    Texture: {fileID: 2800000, guid: f8299c2630f12cc43bcd987996c5f017, type: 3}
+  - Id: LU06
+    Texture: {fileID: 2800000, guid: a8e67e897fc523443914cc8851525aad, type: 3}
+  - Id: LU07
+    Texture: {fileID: 2800000, guid: c8840ded5c9754b4899a67663467ab6a, type: 3}
+  - Id: LU08
+    Texture: {fileID: 2800000, guid: 7377b92977517fe49bebda40a82a7f93, type: 3}
+  - Id: LU09
+    Texture: {fileID: 2800000, guid: 6eafd5ec19beee845b28a8ba0f332381, type: 3}
+  - Id: LU10
+    Texture: {fileID: 2800000, guid: 258b8cc45d49cf547abb1cd55165e2e8, type: 3}
+  - Id: LU11
+    Texture: {fileID: 2800000, guid: 471128539341f1a41a7ab36e490b40b5, type: 3}
   - Id: R01
     Texture: {fileID: 2800000, guid: 02b6cf8fe709aa54d83a9b9f6bdff044, type: 3}
   - Id: R02
@@ -108,6 +168,10 @@ MonoBehaviour:
     Texture: {fileID: 2800000, guid: 087f845435536ac4eb97103429dabe1b, type: 3}
   - Id: player
     Texture: {fileID: 2800000, guid: f3741bb2242f816489ec8c78d9a97ac1, type: 3}
+  - Id: player_werewolf
+    Texture: {fileID: 2800000, guid: 30958369571117541b324ed39c0ce4b0, type: 3}
+  - Id: player_werewolf_beast
+    Texture: {fileID: 2800000, guid: c4b41c39b148fae4986c0c7342c12b56, type: 3}
   - Id: rat
     Texture: {fileID: 2800000, guid: 4e0af7d097bb6fb4faf1abeeb896efac, type: 3}
   - Id: scaleling
@@ -203,14 +267,24 @@ MonoBehaviour:
     Texture: {fileID: 2800000, guid: b2560df61903a3d498c8649015a19051, type: 3}
   - Id: passive_tide
     Texture: {fileID: 2800000, guid: a8f91c55107075d40929390e7b09790a, type: 3}
+  - Id: relic_beast_blood
+    Texture: {fileID: 2800000, guid: 177cb76d48545da4b961ad51ccc68a9e, type: 3}
+  - Id: relic_blood_bowl
+    Texture: {fileID: 2800000, guid: 0eaef92e938c316428573ca712bd79ec, type: 3}
   - Id: relic_whale_oil_lamp
     Texture: {fileID: 2800000, guid: e9850218535d4e344948fae801dd9ab5, type: 3}
+  - Id: relic_wolf_fang_pendant
+    Texture: {fileID: 2800000, guid: 104fa5ec2b9e2c44e841c8d689bd93b0, type: 3}
+  - Id: relic_wolf_pelt_cloak
+    Texture: {fileID: 2800000, guid: 86485aa387993af48924d48e741b4dde, type: 3}
   - Id: seal_contagion
     Texture: {fileID: 2800000, guid: 80a0201cb658bad419b4696939339ece, type: 3}
   - Id: seal_fallen
     Texture: {fileID: 2800000, guid: 655a54b0d4b32da449350c1ba1e76d7a, type: 3}
   - Id: seal_vigil
     Texture: {fileID: 2800000, guid: 0fdeebea9e07bf04882b4efa88e201e9, type: 3}
+  - Id: status_bleed
+    Texture: {fileID: 2800000, guid: 160a4dbc99fca014db7b9fd6c9a22820, type: 3}
   - Id: status_bound
     Texture: {fileID: 2800000, guid: 01363668ef8cf0d4798a90614562c5ef, type: 3}
   - Id: status_dexterity
