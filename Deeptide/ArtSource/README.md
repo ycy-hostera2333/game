@@ -71,7 +71,7 @@ python build.py C06 B01      # 不给 ID 就画全部
 
 - **战斗背景** `backgrounds/<ID>_ink.png`（+ 可选 `_mad.png`），2560 × 1440，打包成和卡图一样的打包贴图。游戏里墨着淡墨（10 §3：背景墨覆盖率 ≤ 40%，比角色浅），癫狂层着深渊青、按 `_Lunacy` 显现。`docks` 是普通战斗，`chapel` 是 Boss 战；`map` 是地图底图（1920 × 3400）
 - **单色精灵** `sprites/**/<ID>.png`：白色 + alpha，颜色由 Image 给（换色板不用重画）。按 ID 取用：
-  - 意图 `intent_*`、状态 `status_*`、被动 `passive_*`、格挡 `icon_block`、遗物 `relic_<遗物 ID>`
+  - 意图 `intent_*`、状态 `status_*`、被动 `passive_*`、格挡 `icon_block`、遗物 `relic_<遗物 ID>`、回响 `echo_<回响 ID>`（`procedural/sprites/echoes.py`，128）
   - 卡框 `frame_basic / common / uncommon / rare / erosion`（整卡 720 × 1008 的覆盖层）、窗线脚 `window_*`、流派徽记 `seal_*`
   - UI 套件 `ui_*`（九宫格边距写在 `ArtSprites.cs`）、`icon_heart / draw / discard / exhaust`
   - 地图节点 `node_*`；特效帧 `vfx_hit_a_0 … vfx_hit_c_5`、`vfx_break_0 … 5`、`vfx_crack`

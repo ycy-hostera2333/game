@@ -166,6 +166,10 @@ MonoBehaviour:
     Texture: {fileID: 2800000, guid: 6efcfac1378b8b944b7e92b593f144e3, type: 3}
   - Id: drowned_priest_p2
     Texture: {fileID: 2800000, guid: 087f845435536ac4eb97103429dabe1b, type: 3}
+  - Id: mirror
+    Texture: {fileID: 2800000, guid: dbae3240812f5e44d89f7a0dad5c1a28, type: 3}
+  - Id: mirror_p2
+    Texture: {fileID: 2800000, guid: d2ddb1a95ce5f4042979ef6399340924, type: 3}
   - Id: player
     Texture: {fileID: 2800000, guid: f3741bb2242f816489ec8c78d9a97ac1, type: 3}
   - Id: player_werewolf
@@ -174,6 +178,10 @@ MonoBehaviour:
     Texture: {fileID: 2800000, guid: c4b41c39b148fae4986c0c7342c12b56, type: 3}
   - Id: rat
     Texture: {fileID: 2800000, guid: 4e0af7d097bb6fb4faf1abeeb896efac, type: 3}
+  - Id: scale_egg
+    Texture: {fileID: 2800000, guid: 389dfc7082d4fed4e95765314e90c3ea, type: 3}
+  - Id: scale_mother
+    Texture: {fileID: 2800000, guid: 9f89f2004554a08419e25763d5a324a9, type: 3}
   - Id: scaleling
     Texture: {fileID: 2800000, guid: 16caee70e6b98d343b3ed967f3ce6013, type: 3}
   - Id: tentacle
@@ -207,6 +215,30 @@ MonoBehaviour:
   - Id: keyart
     Texture: {fileID: 2800000, guid: e121851bd81cd5f478aa846af6864db5, type: 3}
   Sprites:
+  - Id: echo_aftershock
+    Texture: {fileID: 2800000, guid: 1d2ae22086155664cb382f73e9482adb, type: 3}
+  - Id: echo_baffle
+    Texture: {fileID: 2800000, guid: c7dc2c85f864af442a4ec78614afd302, type: 3}
+  - Id: echo_blood_to_sea
+    Texture: {fileID: 2800000, guid: cafd0891b4649d34c99a1a57561b4f04, type: 3}
+  - Id: echo_deep_scar
+    Texture: {fileID: 2800000, guid: 7a4071aea491e844aa14d12ea4ed4846, type: 3}
+  - Id: echo_notes_addendum
+    Texture: {fileID: 2800000, guid: 88264ef44af817e4f916268494779b77, type: 3}
+  - Id: echo_satchel
+    Texture: {fileID: 2800000, guid: f83b20cce8dc940488e55f74cb63ceaa, type: 3}
+  - Id: echo_sea_chart
+    Texture: {fileID: 2800000, guid: 1cb1309af4992374a8b49bb28d775920, type: 3}
+  - Id: echo_shoal
+    Texture: {fileID: 2800000, guid: 72f37a3606f113446bedb58abee5cc95, type: 3}
+  - Id: echo_sleepless
+    Texture: {fileID: 2800000, guid: 504ee1b6a5939de44892d4d2143f70a7, type: 3}
+  - Id: echo_spread
+    Texture: {fileID: 2800000, guid: a6284fe6e1329b14a9f7976d49b5d67c, type: 3}
+  - Id: echo_tidal_range
+    Texture: {fileID: 2800000, guid: 80e4c83d6f22c6f49af5f04850d41cbf, type: 3}
+  - Id: echo_wick
+    Texture: {fileID: 2800000, guid: 7b1f9d6cdb50cb943886b0d401696ed1, type: 3}
   - Id: frame_basic
     Texture: {fileID: 2800000, guid: 7165cb1c732c5124783cc9ece74dd046, type: 3}
   - Id: frame_common
@@ -259,10 +291,14 @@ MonoBehaviour:
     Texture: {fileID: 2800000, guid: 5c16694ed43ade2489dd5d5d6082a82c, type: 3}
   - Id: node_treasure
     Texture: {fileID: 2800000, guid: 4e98a5d12faff9c4099f18e9b346c17b, type: 3}
+  - Id: passive_brood
+    Texture: {fileID: 2800000, guid: 9ac50a62440602c4ea8be2f9f0db7b35, type: 3}
   - Id: passive_faceless
     Texture: {fileID: 2800000, guid: ad3473c2bc80c374c885f944f9c69f04, type: 3}
   - Id: passive_glare
     Texture: {fileID: 2800000, guid: 122d9681b3c23274488caf1c4c71bdc9, type: 3}
+  - Id: passive_mirror
+    Texture: {fileID: 2800000, guid: a0aac8546a19d7b45beb47f17b739750, type: 3}
   - Id: passive_scent
     Texture: {fileID: 2800000, guid: b2560df61903a3d498c8649015a19051, type: 3}
   - Id: passive_tide

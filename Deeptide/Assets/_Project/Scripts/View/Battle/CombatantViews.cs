@@ -403,13 +403,16 @@ namespace Deeptide.View.Battle
             switch (defId)
             {
                 case EnemyIds.Scaleling:
+                case EnemyIds.ScaleEgg:
                 case EnemyIds.Rat: return (ActorTier.Small, SilhouetteKind.Beast);
                 case EnemyIds.Tentacle: return (ActorTier.Small, SilhouetteKind.Tentacle);
                 case EnemyIds.Crows: return (ActorTier.Medium, SilhouetteKind.Swarm);
                 case EnemyIds.Lighthouse:
                 case EnemyIds.Nun:
                 case EnemyIds.Fisherman: return (ActorTier.Elite, SilhouetteKind.Humanoid);
-                case EnemyIds.Priest: return (ActorTier.Boss, SilhouetteKind.Humanoid);
+                case EnemyIds.Priest:
+                case EnemyIds.ScaleMother:
+                case EnemyIds.Mirror: return (ActorTier.Boss, SilhouetteKind.Humanoid);
                 default: return (ActorTier.Medium, SilhouetteKind.Humanoid);
             }
         }
@@ -555,12 +558,15 @@ namespace Deeptide.View.Battle
                 case EnemyIds.Lighthouse: return "passive_glare";
                 case EnemyIds.Nun: return "passive_faceless";
                 case EnemyIds.Priest: return "passive_tide";
+                case EnemyIds.ScaleMother: return "passive_brood";
+                case EnemyIds.Mirror: return "passive_mirror";
                 default: return null;
             }
         }
 
         static Color PassiveColor(string defId) =>
-            defId == EnemyIds.Townsfolk || defId == EnemyIds.Priest ? Palette.Teal : Palette.InkMid;
+            defId == EnemyIds.Townsfolk || defId == EnemyIds.Priest || defId == EnemyIds.ScaleMother || defId == EnemyIds.Mirror
+                ? Palette.Teal : Palette.InkMid;
 
         public void Lunge() => LungeToward(-1);
 
