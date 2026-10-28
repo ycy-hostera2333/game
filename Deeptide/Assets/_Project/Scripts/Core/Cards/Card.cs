@@ -212,7 +212,7 @@ namespace Deeptide.Core.Cards
             Enqueue(new DelegateAction(e =>
             {
                 var p = e.ApplyPower(power, amount);
-                var ev = e.Log.Add(BattleEventType.PowerApplied, $"获得能力「{p.Name}」（{p.Amount}）", "调查员");
+                var ev = e.Log.Add(BattleEventType.PowerApplied, $"获得能力「{p.Name}」（{p.Amount}）", e.Player.Name);
                 ev.Id = p.Id;
                 ev.Value = p.Amount;
             }));

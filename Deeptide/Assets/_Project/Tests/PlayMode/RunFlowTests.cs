@@ -90,9 +90,22 @@ namespace Deeptide.View.Tests
             _boot.NextSeed = 12;
             Assert.IsTrue(_boot.ClickTitle("NewRun"));
             yield return null;
+            // 先选角（09 M6.5）：每个角色一张卷轴，「返回」回到标题
+            Assert.IsNotNull(_boot.CharacterSelect, "「新的一局」先弹出选角");
+            Assert.IsNull(Screen, "选角之前还没开局");
+            foreach (var ch in CharacterLibrary.All)
+                Assert.IsTrue(_boot.CharacterSelect.GetComponentsInChildren<UnityEngine.UI.Button>().Any(b => b.name == $"Pick_{ch.Id}"), $"没有 {ch.Name} 的按钮");
+            Assert.IsTrue(_boot.ClickTitle("PickBack"));
+            yield return null;
+            Assert.IsNull(_boot.CharacterSelect, "「返回」关掉选角");
+            Assert.IsTrue(_boot.ClickTitle("NewRun"));
+            yield return null;
+            Assert.IsTrue(_boot.ClickTitle("Pick_investigator"));
+            yield return null;
             yield return null;
 
             Assert.IsNotNull(Screen);
+            Assert.AreEqual(CharacterIds.Investigator, Run.State.Character);
             Assert.IsNull(_boot.Title);
             Assert.AreEqual(RunPhase.Map, Screen.Shown);
             Assert.IsTrue(File.Exists(TestSave), "开局就该存一次档");
@@ -125,6 +138,78 @@ namespace Deeptide.View.Tests
                 Assert.That(y, Is.InRange(Screen.Map.ViewTop, Screen.Map.ViewTop + Screen.Map.ViewHeight), $"第 1 层第 {n.Col} 列不在视口里");
             }
             yield return Shot("21_map_start");
+        }
+
+        /// <summary>
+        /// 狼人（09 M6.5）：标题 → 选角 → 狼人开局；战斗里理智条 6 格、癫狂那一侧叫「兽形」，人名是狼人的；
+        /// 嚎月变身后立绘换成兽形、手里打击的数字 +2 显示成增益色、防御减半显示成减益色；血腥诱饵给敌人挂上「血」状态；
+        /// 银链复归后变回人形。截图 40–43。
+        /// </summary>
+        [UnityTest, Timeout(300000)]
+        public IEnumerator WerewolfSelectBeastFormAndBleed()
+        {
+            _boot.NextSeed = 33;
+            Assert.IsTrue(_boot.ClickTitle("NewRun"));
+            yield return null;
+            Assert.IsNotNull(_boot.CharacterSelect);
+            yield return Shot("40_character_select");
+            Assert.IsTrue(_boot.ClickTitle("Pick_werewolf"));
+            yield return null;
+            yield return null;
+            Assert.AreEqual("werewolf", Run.State.Character);
+            Assert.AreEqual(6, Run.State.MaxSanity);
+            Assert.IsTrue(Screen.ClickModal("Disembark"));
+            Run.State.Potions[0] = "bloody_bait";   // 给流血状态一个来源（开战时药水栏抄进战斗）
+            yield return null;
+            var node = Run.State.Map.InRow(0).First(n => n.Room == RoomType.Battle);
+            Assert.IsTrue(Screen.Map.ClickNode(node.Row, node.Col));
+            yield return WaitSettled();
+
+            var battle = Screen.Battle;
+            var engine = battle.Controller.Engine;
+            var player = battle.Player;
+            Assert.AreEqual("werewolf", player.Character);
+            Assert.AreEqual(6, player.MaxSanity, "理智条按上限 6 排格");
+            Assert.AreEqual("兽形", player.Gauge.LunacyName);
+            Assert.IsFalse(player.BeastForm);
+            Assert.AreEqual(CharacterLibrary.Get("werewolf").Name, engine.Player.Name);
+
+            // 嚎月：10 张牌、每回合 5 张，前两回合一定摸到
+            for (int turn = 0; turn < 3 && engine.Player.Hand.All(c => c.Id != "LB02"); turn++)
+            {
+                Assert.IsTrue(battle.Controller.EndTurn());
+                yield return WaitSettled();
+            }
+            int howl = engine.Player.Hand.FindIndex(c => c.Id == "LB02");
+            Assert.GreaterOrEqual(howl, 0, "没摸到嚎月");
+            yield return Shot("41_wolf_human");
+            Assert.IsTrue(battle.Controller.Play(howl));
+            yield return WaitSettled();
+            Assert.IsTrue(engine.Player.IsLunatic);
+            Assert.IsTrue(player.BeastForm, "变身后立绘换成兽形");
+
+            // 手牌数字：打击 6 + 2 显示增益色，防御 5 减半成 2 显示减益色（10 §4.4 的上色规则，兽血走同一条预览管线）
+            var strike = battle.Hand.Cards.FirstOrDefault(c => c.CardId == "B01");
+            var defend = battle.Hand.Cards.FirstOrDefault(c => c.CardId == "B02");
+            if (strike != null) StringAssert.Contains(">8<", strike.FaceText, "兽形打击 8，带颜色");
+            if (defend != null) StringAssert.Contains(">2<", defend.FaceText, "兽形防御 2，带颜色");
+
+            Assert.IsTrue(battle.Controller.UsePotion(0, engine.State.AliveEnemies.First().Index));
+            yield return WaitSettled();
+            var bled = battle.Enemies.First(v => !v.IsDead);
+            Assert.AreEqual(5, bled.StatusAmount(StatusId.Bleed), "敌人身上挂着流血");
+            yield return Shot("42_wolf_beast");
+
+            // 银链：复归，变回人形（没摸到就跳过这一段）
+            int chain = engine.Player.Hand.FindIndex(c => c.Id == "LB03");
+            if (chain >= 0 && engine.CanPlay(chain, out _))
+            {
+                Assert.IsTrue(battle.Controller.Play(chain));
+                yield return WaitSettled();
+                Assert.IsFalse(engine.Player.IsLunatic);
+                Assert.IsFalse(player.BeastForm, "复归后变回人形");
+                yield return Shot("43_wolf_revert");
+            }
         }
 
         /// <summary>

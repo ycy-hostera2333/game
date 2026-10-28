@@ -73,7 +73,7 @@ namespace Deeptide.View.Battle
             var screen = go.AddComponent<BattleScreen>();
             screen._restart = restart;
             screen._openLauncher = openLauncher;
-            screen.Init(camera, null);
+            screen.Init(camera, null, setup);
             screen.SetBackdropArt(setup);
             screen.Begin(new BattleController(setup, screen.Director));
             return screen;
@@ -87,18 +87,18 @@ namespace Deeptide.View.Battle
         {
             var rt = Ui.Rect("BattleScreen", parent).Fill();
             var screen = rt.gameObject.AddComponent<BattleScreen>();
-            screen.Init(camera, topBar);
+            screen.Init(camera, topBar, engine.Setup);
             screen.SetBackdropArt(engine.Setup);
             screen.Begin(new BattleController(engine, execute, screen.Director));
             return screen;
         }
 
-        void Init(Camera camera, TopBar topBar)
+        void Init(Camera camera, TopBar topBar, BattleSetup setup)
         {
             Camera = camera;
             Director = gameObject.AddComponent<BattleDirector>();
             Director.Bind(this);
-            Build(topBar);
+            Build(topBar, setup);
         }
 
         void Begin(BattleController controller)
@@ -162,7 +162,7 @@ namespace Deeptide.View.Battle
             if (_backgroundMat != null) Destroy(_backgroundMat);
         }
 
-        void Build(TopBar sharedTopBar)
+        void Build(TopBar sharedTopBar, BattleSetup setup)
         {
             _root = (RectTransform)transform;
             var background = Ui.Box("Background", _root, Palette.Background);
@@ -173,7 +173,7 @@ namespace Deeptide.View.Battle
             // 战场：原点在底边中点。角色中心放在 y = 600，脚底（中心下方 160）正好踩在地平线 y = 440 上（10 §6.1）
             var field = Ui.Rect("Field", _root).Fill();
             field.pivot = new Vector2(0.5f, 0);
-            _player = PlayerView.Create(field);
+            _player = PlayerView.Create(field, setup.Character);
             var playerRt = (RectTransform)_player.transform;
             playerRt.Place(new Vector2(0.5f, 0), new Vector2(-460, 600), playerRt.sizeDelta);
             // 敌人区 x = -60..860（10 §6.1、§5.1）

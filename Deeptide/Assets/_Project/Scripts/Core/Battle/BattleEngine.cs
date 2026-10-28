@@ -144,7 +144,7 @@ namespace Deeptide.Core
             string face = !card.Def.Dual ? "" : both ? "（两面）" : mad ? "（癫狂面）" : "（清醒面）";
             var ev = Log.Add(BattleEventType.CardPlayed,
                 $"打出 {card.Name}{face}{(card.Def.XCost ? $"（X={x}）" : "")}{(target != null ? " → " + target.Name : "")}",
-                "调查员", target?.Name);
+                Player.Name, target?.Name);
             ev.CardUid = card.Uid;
             ev.Id = card.DeckId;
             ev.Source = BattleEvent.PlayerEntity;
@@ -229,7 +229,7 @@ namespace Deeptide.Core
             State.Phase = BattlePhase.Resolving;
             SetPotion(slot, null);
             State.Stats.PotionsUsed++;
-            var ev = Log.Add(BattleEventType.PotionUsed, $"使用药水 {potion.Name}{(target != null ? " → " + target.Name : "")}", "调查员", target?.Name);
+            var ev = Log.Add(BattleEventType.PotionUsed, $"使用药水 {potion.Name}{(target != null ? " → " + target.Name : "")}", Player.Name, target?.Name);
             ev.Id = potion.Id;
             ev.Value = slot;
             ev.Entity = target?.Index ?? BattleEvent.NoEntity;
@@ -326,7 +326,7 @@ namespace Deeptide.Core
         {
             var p = new PlayerState
             {
-                Name = "调查员",
+                Name = Run.CharacterLibrary.Exists(Setup.Character) ? Run.CharacterLibrary.Get(Setup.Character).Name : "调查员",
                 MaxHp = Setup.MaxHp,
                 Hp = Setup.Hp,
                 MaxSanity = Setup.MaxSanity,

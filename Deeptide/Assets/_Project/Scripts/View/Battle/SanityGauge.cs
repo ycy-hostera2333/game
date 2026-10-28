@@ -32,6 +32,8 @@ namespace Deeptide.View.Battle
         TextMeshProUGUI _wardText;
 
         int _sanity, _max, _line = 4, _clarity;
+        string _lunacyName = "癫狂", _lunacyEnter = "进入癫狂", _lunacyVerb = "进入";
+        TextMeshProUGUI _lunacyLabel;
         int _mind, _erosion, _aura, _cost = -1;
         bool _mindVisible;
 
@@ -78,8 +80,9 @@ namespace Deeptide.View.Battle
             dash.sprite = Shapes.Dash;
             dash.type = Image.Type.Tiled;
             dash.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(42, 0), new Vector2(84, 6));
-            var label = Ui.Text("Label", _lunacyLine, "癫狂", 17, Palette.Teal, TextAlignmentOptions.Left);
+            var label = Ui.Text("Label", _lunacyLine, _lunacyName, 17, Palette.Teal, TextAlignmentOptions.Left);
             label.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(116, 0), new Vector2(60, 22));
+            _lunacyLabel = label;
             _lunacyLine.anchorMin = _lunacyLine.anchorMax = new Vector2(0.5f, 0.5f);
             _lunacyLine.pivot = new Vector2(0, 0.5f);
             _lunacyLine.sizeDelta = new Vector2(84, 6);
@@ -141,6 +144,24 @@ namespace Deeptide.View.Battle
             _aura = aura;
             Redraw();
         }
+
+        /// <summary>
+        /// 癫狂那一侧叫什么：调查员是「癫狂 / 进入癫狂」，狼人是「兽形 / 变身」（策划/14 §2.2）。规则一样，只换字。
+        /// 格数跟着上限走（SetValue 里上限变了就重排），狼人上限 6 时清明线（≥ 5）和癫狂线（≤ 4）落在同一个格缝上，一左一右不打架。
+        /// </summary>
+        /// <param name="enter">代价预告标签里的说法（「打出后进入癫狂」「打出后变身」）。</param>
+        /// <param name="verb">悬停说明里接在「再失去 N 点」后面的词（「进入」「变身」）。</param>
+        public void SetLunacyName(string name, string enter, string verb)
+        {
+            _lunacyName = name;
+            _lunacyEnter = enter;
+            _lunacyVerb = verb;
+            if (_lunacyLabel != null) _lunacyLabel.text = name;
+            Redraw();
+        }
+
+        /// <summary>癫狂那一侧的名字（测试用）。</summary>
+        public string LunacyName => _lunacyName;
 
         public void SetWard(int ward)
         {
@@ -240,7 +261,7 @@ namespace Deeptide.View.Battle
             {
                 int after = _sanity - _cost;
                 if (after <= 0) _tagTexts.Add($"<color={Ui.Hex(Palette.Blood)}><b>崩溃</b></color>");
-                else if (!lunatic && after <= _line) _tagTexts.Add($"<color={Ui.Hex(Palette.Teal)}><b>打出后进入癫狂</b></color>");
+                else if (!lunatic && after <= _line) _tagTexts.Add($"<color={Ui.Hex(Palette.Teal)}><b>打出后{_lunacyEnter}</b></color>");
             }
             DrawTags();
         }
@@ -249,10 +270,10 @@ namespace Deeptide.View.Battle
         public string Describe()
         {
             string clarity = _sanity >= _clarity ? "已清明" : $"还差 {_clarity - _sanity} 点";
-            string lunacy = _sanity <= _line ? "已癫狂" : $"再失去 {_sanity - _line} 点进入";
+            string lunacy = _sanity <= _line ? $"已{_lunacyName}" : $"再失去 {_sanity - _line} 点{_lunacyVerb}";
             return $"理智 {_sanity}/{_max}\n" +
                    $"<color={Ui.Hex(Palette.Gold)}>清明</color>：理智 ≥ {_clarity}（{clarity}）\n" +
-                   $"<color={Ui.Hex(Palette.Teal)}>癫狂</color>：理智 ≤ {_line}（{lunacy}）\n" +
+                   $"<color={Ui.Hex(Palette.Teal)}>{_lunacyName}</color>：理智 ≤ {_line}（{lunacy}）\n" +
                    "理智归 0 崩溃";
         }
 

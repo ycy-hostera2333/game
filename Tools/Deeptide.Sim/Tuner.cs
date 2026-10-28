@@ -152,6 +152,7 @@ namespace Deeptide.Sim
             {
                 // 狼人的牌组用狼人的生命、理智上限、起始遗物和特性；调查员沿用 BattleSetup 的默认值，结果和加角色之前一致
                 var ch = CharacterLibrary.Get(character);
+                setup.Character = character;
                 setup.MaxHp = setup.Hp = ch.MaxHp;
                 setup.MaxSanity = ch.MaxSanity;
                 setup.Relics = new List<string> { ch.StartingRelic };

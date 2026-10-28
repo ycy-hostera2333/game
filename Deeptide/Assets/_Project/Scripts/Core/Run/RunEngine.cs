@@ -400,6 +400,7 @@ namespace Deeptide.Core.Run
                 MaxSanity = State.MaxSanity,
                 Relics = State.Relics.ToList(),
                 Traits = TraitsOf(State.Character),
+                Character = State.Character,
                 Potions = State.Potions.ToList(),
                 PotionSlots = State.Potions.Count,
                 Config = Config.Battle,

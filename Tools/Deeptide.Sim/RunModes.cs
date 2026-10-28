@@ -520,7 +520,10 @@ namespace Deeptide.Sim
             var easy = battles.Where(b => b.Room == RoomType.Battle && b.EncounterId.StartsWith("easy")).ToList();
             if (easy.Count > 0 && hard.Count > 0)
                 Console.WriteLine($"  其中简单池 回合 {easy.Average(b => b.Turns):F1} 掉血 {easy.Average(b => b.HpLost):F1}（目标 3–4 / 2–6），困难池 回合 {hard.Average(b => b.Turns):F1} 掉血 {hard.Average(b => b.HpLost):F1}（目标 4–6 / 4–9）");
-            if (battles.Count > 0) PrintSanity("  ", battles, ok.Any(r => r.Character == "werewolf"));
+            if (battles.Count > 0) PrintSanity("  ", battles);
+            // 狼人的两项只数狼人的局（文件夹里两个角色混在一起时，调查员的战斗不算进去）
+            var wolf = ok.Where(r => r.Character == "werewolf").SelectMany(r => r.Battles).ToList();
+            if (wolf.Count > 0) PrintWolf("  ", wolf, wolf.Count < battles.Count);
             Console.WriteLine($"  金币收入 {ok.Average(r => r.GoldEarned):F0}（目标 300–400，不含事件）  商店 {ok.Average(r => r.ShopVisits):F1} 次  删卡 {ok.Average(r => r.CardsRemoved):F1}  最终牌组 {ok.Average(r => r.Deck.Count):F1} 张（目标 18–24）  疯语 {ok.Average(r => r.Deck.Count(c => c == CardIds.Whispers)):F1} 张");
             Console.WriteLine($"  普通战斗 {ok.Average(r => r.Battles.Count(b => b.Room == RoomType.Battle)):F1} 场（目标 7–9） 精英 {ok.Average(r => r.Battles.Count(b => b.Room == RoomType.Elite)):F1} 场（目标 1–3）");
             var deaths = ok.Where(r => r.Death != null).GroupBy(r => r.Death)
@@ -529,13 +532,18 @@ namespace Deeptide.Sim
         }
 
         /// <summary>07 §5.3 的三项理智指标。</summary>
-        internal static void PrintSanity(string indent, List<BattleRecord> battles, bool wolf = false)
+        internal static void PrintSanity(string indent, List<BattleRecord> battles)
         {
             double lunacyShare = battles.Count(b => b.EnteredLunacy) / (double)battles.Count;
             double turns = Math.Max(1, battles.Sum(b => b.Turns));
             Console.WriteLine($"{indent}进入过癫狂的战斗 {lunacyShare:P0}（目标 40–70%）  崩溃 {battles.Average(b => b.Collapses):F2} 次/场  清明回合占比 {battles.Sum(b => b.ClarityTurns) / turns:P0}  癫狂回合占比 {battles.Sum(b => b.LunacyTurns) / turns:P0}");
-            // 狼人（策划/14 §8）：「住在线上」有没有用上
-            if (wolf) Console.WriteLine($"{indent}变身 + 复归 {battles.Average(b => b.Transforms + b.Reverts):F1} 次/场（目标 ≥ 3）  兽形回合占比 {battles.Sum(b => b.LunacyTurns) / turns:P0}（目标 30–70%）");
+        }
+
+        /// <summary>狼人（策划/14 §8）：「住在线上」有没有用上。battles 只放狼人的战斗。</summary>
+        internal static void PrintWolf(string indent, List<BattleRecord> battles, bool onlyWolf)
+        {
+            double turns = Math.Max(1, battles.Sum(b => b.Turns));
+            Console.WriteLine($"{indent}{(onlyWolf ? "狼人的局：" : "")}变身 + 复归 {battles.Average(b => b.Transforms + b.Reverts):F1} 次/场（月相目标 ≥ 3）  兽形回合占比 {battles.Sum(b => b.LunacyTurns) / turns:P0}（目标 30–70%）");
         }
 
         internal static string DeathName(string cause) =>

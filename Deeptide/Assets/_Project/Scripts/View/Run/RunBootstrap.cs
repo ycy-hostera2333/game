@@ -1,6 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using Deeptide.Core.Cards;
+using Deeptide.Core.Relics;
 using Deeptide.Core.Run;
+using Deeptide.View.Battle;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -194,7 +199,7 @@ namespace Deeptide.View.Run
                     newLabel.color = Palette.Blood;
                     return;
                 }
-                NewRun(NextSeed);
+                ShowCharacterSelect(root);
             }, true, null, 36);
             newLabel = newRun.GetComponentInChildren<TextMeshProUGUI>();
             y -= 80;
@@ -215,6 +220,112 @@ namespace Deeptide.View.Run
             // 右下角：试玩记录和版本号（写在按钮底色上，主视觉的排线上小字看不清）。试玩的人把记录文件夹发回来，用 Tools 的 telemetry 汇总（策划/07 §6.2）
             RunUi.Button(root, "Telemetry", $"打开试玩记录（{TelemetryFiles.Count} 局）\n<size=75%>版本 {TelemetryFiles.GameVersion}</size>",
                 new Vector2(760, -476), new Vector2(360, 80), TelemetryFiles.Reveal, true, null, 22);
+        }
+
+        // ------------------------------------------------------------------ 选角（策划/14、09 M6.5）
+
+        /// <summary>选角面板（没在显示时为 null）。盖在标题画面上，按钮名 Pick_{角色 id} / PickBack，测试用 ClickTitle 点。</summary>
+        public RectTransform CharacterSelect { get; private set; }
+
+        /// <summary>
+        /// 「新的一局」之后先选角色：每个角色一张卷轴，写生命 / 理智上限、特性、起始遗物、起始牌组和一句介绍（策划/14 §0.2）。
+        /// 选了就用这个角色开局（种子还是标题画面上那个）；「返回」回到标题。
+        /// </summary>
+        public void ShowCharacterSelect(RectTransform title)
+        {
+            if (CharacterSelect != null) Destroy(CharacterSelect.gameObject);
+            var layer = Ui.Rect("CharacterSelect", title).Fill();
+            CharacterSelect = layer;
+            RunUi.Dim(layer, 0.6f);
+            RunUi.Title(layer, "选择角色", new Vector2(0, 430), new Vector2(900, 80), 56, Palette.Paper);
+
+            var all = CharacterLibrary.All;
+            const float cardW = 620, cardH = 720, gap = 60;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var ch = all[i];
+                float x = (i - (all.Count - 1) / 2f) * (cardW + gap);
+                CharacterCard(layer, ch, new Vector2(x, -20), new Vector2(cardW, cardH));
+            }
+            RunUi.Button(layer, "PickBack", "返回", new Vector2(0, -455), new Vector2(240, 64), () =>
+            {
+                Destroy(layer.gameObject);
+                CharacterSelect = null;
+            }, true, null, 26);
+        }
+
+        void CharacterCard(RectTransform parent, CharacterDef ch, Vector2 pos, Vector2 size)
+        {
+            var card = RunUi.Panel(parent, $"Character_{ch.Id}", pos, size).rectTransform;
+            float top = size.y / 2;
+
+            // 立绘：有角色图用 Stage 着色器的打包模式（和战斗里一样），没有就用剪影；狼人旁边再放一个兽形剪影 / 兽形图
+            Portrait(card, PlayerViewArt(ch.Id), SilhouetteKind.Humanoid, new Vector2(ch.Trait == RelicIds.BeastBlood ? -90 : 0, top - 150), 220);
+            if (ch.Trait == RelicIds.BeastBlood)
+                Portrait(card, ArtDatabase.Actor(Battle.PlayerView.ArtId(ch.Id) + "_beast"), SilhouetteKind.Beast, new Vector2(110, top - 150), 220);
+
+            RunUi.Title(card, ch.Name, new Vector2(0, top - 300), new Vector2(size.x - 60, 60), 46);
+            if (!string.IsNullOrEmpty(ch.Title) && ch.Title != ch.Name)
+                RunUi.Label(card, ch.Title, new Vector2(0, top - 345), new Vector2(size.x - 60, 34), 26, Palette.InkMid);
+            RunUi.Label(card, $"生命 {ch.MaxHp} · 理智上限 {ch.MaxSanity} · ◎ {ch.Gold}", new Vector2(0, top - 385), new Vector2(size.x - 60, 34), 24,
+                Palette.Ink).name = "Stats";
+
+            var lines = new List<string>();
+            if (!string.IsNullOrEmpty(ch.Trait))
+                lines.Add($"<b>特性「{RelicLibrary.Get(ch.Trait).Name}」</b>　{RelicLibrary.Create(ch.Trait).Description}");
+            else lines.Add("<b>特性</b>　没有（基准角色）");
+            lines.Add($"<b>起始遗物「{RelicLibrary.Get(ch.StartingRelic).Name}」</b>　{RelicLibrary.Create(ch.StartingRelic).Description}");
+            lines.Add($"<b>起始牌组</b>　{DeckSummary(ch.Deck)}");
+            var body = RunUi.Label(card, string.Join("\n", lines), new Vector2(0, top - 520), new Vector2(size.x - 70, 210), 22, Palette.Ink,
+                TextAlignmentOptions.TopLeft);
+            body.name = "Body";
+            body.lineSpacing = 10;
+            body.paragraphSpacing = 12;
+            RunUi.Label(card, ch.Text, new Vector2(0, top - 650), new Vector2(size.x - 70, 60), 20, Palette.InkMid).name = "Blurb";
+
+            string id = ch.Id;
+            RunUi.Button(card, $"Pick_{id}", $"以{ch.Name}开局", new Vector2(0, -size.y / 2 - 45), new Vector2(340, 70), () =>
+            {
+                CharacterSelect = null;
+                NewRun(NextSeed, new RunConfig { Character = id });
+            }, true, null, 30);
+        }
+
+        static Texture2D PlayerViewArt(string character) => ArtDatabase.Actor(Battle.PlayerView.ArtId(character));
+
+        /// <summary>选角卡上的立绘：角色图走 Stage 着色器的打包模式；没有图时是墨剪影（10 §10 灰盒）。</summary>
+        static void Portrait(RectTransform parent, Texture2D art, SilhouetteKind kind, Vector2 pos, float height)
+        {
+            var img = Ui.Box(art != null ? "Portrait" : "Silhouette", parent, art != null ? Color.white : Palette.Ink);
+            img.raycastTarget = false;
+            img.preserveAspect = true;
+            img.sprite = art != null ? ActorArt.Sprite(art) : Shapes.Silhouette(kind);
+            if (art != null)
+            {
+                var shader = Shader.Find("Deeptide/UI/Stage");
+                if (shader != null)
+                {
+                    var mat = new Material(shader) { hideFlags = HideFlags.DontSave };
+                    ActorArt.Configure(mat);
+                    img.material = mat;
+                    img.gameObject.AddComponent<MaterialOwner>().Material = mat;
+                }
+            }
+            float aspect = img.sprite.rect.width / img.sprite.rect.height;
+            img.rectTransform.Place(new Vector2(0.5f, 0.5f), pos, new Vector2(Mathf.Min(height * aspect, 260), height));
+        }
+
+        /// <summary>「打击 ×4、防御 ×3、獠牙、嚎月、银链」：按出现顺序合并同名牌。</summary>
+        static string DeckSummary(IEnumerable<string> deck)
+        {
+            var order = new List<string>();
+            var counts = new Dictionary<string, int>();
+            foreach (var id in deck)
+            {
+                if (!counts.ContainsKey(id)) order.Add(id);
+                counts[id] = counts.TryGetValue(id, out int n) ? n + 1 : 1;
+            }
+            return string.Join("、", order.Select(id => CardLibrary.Get(id).Name + (counts[id] > 1 ? $" ×{counts[id]}" : "")));
         }
 
         /// <summary>压在主视觉排线上的小字：加一圈纸色描边。</summary>

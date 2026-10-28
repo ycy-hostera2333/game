@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using Deeptide.Core;
 using Deeptide.Core.Cards;
 using Deeptide.Core.Enemies;
+using Deeptide.Core.Relics;
+using Deeptide.Core.Run;
 using PrimeTween;
 using TMPro;
 using UnityEngine;
@@ -264,6 +266,7 @@ namespace Deeptide.View.Battle
                 case StatusId.Frail: return "脆";
                 case StatusId.Bound: return "缚";
                 case StatusId.Ward: return "心";
+                case StatusId.Bleed: return "血";   // 图标 status_bleed 画好之前用汉字（10 §10 灰盒）
                 default: return "?";
             }
         }
@@ -303,6 +306,27 @@ namespace Deeptide.View.Battle
                 Tween.StopAll(BodyMaterial);
                 Tween.Custom(BodyMaterial, 1f, 0f, 0.12f, (m, v) => m.SetFloat(FlashId, v), Ease.InQuad);
             }
+        }
+
+        /// <summary>身体闪一下（不抖、不溅墨），狼人变身 / 复归换图时用。</summary>
+        protected void FlashBody(float seconds)
+        {
+            if (BodyMaterial == null) return;
+            Tween.StopAll(BodyMaterial);
+            Tween.Custom(BodyMaterial, 1f, 0f, seconds, (m, v) => m.SetFloat(FlashId, v), Ease.InQuad);
+        }
+
+        /// <summary>灰盒时换一种剪影（狼人兽形）：按剪影重新算身体尺寸和脚底。</summary>
+        protected void SwapSilhouette(SilhouetteKind kind)
+        {
+            if (HasArt || BodyImage == null) return;
+            var sprite = Shapes.Silhouette(kind);
+            var size = BodySize(Tier, kind);
+            BodyImage.sprite = sprite;
+            BodyWidth = size.x;
+            BodyHeight = size.y;
+            Body.pivot = new Vector2(0.5f, sprite.pivot.y / sprite.rect.height);
+            Body.sizeDelta = size;
         }
 
         /// <summary>攻击前冲（10 §5.2）：向对手冲 40px（0.12 秒，缓出），0.25 秒回位。</summary>
@@ -568,12 +592,35 @@ namespace Deeptide.View.Battle
         Image _lantern;
         readonly List<Image> _shadow = new List<Image>();
 
-        public static PlayerView Create(Transform parent)
+        string _character = CharacterIds.Investigator;
+        bool _beastTrait, _beast;
+        Texture2D _humanArt, _beastArt;
+
+        /// <summary>角色（characters.csv 的 id）。</summary>
+        public string Character => _character;
+        /// <summary>现在是不是兽形（狼人癫狂时）。只有带兽血特性的角色会变。</summary>
+        public bool BeastForm => _beast;
+
+        /// <summary>
+        /// 角色图 ID：调查员是 <c>player</c>，其余角色是 <c>player_{角色 id}</c>；狼人的兽形另加 <c>_beast</c>（策划/14 §7.3，6.6 的程序化美术按这个命名）。
+        /// 没有图时用剪影：人形 / 兽形。
+        /// </summary>
+        public static string ArtId(string character) =>
+            string.IsNullOrEmpty(character) || character == CharacterIds.Investigator ? ArtDatabase.PlayerId : $"player_{character}";
+
+        public static PlayerView Create(Transform parent, string character = null)
         {
+            character = string.IsNullOrEmpty(character) ? CharacterIds.Investigator : character;
             var rt = Ui.Rect("Player", parent);
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
             var view = rt.gameObject.AddComponent<PlayerView>();
-            view.BuildBase("调查员", ActorTier.Medium, SilhouetteKind.Humanoid, ArtDatabase.PlayerId);
+            var def = CharacterLibrary.Exists(character) ? CharacterLibrary.Get(character) : null;
+            string artId = ArtId(character);
+            view._character = character;
+            view._beastTrait = def != null && def.Trait == RelicIds.BeastBlood;
+            view._humanArt = ArtDatabase.Actor(artId);
+            view._beastArt = ArtDatabase.Actor(artId + "_beast");
+            view.BuildBase(def?.Name ?? "调查员", ActorTier.Medium, SilhouetteKind.Humanoid, artId);
             view.BuildPlayer();
             return view;
         }
@@ -581,13 +628,14 @@ namespace Deeptide.View.Battle
         void BuildPlayer()
         {
             var root = (RectTransform)transform;
-            // 理智条在调查员左侧（10 §6.1 / §6.2）
+            // 理智条在角色左侧（10 §6.1 / §6.2）
             Gauge = SanityGauge.Create(root);
             ((RectTransform)Gauge.transform).Place(new Vector2(0.5f, 0.5f), new Vector2(-BarWidth / 2 - 150, FeetY + 230),
                 new Vector2(46, SanityGauge.Height));
+            if (_beastTrait) Gauge.SetLunacyName("兽形", "变身", "变身");
 
-            // 角色图自带提灯和影子里的触须（癫狂层），下面的灰盒点缀只给剪影用
-            if (HasArt) return;
+            // 角色图自带提灯和影子里的触须（癫狂层），下面的灰盒点缀只给调查员的剪影用（提灯是调查员的）
+            if (HasArt || _character != CharacterIds.Investigator) return;
             // 提灯：清醒时是暖金，癫狂时火焰变青（10 §5.3）
             _lantern = Dot("Lantern", new Vector2(0.8f, 0.42f), 18, Palette.GoldLight);
             // 癫狂层：影子里长出的触须
@@ -630,7 +678,26 @@ namespace Deeptide.View.Battle
             _lunacyLine = lunacyLine;
             Gauge.SetValue(sanity, max, lunacyLine, max - _clarityMargin);
             if (LunacyFx.Instance != null) LunacyFx.Instance.SetSanity(sanity, max, lunacyLine, _clarityMargin);
+            SetBeast(_beastTrait && sanity <= lunacyLine);
             return delta;
+        }
+
+        /// <summary>
+        /// 狼人的兽形（策划/14 §2.2）：跨过癫狂线就换图——有图换 player_werewolf_beast，没图把人形剪影换成兽形剪影，闪一下。
+        /// 兽形的数值提示不用在这里做：卡面数字走 Card.PreviewValue，兽血特性已经算进去，攻击 +2 显示苔绿、格挡减半显示血色（10 §4.4）。
+        /// </summary>
+        void SetBeast(bool beast)
+        {
+            if (beast == _beast) return;
+            _beast = beast;
+            if (HasArt)
+            {
+                var art = beast ? _beastArt : _humanArt;
+                if (art == null) return;   // 只画了人形：不换
+                SwapArt(art);
+            }
+            else SwapSilhouette(beast ? SilhouetteKind.Beast : SilhouetteKind.Humanoid);
+            FlashBody(0.3f);
         }
 
         /// <summary>
