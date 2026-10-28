@@ -495,6 +495,8 @@ namespace Deeptide.Core.Run
                 PotionSlots = State.Potions.Count,
                 Config = Config.Battle,
             });
+            // 开战那一刻就分出胜负（血很少时开战扣理智崩溃：不眠 + 破碎怀表），没有命令可以触发结算，在这里收尾
+            if (Battle.State.Outcome != BattleOutcome.Ongoing) FinishBattle();
         }
 
         /// <summary>角色特性（隐藏遗物）。调查员没有。</summary>

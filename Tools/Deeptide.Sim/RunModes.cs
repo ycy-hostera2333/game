@@ -433,6 +433,8 @@ namespace Deeptide.Sim
                 var pure = all.Where(kv => kv.Key != Archetype.Mixed).Select(kv => kv.Value.Count(r => r.Won) / (double)n).ToList();
                 if (pure.Count > 1) Console.WriteLine($"三个流派（不含混合）胜率差：{(pure.Max() - pure.Min()) * 100:F1} 个百分点");
             }
+            var echoChoices = all.Values.SelectMany(x => x).Where(r => r.State != null).SelectMany(r => r.State.Stats.EchoChoices).ToList();
+            if (echoChoices.Count > 0) PrintEchoRates(echoChoices);
             if (verbose) PrintPickRates(all.Values.SelectMany(x => x).Where(r => r.State != null).SelectMany(r => r.State.Stats.CardChoices));
             return all.Values.SelectMany(x => x).Any(r => r.Error != null) ? 1 : 0;
         }
@@ -586,6 +588,19 @@ namespace Deeptide.Sim
             }
             Console.WriteLine(sb.ToString());
             Console.WriteLine($"  区间外：{rows.Count(r => r.Rate < 0.10 || r.Rate > 0.60)} / {rows.Count} 张");
+        }
+
+        /// <summary>回响的出现即拾取率（被选中 / 出现的次数，重抽前那一组也算出现；策划/15 §5.4 目标 15–60%）。</summary>
+        internal static void PrintEchoRates(List<EchoChoiceRecord> choices, string who = " AI 的强弱表")
+        {
+            var offered = choices.SelectMany(c => c.Offered).GroupBy(x => x).ToDictionary(g => g.Key, g => g.Count());
+            var picked = choices.Where(c => c.Picked != null).GroupBy(c => c.Picked).ToDictionary(g => g.Key, g => g.Count());
+            Console.WriteLine($"回响出现即拾取率（目标 15–60%，反映的是{who}）；重抽 {choices.Count(c => c.Rerolls > 0) / (double)choices.Count:P0} 的局：");
+            Console.WriteLine("  " + string.Join("  ", offered.OrderBy(kv => kv.Key).Select(kv =>
+            {
+                double rate = (picked.TryGetValue(kv.Key, out var p) ? p : 0) / (double)kv.Value;
+                return $"{EchoLibrary.Get(kv.Key).Name} {rate:P0}{(rate < 0.15 ? "↓" : rate > 0.60 ? "↑" : "")}";
+            })));
         }
 
         internal static int Median(IEnumerable<int> values)

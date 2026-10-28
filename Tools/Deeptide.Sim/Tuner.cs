@@ -73,6 +73,11 @@ namespace Deeptide.Sim
                             Map.Weights[room] = int.Parse(val);
                             break;
                         }
+                        if (key.EndsWith(".will", StringComparison.Ordinal))
+                        {
+                            EnemyLibrary.Get(owner).Will = int.Parse(val);
+                            break;
+                        }
                         if (key.EndsWith(".hp", StringComparison.Ordinal))
                         {
                             var range = val.Split('-');

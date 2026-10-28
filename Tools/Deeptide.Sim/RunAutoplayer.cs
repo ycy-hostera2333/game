@@ -361,14 +361,42 @@ namespace Deeptide.Sim
             }
         }
 
-        /// <summary>回响：先挑倾向是自己流派的，没有就挑中立的，再没有就第一个；不重抽。占位规则，M7.5 换成流派偏好 + 强弱表。</summary>
+        /// <summary>
+        /// 回响的强弱表（越高越想要，没列的按 1.0）：按 7.2 的 batch 和设计意图定的粗略值，只用来让 AI 的选择像个人，
+        /// 它的「出现即拾取率」反映的是这张表，不是真人（策划/15 §5.4 的 15–60% 用它看有没有回响被完全冷落）。
+        /// </summary>
+        static readonly Dictionary<string, double> EchoQuality = new Dictionary<string, double>
+        {
+            ["wick"] = 1.0, ["baffle"] = 1.2, ["shoal"] = 0.8, ["sleepless"] = 0.8, ["aftershock"] = 1.0, ["spread"] = 0.9,
+            ["notes_addendum"] = 1.1, ["satchel"] = 1.1, ["sea_chart"] = 0.9,
+            ["deep_scar"] = 1.5, ["tidal_range"] = 1.3, ["blood_to_sea"] = 1.2,
+        };
+
+        /// <summary>和自己流派倾向相同的回响加这么多（混合不加）。</summary>
+        const double EchoTendencyBonus = 0.6;
+        /// <summary>每局每个回响一个固定的偏好抖动（±这么多）：真人的口味不一样，否则 AI 永远按同一张表挑，中立回响一次都轮不到。按局种子算，结果可复现。</summary>
+        const double EchoJitter = 0.5;
+        /// <summary>三个都低于这个分就重抽一次（每局只有一次）。</summary>
+        const double EchoRerollBelow = 1.15;
+
+        /// <summary>回响：强弱表 + 流派倾向；三个都不想要就重抽（策划/09 M7.5）。</summary>
         int ChooseEcho(RunEngine run, List<RunOption> options)
         {
-            string mine = ArchetypeName(_arch);
-            string TendencyOf(RunOption o) => EchoLibrary.TendencyFor(EchoLibrary.Get(o.Tag.Substring("echo:".Length)), run.State.Character);
+            string mine = ArchetypeTag(_arch);
+            double Score(RunOption o)
+            {
+                var def = EchoLibrary.Get(o.Tag.Substring("echo:".Length));
+                double v = EchoQuality.TryGetValue(def.Id, out var q) ? q : 1.0;
+                ulong key = 0;
+                foreach (char ch in def.Id) key = key * 131 + ch;   // 不用 string.GetHashCode：每次进程启动都会变
+                v += (new Deeptide.Core.Random.Pcg32(run.State.Seed, key).NextInt(1001) / 1000.0 * 2 - 1) * EchoJitter;
+                return v + (mine != null && EchoLibrary.TendencyFor(def, run.State.Character) == mine ? EchoTendencyBonus : 0);
+            }
             var echoes = options.Where(o => o.Tag != null && o.Tag.StartsWith("echo:")).ToList();
-            var pick = echoes.FirstOrDefault(o => TendencyOf(o) == mine) ?? echoes.FirstOrDefault(o => TendencyOf(o) == EchoDef.Neutral) ?? echoes[0];
-            return options.IndexOf(pick);
+            var best = echoes.OrderByDescending(Score).First();
+            int reroll = Tagged(options, "reroll");
+            if (Score(best) < EchoRerollBelow && reroll >= 0 && options[reroll].Enabled) return reroll;
+            return options.IndexOf(best);
         }
 
         // ------------------------------------------------------------------ 商店 / 篝火 / 事件

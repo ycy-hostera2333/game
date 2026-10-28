@@ -22,6 +22,12 @@ namespace Deeptide.Tests
 
         static List<EnemyState> Alive(BattleEngine e, string id) => e.State.AliveEnemies.Where(x => x.Def.Id == id).ToList();
 
+        /// <summary>表里的数值（7.5 调过参，测试不写死）。</summary>
+        static int Var(string enemy, string key) => EnemyLibrary.Get(enemy).Vars[key];
+
+        /// <summary>倒影抄来的每段伤害：按 CopyPercent 放大、向下取整。</summary>
+        static int Copied(int perHit) => perHit * Var(EnemyIds.Mirror, "CopyPercent") / 100;
+
         // ---------------- 鳞母
 
         [Test]
@@ -29,7 +35,7 @@ namespace Deeptide.Tests
         {
             var e = Fight(EnemyIds.ScaleMother);
             var mother = e.State.Enemies[0];
-            Assert.That((mother.Hp, mother.Will), Is.EqualTo((150, 22)));
+            Assert.That((mother.Hp, mother.Will), Is.EqualTo((EnemyLibrary.Get(EnemyIds.ScaleMother).HpMin, 22)));
             var young = Alive(e, EnemyIds.Scaleling);
             Assert.That(young.Count, Is.EqualTo(2));
             Assert.That(young.All(x => x.Minion && x.Intent != null), Is.True, "召唤物，开场就有意图");
@@ -112,7 +118,7 @@ namespace Deeptide.Tests
             var young = Alive(e, EnemyIds.Scaleling)[0];
             Assert.That(DamageCalculator.Compute(e, young, e.Player, 5), Is.EqualTo(5));
             e.SetSanity(4);
-            Assert.That(DamageCalculator.Compute(e, young, e.Player, 5), Is.EqualTo(7), "同族的气味 +2");
+            Assert.That(DamageCalculator.Compute(e, young, e.Player, 5), Is.EqualTo(5 + Var(EnemyIds.ScaleMother, "Scent")), "同族的气味");
 
             var plain = Fight(EnemyIds.Scaleling);
             plain.SetSanity(4);
@@ -174,14 +180,14 @@ namespace Deeptide.Tests
             e.SetStatus(e.Player, StatusId.Strength, 0);   // 之后力量没了，抄的仍是打出时的 9
             EndTurn(e);
             Assert.That(mirror.Intent.Id, Is.EqualTo("Echo"));
-            Assert.That((mirror.Counter(Mirror.Copy1), mirror.Counter(Mirror.Copy1Hits)), Is.EqualTo((9, 1)));
-            Assert.That(e.IncomingDamage(), Is.EqualTo(9), "意图预告和实际一致");
+            Assert.That((mirror.Counter(Mirror.Copy1), mirror.Counter(Mirror.Copy1Hits)), Is.EqualTo((Copied(9), 1)));
+            Assert.That(e.IncomingDamage(), Is.EqualTo(Copied(9)), "意图预告和实际一致");
 
             int hp = e.Player.Hp;
             SetHand(e);
             e.SetBlock(e.Player, 0);
             EndTurn(e);
-            Assert.That(hp - e.Player.Hp, Is.EqualTo(9));
+            Assert.That(hp - e.Player.Hp, Is.EqualTo(Copied(9)));
             Assert.That(mirror.Intent.Id, Is.EqualTo("Gaze"), "这一回合没打攻击牌：凝视");
         }
 
@@ -190,21 +196,21 @@ namespace Deeptide.Tests
         {
             var e = Fight(EnemyIds.Mirror);
             var mirror = e.State.Enemies[0];
-            mirror.Hp = 86;
+            mirror.Hp = mirror.MaxHp / 2 + 1;
             SetHand(e, "B01", "C06");
             Play(e, 0, 0);
             Assert.That(mirror.Counter(Mirror.Phase), Is.EqualTo(2), "生命 ≤ 50% 龟裂");
             Play(e, 0, 0);
             EndTurn(e);
             Assert.That(mirror.Intent.Id, Is.EqualTo("Echo2"));
-            Assert.That((mirror.Counter(Mirror.Copy1), mirror.Counter(Mirror.Copy2)), Is.EqualTo((6, 8)), "打击 6、梦魇之刃 8");
-            Assert.That(e.IncomingDamage(), Is.EqualTo(14));
+            Assert.That((mirror.Counter(Mirror.Copy1), mirror.Counter(Mirror.Copy2)), Is.EqualTo((Copied(6), Copied(8))), "打击 6、梦魇之刃 8");
+            Assert.That(e.IncomingDamage(), Is.EqualTo(Copied(6) + Copied(8)));
 
             int hp = e.Player.Hp;
             SetHand(e);
             e.SetBlock(e.Player, 0);
             EndTurn(e);
-            Assert.That(hp - e.Player.Hp, Is.EqualTo(14), "分两次打：6 和 8");
+            Assert.That(hp - e.Player.Hp, Is.EqualTo(Copied(6) + Copied(8)), "分两次打");
         }
 
         static void EndTurns(BattleEngine e, int n) { for (int i = 0; i < n; i++) EndTurn(e); }

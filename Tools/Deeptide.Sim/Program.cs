@@ -58,7 +58,7 @@ namespace Deeptide.Sim
                         return 0;
                 }
             }
-            catch (ArgumentException ex)
+            catch (ArgumentException ex) when (!(ex is ArgumentOutOfRangeException))   // 参数写错只报一句；下标越界是 bug，留着堆栈
             {
                 Console.Error.WriteLine(ex.Message);
                 return 1;

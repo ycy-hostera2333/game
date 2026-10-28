@@ -14,9 +14,9 @@ lighthouse,灯塔守望者,100,105,18,OilSplash=灯油泼洒;Sweep=旋转灯臂;
 nun,无面修女,84,88,15,Rosary=荆棘念珠;Kiss=慈悲之吻;Absolution=赦罪,Rosary=9;RosaryWeak=2;Kiss=3;Heal=10;HealBlock=8;HealBelowPercent=80
 fisherman,网缚渔夫,108,114,20,Cast=抛网;Harpoon=鱼叉;Haul=收网,Webs=2;Harpoon=14;HaulPer=3
 # ---------------- Boss
-scale_mother,鳞母,150,150,22,Spit=吐沫;Slam=拍击;Call=鸣唤,Spit=8;SpitWeak=1;Slam=12;CallStrength=2;CallBlock=10;EggEvery=2;MaxBrood=4;StartBrood=2;Guard=1;Scent=2
+scale_mother,鳞母,130,130,22,Spit=吐沫;Slam=拍击;Call=鸣唤,Spit=8;SpitWeak=1;Slam=12;CallStrength=2;CallBlock=10;EggEvery=2;MaxBrood=4;StartBrood=2;Guard=1;Scent=1
 scale_egg,鳞卵,8,8,0,Incubate=孵化,Hatch=2
-mirror,倒影,160,160,30,Gaze=凝视;Echo=慢半拍;Echo2=龟裂,Gaze=2;WillPerSanity=3
+mirror,倒影,170,170,30,Gaze=凝视;Echo=慢半拍;Echo2=龟裂,Gaze=2;WillPerSanity=3;CopyPercent=130
 drowned_priest,溺亡司祭,180,180,30,Summon=召唤;TidePrayer=潮汐祷文;Baptism=浸礼;HighTide=大潮;Devour=吞噬;SeaCurse=海之诅咒;HighTide2=大潮,TideMax=7;MaxTentacles=1;PrayerBlock=12;Baptism=9;BaptismMind=1;HighTide=20;HighTideMind=3;Devour=6;DevourHits=3;CurseCards=2;CurseBlock=10;HighTide2=28;Song=1;ShedStrength=2
 # ---------------- 调试
 dummy,稻草人,200,200,10,Idle=发呆,

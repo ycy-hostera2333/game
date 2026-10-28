@@ -174,15 +174,18 @@ namespace Deeptide.Core.Enemies
             ApplyFearAction.Stun(e, self);
         }
 
+        /// <summary>抄来的每段伤害按 CopyPercent 放大（向下取整）。100 = 原样。</summary>
+        int Scale(int perHit) => perHit * V("CopyPercent") / 100;
+
         protected override string ForcedMove(BattleEngine e, EnemyState self)
         {
             var atks = e.State.AttacksThisTurn;
             bool cracked = self.Counter(Phase) == 2;
             var a = atks.Count > 0 ? atks[0] : null;
             var b = cracked && atks.Count > 1 ? atks[1] : null;
-            e.SetCounter(self, Copy1, a?.PerHit ?? 0);
+            e.SetCounter(self, Copy1, Scale(a?.PerHit ?? 0));
             e.SetCounter(self, Copy1Hits, a?.Hits ?? 0);
-            e.SetCounter(self, Copy2, b?.PerHit ?? 0);
+            e.SetCounter(self, Copy2, Scale(b?.PerHit ?? 0));
             e.SetCounter(self, Copy2Hits, b?.Hits ?? 0);
             _name1 = a?.Name;
             _name2 = b?.Name;

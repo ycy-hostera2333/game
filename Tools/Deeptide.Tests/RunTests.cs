@@ -129,6 +129,19 @@ namespace Deeptide.Tests
             }
         }
 
+        /// <summary>开战那一刻就倒下（破碎怀表扣理智 → 崩溃 → 掉最后一点血）：没有命令可以触发结算，整局也要直接结束（7.5 跑出来的种子 710）。</summary>
+        [Test]
+        public void BattleLostDuringSetup_EndsTheRun()
+        {
+            var run = RunEngine.NewRun(3, new RunConfig { MaxSanity = 4, Relics = new List<string> { "broken_watch" } });
+            run.State.Hp = 1;
+            var first = run.NextNodes().First();
+            run.EnterNode(first.Row, first.Col, first.Room);
+            Assert.That(run.State.Phase, Is.EqualTo(RunPhase.Defeat));
+            Assert.That(run.Battle, Is.Null);
+            Assert.That(run.State.Stats.Battles.Single().Won, Is.False);
+        }
+
         [Test]
         public void Save_IsJsonRoundTrip()
         {
