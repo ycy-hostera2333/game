@@ -17,8 +17,11 @@ namespace Deeptide.Core.Relics
         public const string WolfFangPendant = "wolf_fang_pendant";
     }
 
-    /// <summary>Trait = 角色特性：作为隐藏遗物挂在战斗上（BattleSetup.Traits），不进遗物栏、不会出现在任何奖励里（策划/14 §1、09 M6.2）。</summary>
-    public enum RelicRarity { Starter, Common, Uncommon, Rare, Shop, Trait }
+    /// <summary>
+    /// Trait = 角色特性：作为隐藏遗物挂在战斗上（BattleSetup.Traits），不进遗物栏、不会出现在任何奖励里（策划/14 §1、09 M6.2）。
+    /// Echo = 回响：只在 echoes.csv 里，不进遗物表，载入时给每个回响配一份这个稀有度的 RelicDef（策划/15 §7.1）。
+    /// </summary>
+    public enum RelicRarity { Starter, Common, Uncommon, Rare, Shop, Trait, Echo }
 
     /// <summary>遗物静态数据，对应 Data/relics.csv 的一行。</summary>
     public sealed class RelicDef

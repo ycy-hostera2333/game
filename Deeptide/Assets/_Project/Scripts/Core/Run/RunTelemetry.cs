@@ -47,6 +47,8 @@ namespace Deeptide.Core.Run
         public int MaxHp, Hp, MaxSanity, Gold;
         public List<string> Deck = new List<string>();
         public List<string> Relics = new List<string>();
+        /// <summary>选过的回响。加回响之前的记录没有这个字段，读进来是空的。</summary>
+        public List<string> Echoes = new List<string>();
         public List<string> Potions = new List<string>();
 
         public int HpAtBoss = -1;
@@ -54,6 +56,7 @@ namespace Deeptide.Core.Run
         public List<NodeRecord> Nodes = new List<NodeRecord>();
         public List<BattleRecord> Battles = new List<BattleRecord>();
         public List<CardChoiceRecord> CardChoices = new List<CardChoiceRecord>();
+        public List<EchoChoiceRecord> EchoChoices = new List<EchoChoiceRecord>();
 
         /// <summary>从当前局摘出遥测。abandoned 只对还没结束的局有效（结算界面的「回到标题」不算放弃）。列表和 RunState 共用，调用方应立即序列化。</summary>
         public static RunTelemetry From(RunState s, bool abandoned = false)
@@ -83,6 +86,7 @@ namespace Deeptide.Core.Run
                 Gold = s.Gold,
                 Deck = s.Deck,
                 Relics = s.Relics,
+                Echoes = s.Echoes,
                 Potions = s.Potions.Where(p => p != null).ToList(),
                 HpAtBoss = stats.HpAtBoss,
                 GoldEarned = stats.GoldEarned,
@@ -91,11 +95,12 @@ namespace Deeptide.Core.Run
                 Nodes = stats.Nodes,
                 Battles = stats.Battles,
                 CardChoices = stats.CardChoices,
+                EchoChoices = stats.EchoChoices,
             };
         }
 
         /// <summary>不算流派的 archetype 值：基础牌和各角色的通用牌。状态牌、诅咒按类型排除。</summary>
-        static readonly string[] NotArchetypes = { "基础", "通用" };
+        internal static readonly string[] NotArchetypes = { "基础", "通用" };
 
         /// <summary>
         /// 牌组的主流派：只数流派牌（调查员是守夜 / 堕落 / 传染，狼人是狂猎 / 月相 / 血宴），某一类占一半以上且至少 3 张就算它，

@@ -24,6 +24,11 @@ namespace Deeptide.Core.Run
         public List<string> Relics;
         public BattleConfig Battle = new BattleConfig();
         public MapConfig Map = new MapConfig();
+        /// <summary>
+        /// 开局在信之后选一次浅档回响（策划/15 §3、09 M7.1）。默认关：关着的局和加回响之前逐局一致。
+        /// 现在只有模拟器的 --echo 打开；Unity 等回响界面（M7.6）做好再打开。
+        /// </summary>
+        public bool Echoes;
     }
 
     /// <summary>当前界面上的一个选项。Do 只在 Execute 时调用，选项列表每次都从状态重新算出来，所以不需要存档。</summary>
@@ -49,7 +54,8 @@ namespace Deeptide.Core.Run
     /// </summary>
     public sealed partial class RunEngine
     {
-        public const int SaveVersion = 1;
+        /// <summary>存档版本。2：加了回响（RunState.Echoes / EchoRerolls、回响随机流），版本 1 的存档读进来当作已经选过、什么都没选。</summary>
+        public const int SaveVersion = 2;
 
         public readonly RunConfig Config;
         public RunState State { get; private set; }
@@ -83,6 +89,7 @@ namespace Deeptide.Core.Run
                 Map = MapGenerator.Generate(e.Rng.Map, c.Map),
                 Phase = RunPhase.Map,
             };
+            if (c.Echoes) e.OfferEchoes(EchoTier.Shallow);
             e.SavePoint();
             return e;
         }
@@ -90,8 +97,10 @@ namespace Deeptide.Core.Run
         /// <summary>从存档恢复。state 由外层反序列化得到，读入后归这个引擎所有。</summary>
         public static RunEngine Load(RunState state, RunConfig config = null)
         {
-            if (state.Version != SaveVersion) throw new InvalidOperationException($"存档版本 {state.Version} 和当前版本 {SaveVersion} 不一致");
-            var e = new RunEngine(config) { State = state, Rng = RunRng.Load(state.Rng) };
+            if (state.Version < 1 || state.Version > SaveVersion) throw new InvalidOperationException($"存档版本 {state.Version} 和当前版本 {SaveVersion} 不一致");
+            // 版本 1 → 2：没有回响字段（读进来就是空的、0 次重抽），回响随机流由 RunRng.Load 补上
+            state.Version = SaveVersion;
+            var e = new RunEngine(config) { State = state, Rng = RunRng.Load(state.Rng, state.Seed) };
             if (state.Phase == RunPhase.Battle) e.CreateBattle();
             return e;
         }
@@ -400,6 +409,7 @@ namespace Deeptide.Core.Run
                 MaxSanity = State.MaxSanity,
                 Relics = State.Relics.ToList(),
                 Traits = TraitsOf(State.Character),
+                Echoes = State.Echoes.ToList(),
                 Character = State.Character,
                 Potions = State.Potions.ToList(),
                 PotionSlots = State.Potions.Count,
@@ -617,6 +627,10 @@ namespace Deeptide.Core.Run
                     }
                     options.Add(new RunOption { Label = $"放弃 {PotionLibrary.Get(sel.PendingPotion).Name}", Tag = "decline", Do = () => FinishSelect(null) });
                     break;
+
+                case SelectPurpose.Echo:
+                    EchoOptions(sel, options);
+                    break;
             }
             return options;
         }
@@ -714,6 +728,7 @@ namespace Deeptide.Core.Run
               .Append("|rm ").Append(s.Removals).Append("|fights ").Append(s.BattlesFought).Append('/').Append(s.NormalFights).Append('\n');
             sb.Append("deck ").Append(string.Join(",", s.Deck)).Append('\n');
             sb.Append("relics ").Append(string.Join(",", s.Relics)).Append('\n');
+            sb.Append("echoes ").Append(string.Join(",", s.Echoes)).Append(" reroll ").Append(s.EchoRerolls).Append('\n');
             sb.Append("potions ").Append(string.Join(",", s.Potions.Select(p => p ?? "-"))).Append('\n');
             sb.Append("seen ").Append(string.Join(",", s.RecentEncounters)).Append(';').Append(string.Join(",", s.ElitesSeen))
               .Append(';').Append(string.Join(",", s.EventsSeen)).Append('\n');
@@ -723,7 +738,7 @@ namespace Deeptide.Core.Run
                 foreach (var it in s.Shop.Items) sb.Append("shop ").Append(it.Kind).Append(' ').Append(it.Id).Append(' ').Append(it.Price).Append(it.Sold ? " sold" : "").Append('\n');
             if (s.Event != null) sb.Append("event ").Append(s.Event.Id).Append(' ').Append(s.Event.Stage).Append('\n');
             if (s.Select != null) sb.Append("select ").Append(s.Select.Purpose).Append(' ').Append(string.Join(",", s.Select.Cards))
-                .Append(' ').Append(string.Join(",", s.Select.DeckIndices)).Append('\n');
+                .Append(' ').Append(string.Join(",", s.Select.DeckIndices)).Append(' ').Append(string.Join(",", s.Select.Echoes)).Append('\n');
             sb.Append("rng ").Append(string.Join(",", Rng.Save())).Append('\n');
             if (Battle != null) sb.Append("battle ").Append(StateHasher.Describe(Battle));
             return Fnv(sb.ToString());

@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 
 namespace Deeptide.Core.Actions
@@ -240,12 +241,14 @@ namespace Deeptide.Core.Actions
             Stun(e, en);
         }
 
-        /// <summary>震慑：当前意图作废，恐惧清零，意志按配置增长。惊惧失神等效果也走这里。</summary>
+        /// <summary>震慑：当前意图作废，恐惧清零（余悸：保留一部分），意志按配置增长。惊惧失神等效果也走这里。</summary>
         public static void Stun(BattleEngine e, EnemyState en)
         {
             var cfg = e.Config;
             e.SetStunned(en, true);
-            e.SetFear(en, 0, (en.Will * cfg.WillGrowthNum + cfg.WillGrowthDen - 1) / cfg.WillGrowthDen);
+            int will = (en.Will * cfg.WillGrowthNum + cfg.WillGrowthDen - 1) / cfg.WillGrowthDen;
+            int kept = Math.Min(en.Fear * cfg.StunFearKeptPercent / 100, will - 1);
+            e.SetFear(en, Math.Max(0, kept), will);
             e.Log.Add(BattleEventType.EnemyStunned, $"{en.Name} 被震慑！本次意图作废，意志升至 {en.Will}", target: en.Name).Entity = en.Index;
             en.Behaviour.OnStunned(e, en);
             e.Notify(l => l.OnEnemyStunned(e, en));

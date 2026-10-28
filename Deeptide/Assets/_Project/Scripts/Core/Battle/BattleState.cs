@@ -18,6 +18,8 @@ namespace Deeptide.Core
         public List<string> Relics = new List<string> { RelicIds.InvestigatorNotes };
         /// <summary>角色特性等隐藏遗物（relics.csv 里 rarity = Trait 的行）：和遗物一样监听，但不在遗物栏里（策划/14、09 M6.2）。</summary>
         public List<string> Traits = new List<string>();
+        /// <summary>回响（echoes.csv 的 id）：和特性一样是隐藏遗物，开战时挂在 PlayerState.Traits 里（策划/15 §3、09 M7.1）。</summary>
+        public List<string> Echoes = new List<string>();
         /// <summary>角色（characters.csv 的 id）。规则不看它（规则差异都在特性里），只给表现层选立绘、显示名字用。</summary>
         public string Character = Run.CharacterIds.Investigator;
         /// <summary>药水栏的内容，null = 空位。长度不足 PotionSlots 时补空位。</summary>

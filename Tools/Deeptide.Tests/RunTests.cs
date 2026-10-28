@@ -134,7 +134,7 @@ namespace Deeptide.Tests
         {
             var run = RunEngine.NewRun(9);
             var json = RunSaves.ToJson(run.SaveState());
-            Assert.That(json, Does.Contain("\"Version\": 1"));
+            Assert.That(json, Does.Contain("\"Version\": 2"));
             var again = RunSaves.ToJson(RunSaves.FromJson(json));
             Assert.That(again, Is.EqualTo(json));
             var bad = RunSaves.FromJson(json);

@@ -28,6 +28,8 @@ namespace Deeptide.Core.Run
         public List<string> Deck = new List<string>();
         /// <summary>特性说明（策划/14 的「特性」），选角界面用。</summary>
         public string Text;
+        /// <summary>这个角色的流派（守夜 / 堕落 / 传染，狼人是狂猎 / 月相 / 血宴）：载入时从卡表里本角色牌的 archetype 列收集，不另外填。回响的倾向按它判断。</summary>
+        public List<string> Archetypes = new List<string>();
     }
 
     /// <summary>角色注册表，内容由 Data.GameData 从 characters.csv 载入，按表格行序保存。</summary>

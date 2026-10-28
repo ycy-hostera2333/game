@@ -1,0 +1,8 @@
+id,name,tier,character,tendency,vars,text
+# 回响表（策划/15 §3、09 M7.1）。tier 可选 Shallow（浅，第一章）/ Deep（深）/ Abyss（渊）；character 是归属角色，空 = 通用；
+# tendency 是流派倾向：专属回响只能填本角色的流派或「中立」，通用回响可以填任何角色的流派（对没有这个流派的角色按中立算，比如不眠对狼人）
+# 7.1 先放只改规则参数的 4 个，其余浅档回响在 7.2 补
+wick,灯芯,Shallow,investigator,守夜,Margin=1,清明放宽 {Margin} 格：理智 ≥ 上限 − 2 即为清明。
+shoal,浅滩,Shallow,investigator,堕落,Line=1,癫狂线上移 {Line} 格：理智 ≤ 5 即为癫狂。
+sleepless,不眠,Shallow,,堕落,Deficit=3,战斗开始时，理智 = 上限 − {Deficit}。
+aftershock,余悸,Shallow,investigator,传染,Keep=50,震慑时恐惧不清零，保留一半（向下取整）。

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Deeptide.Core.Map;
 using Deeptide.Core.Random;
+using Deeptide.Core.Relics;
 
 namespace Deeptide.Core.Run
 {
@@ -22,12 +23,13 @@ namespace Deeptide.Core.Run
     }
 
     /// <summary>
-    /// 跑局的 7 个独立随机流（策划/08 §5）：地图、遭遇、奖励、商店、事件、其他，加上「战斗种子」（每场战斗用 局种子 + 战斗序号 派生，
+    /// 跑局的独立随机流（策划/08 §5）：地图、遭遇、奖励、商店、事件、其他、回响，加上「战斗种子」（每场战斗用 局种子 + 战斗序号 派生，
     /// 战斗内部再分洗牌 / AI / 杂项三个流）。多看一次奖励不会改变后面的地图或敌人行为。
+    /// 回响流（09 M7.1）是后加的：不选回响的局完全不碰它，其余流的结果和加之前一样。
     /// </summary>
     public sealed class RunRng
     {
-        public Pcg32 Map, Encounter, Reward, Shop, Event, Misc;
+        public Pcg32 Map, Encounter, Reward, Shop, Event, Misc, Echo;
 
         public RunRng(ulong seed)
         {
@@ -37,6 +39,7 @@ namespace Deeptide.Core.Run
             Shop = new Pcg32(seed, 14);
             Event = new Pcg32(seed, 15);
             Misc = new Pcg32(seed, 16);
+            Echo = new Pcg32(seed, 17);
         }
 
         RunRng() { }
@@ -44,10 +47,11 @@ namespace Deeptide.Core.Run
         public ulong[] Save() => new[]
         {
             Map.State, Map.Increment, Encounter.State, Encounter.Increment, Reward.State, Reward.Increment,
-            Shop.State, Shop.Increment, Event.State, Event.Increment, Misc.State, Misc.Increment,
+            Shop.State, Shop.Increment, Event.State, Event.Increment, Misc.State, Misc.Increment, Echo.State, Echo.Increment,
         };
 
-        public static RunRng Load(ulong[] s) => new RunRng
+        /// <summary>读随机流。加回响之前的存档只有 12 个数，回响流从种子新建（那些局不会再选回响，用不到它）。</summary>
+        public static RunRng Load(ulong[] s, ulong seed) => new RunRng
         {
             Map = Pcg32.FromRaw(s[0], s[1]),
             Encounter = Pcg32.FromRaw(s[2], s[3]),
@@ -55,6 +59,7 @@ namespace Deeptide.Core.Run
             Shop = Pcg32.FromRaw(s[6], s[7]),
             Event = Pcg32.FromRaw(s[8], s[9]),
             Misc = Pcg32.FromRaw(s[10], s[11]),
+            Echo = s.Length >= 14 ? Pcg32.FromRaw(s[12], s[13]) : new Pcg32(seed, 17),
         };
     }
 
@@ -114,6 +119,8 @@ namespace Deeptide.Core.Run
         UpgradeCard,
         /// <summary>药水栏满了：选一瓶丢掉换成 PendingPotion，或者放弃新药水。</summary>
         DiscardPotion,
+        /// <summary>开局选回响：从 Echoes 里选一个，或者整组重抽（每局一次）。不能跳过（策划/15 §3.2）。</summary>
+        Echo,
     }
 
     public sealed class SelectState
@@ -136,6 +143,11 @@ namespace Deeptide.Core.Run
         public bool ShopRemoval;
         /// <summary>卡牌奖励来自奖励列表的第几项（选完标记已领取）。</summary>
         public int RewardIndex = -1;
+        /// <summary>Echo 的候选回响。</summary>
+        public List<string> Echoes = new List<string>();
+        /// <summary>Echo：这次选择里重抽前给过的回响，重抽时尽量不再给。</summary>
+        public List<string> EchoesShown = new List<string>();
+        public EchoTier EchoTier;
     }
 
     /// <summary>整局的统计（遥测 / runbatch 用，策划/07 §6.2）。</summary>
@@ -143,6 +155,7 @@ namespace Deeptide.Core.Run
     {
         public List<BattleRecord> Battles = new List<BattleRecord>();
         public List<CardChoiceRecord> CardChoices = new List<CardChoiceRecord>();
+        public List<EchoChoiceRecord> EchoChoices = new List<EchoChoiceRecord>();
         public List<int> NodeHp = new List<int>();
         public List<NodeRecord> Nodes = new List<NodeRecord>();
         public int GoldEarned;
@@ -213,6 +226,16 @@ namespace Deeptide.Core.Run
         public string Picked;
     }
 
+    /// <summary>一次回响选择（遥测，策划/15 §7.1）。</summary>
+    public sealed class EchoChoiceRecord
+    {
+        public EchoTier Tier;
+        /// <summary>给过的回响：第一组，重抽过的话接着是第二组。</summary>
+        public List<string> Offered = new List<string>();
+        public string Picked;
+        public int Rerolls;
+    }
+
     /// <summary>
     /// 一局的全部状态（策划/08 §6）：纯数据，没有任何逻辑对象。存档就是把它序列化成 JSON（Core 不做序列化，交给外层）。
     /// </summary>
@@ -230,6 +253,10 @@ namespace Deeptide.Core.Run
         public int Gold;
         public List<string> Deck = new List<string>();
         public List<string> Relics = new List<string>();
+        /// <summary>选过的回响（echoes.csv 的 id）。开战时作为隐藏遗物挂上（BattleSetup.Echoes）。加回响之前的存档读成空：当作已经选过、什么都没选。</summary>
+        public List<string> Echoes = new List<string>();
+        /// <summary>这一局用掉的回响重抽次数（每局一次，策划/15 §3.2）。</summary>
+        public int EchoRerolls;
         /// <summary>药水栏，null = 空位；长度 = 栏数。</summary>
         public List<string> Potions = new List<string>();
 

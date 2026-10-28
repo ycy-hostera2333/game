@@ -45,6 +45,11 @@ namespace Deeptide.Core
         public virtual void OnCombatEnd(BattleEngine e, bool victory) { }
 
         // ---------------- 修正
+        /// <summary>
+        /// 开战时改这场战斗的规则参数（回响：清明线、癫狂线、开战理智、震慑保留恐惧……，策划/15 §7.1）。
+        /// 只在开战时调用一次，config 是这场战斗自己的副本。在 OnCombatStart 之前、玩家的理智和界线定下来之前调用。
+        /// </summary>
+        public virtual void ModifyConfig(BattleConfig config) { }
         /// <summary>这张牌是否强制使用癫狂面（旧日注视）。</summary>
         public virtual bool ForcesMadFace(BattleEngine e, Card card) => false;
         /// <summary>这张双面牌是否两面都结算：先清醒面（人形面），再癫狂面（兽形面），各付各的代价（人狼同体，策划/14 §2.5）。</summary>

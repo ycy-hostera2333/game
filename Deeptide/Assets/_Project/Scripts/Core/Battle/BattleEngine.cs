@@ -23,7 +23,8 @@ namespace Deeptide.Core
     public sealed partial class BattleEngine
     {
         public readonly BattleSetup Setup;
-        public readonly BattleConfig Config;
+        /// <summary>这场战斗的规则参数：开战时从 Setup.Config 复制，再经监听器的 ModifyConfig 修改（回响）。</summary>
+        public BattleConfig Config { get; private set; }
         public readonly BattleState State = new BattleState();
         public readonly ActionQueue Queue = new ActionQueue();
         public readonly BattleLog Log = new BattleLog();
@@ -349,12 +350,19 @@ namespace Deeptide.Core
                 p.Traits.Add(trait);
                 AddListener(trait);
             }
+            foreach (var id in Setup.Echoes)
+            {
+                var echo = EchoLibrary.Create(id);
+                p.Traits.Add(echo);
+                AddListener(echo);
+            }
             foreach (var id in Setup.Relics)
             {
                 var relic = RelicLibrary.Create(id);
                 p.Relics.Add(relic);
                 AddListener(relic);
             }
+            ApplyConfigModifiers();
 
             for (int i = 0; i < Math.Max(Setup.PotionSlots, Setup.Potions.Count); i++)
             {
@@ -379,6 +387,21 @@ namespace Deeptide.Core
             _flow.AddLast(() => { foreach (var en in State.Enemies) RollIntent(en); });
             _flow.AddLast(StartPlayerTurn);
             Settle();
+        }
+
+        /// <summary>
+        /// 规则参数交给监听器改（回响，策划/15 §7.1），再按改过的参数定下玩家的癫狂线、清明线和开战理智。
+        /// 开战理智低于上限时写一条理智变化的状态事件，表现层照常重建；这不算「进入癫狂」，不触发变身、调查笔记。
+        /// </summary>
+        void ApplyConfigModifiers()
+        {
+            Config = Config.Clone();
+            foreach (var l in _listeners) l.ModifyConfig(Config);
+            var p = Player;
+            p.LunacyThreshold = Config.LunacyThreshold;
+            p.ClarityMargin = Config.ClarityMargin;
+            if (Config.StartSanityDeficit > 0) SetSanity(Math.Max(1, p.MaxSanity - Config.StartSanityDeficit));
+            State.Stats.MinSanity = p.Sanity;
         }
 
         /// <summary>「固有」的牌放到抽牌堆顶；固有牌多于每回合抽牌数时，第一回合多抽。</summary>

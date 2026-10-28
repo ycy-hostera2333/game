@@ -23,7 +23,7 @@ namespace Deeptide.Sim
     {
         static string Opt(Dictionary<string, string> o, string key, string fallback) => o.TryGetValue(key, out var v) ? v : fallback;
 
-        /// <summary>--char 选角色（characters.csv 的 id，默认调查员）；--set starter=… 只改调查员的起始牌组。</summary>
+        /// <summary>--char 选角色（characters.csv 的 id，默认调查员）；--set starter=… 只改调查员的起始牌组；--echo 1 开局选回响（默认不选，策划/15 §3）。</summary>
         static RunConfig Config(Dictionary<string, string> o)
         {
             Tuning.ApplyHpForRuns();
@@ -36,6 +36,7 @@ namespace Deeptide.Sim
                 Deck = character == CharacterIds.Investigator ? Tuning.StarterDeck?.ToList() : null,
                 Battle = Tuning.Config,
                 Map = Tuning.Map,
+                Echoes = Opt(o, "echo", "0") != "0",
             };
         }
 

@@ -354,9 +354,21 @@ namespace Deeptide.Sim
                     }
                     return pick >= 0 ? pick : Last(options);
                 }
+                case SelectPurpose.Echo:
+                    return ChooseEcho(run, options);
                 default:
                     return Tagged(options, "decline");
             }
+        }
+
+        /// <summary>回响：先挑倾向是自己流派的，没有就挑中立的，再没有就第一个；不重抽。占位规则，M7.5 换成流派偏好 + 强弱表。</summary>
+        int ChooseEcho(RunEngine run, List<RunOption> options)
+        {
+            string mine = ArchetypeName(_arch);
+            string TendencyOf(RunOption o) => EchoLibrary.TendencyFor(EchoLibrary.Get(o.Tag.Substring("echo:".Length)), run.State.Character);
+            var echoes = options.Where(o => o.Tag != null && o.Tag.StartsWith("echo:")).ToList();
+            var pick = echoes.FirstOrDefault(o => TendencyOf(o) == mine) ?? echoes.FirstOrDefault(o => TendencyOf(o) == EchoDef.Neutral) ?? echoes[0];
+            return options.IndexOf(pick);
         }
 
         // ------------------------------------------------------------------ 商店 / 篝火 / 事件

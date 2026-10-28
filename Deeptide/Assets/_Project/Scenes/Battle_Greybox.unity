@@ -284,6 +284,7 @@ MonoBehaviour:
   - {fileID: 4900000, guid: 7bddd4fe4964bdd41ae6d1d7fe21dc24, type: 3}
   - {fileID: 4900000, guid: 636ebe62a9358b04bb7aefa722462695, type: 3}
   - {fileID: 4900000, guid: 21c7b0f6ad5a455d8a646afd01bc015e, type: 3}
+  - {fileID: 4900000, guid: 35d61eb37201483998d5f317d82ffc20, type: 3}
   Seed: 42
   Deck:
   - B01

@@ -20,6 +20,7 @@ namespace Deeptide.Core
 
             var f = new BattleEngine(Setup, Rng.Copy())
             {
+                Config = Config,   // 开战后不再改，可以共用
                 _nextUid = _nextUid,
                 _innateExtraDraw = _innateExtraDraw,
             };

@@ -20,9 +20,10 @@ namespace Deeptide.Core.Data
         public string Encounters;
         public string Events;
         public string Characters;
+        public string Echoes;
 
         /// <summary>Data 目录下的文件名，外层按这个名字找文件。</summary>
-        public static readonly string[] FileNames = { "cards.csv", "enemies.csv", "relics.csv", "potions.csv", "encounters.csv", "events.csv", "characters.csv" };
+        public static readonly string[] FileNames = { "cards.csv", "enemies.csv", "relics.csv", "potions.csv", "encounters.csv", "events.csv", "characters.csv", "echoes.csv" };
 
         /// <summary>按文件名取文本，供外层统一读取：DataSource.From(name => File.ReadAllText(dir + name))。</summary>
         public static DataSource From(Func<string, string> read) => new DataSource
@@ -34,6 +35,7 @@ namespace Deeptide.Core.Data
             Encounters = read("encounters.csv"),
             Events = read("events.csv"),
             Characters = read("characters.csv"),
+            Echoes = read("echoes.csv"),
         };
     }
 
@@ -52,7 +54,7 @@ namespace Deeptide.Core.Data
     /// 内容数据的载入与校验（策划/09 M2）。校验项：
     /// 每一行都有对应的类、每个类都有对应的行；文本里的 {变量} 都有定义；升级变量在基础变量里存在；
     /// 敌人招式表里的每个招式都在 moves 列声明过，声明过的招式也都被用到；卡牌 / 遗物 / 药水的 character 列都指向存在的角色，
-    /// 角色的起始遗物和起始牌组都存在、且不属于别的角色。所有问题一次性列出来。
+    /// 角色的起始遗物和起始牌组都存在、且不属于别的角色；回响的档位、归属角色、倾向都写对了。所有问题一次性列出来。
     /// </summary>
     public static class GameData
     {
@@ -76,6 +78,7 @@ namespace Deeptide.Core.Data
             EncounterLibrary.Clear();
             EventLibrary.Clear();
             CharacterLibrary.Clear();
+            EchoLibrary.Clear();
             foreach (var d in staged.Cards) CardLibrary.Add(d);
             foreach (var d in staged.Enemies) EnemyLibrary.Add(d);
             foreach (var d in staged.Relics) RelicLibrary.Add(d);
@@ -83,6 +86,7 @@ namespace Deeptide.Core.Data
             foreach (var d in staged.Encounters) EncounterLibrary.Add(d);
             foreach (var d in staged.Events) EventLibrary.Add(d);
             foreach (var d in staged.Characters) CharacterLibrary.Add(d);
+            foreach (var d in staged.Echoes) EchoLibrary.Add(d);
             IsLoaded = true;
         }
 
@@ -102,6 +106,7 @@ namespace Deeptide.Core.Data
             public readonly List<EncounterDef> Encounters = new List<EncounterDef>();
             public readonly List<EventDef> Events = new List<EventDef>();
             public readonly List<CharacterDef> Characters = new List<CharacterDef>();
+            public readonly List<EchoDef> Echoes = new List<EchoDef>();
             /// <summary>角色表里出现过的全部 id（含校验没通过的行），归属列的检查用它，免得一行写错就连带报一串「角色不存在」。</summary>
             public readonly HashSet<string> SeenCharacters = new HashSet<string>();
         }
@@ -117,6 +122,7 @@ namespace Deeptide.Core.Data
             LoadTable(source.Encounters, "encounters.csv", errs, t => LoadEncounters(t, errs, staged.Encounters, staged.Enemies));
             LoadTable(source.Events, "events.csv", errs, t => LoadEvents(t, errs, staged.Events));
             LoadTable(source.Characters, "characters.csv", errs, t => LoadCharacters(t, errs, staged));
+            LoadTable(source.Echoes, "echoes.csv", errs, t => LoadEchoes(t, errs, staged));
             CheckOwners(staged, errs);
             errors = errs;
             return staged;
@@ -422,6 +428,9 @@ namespace Deeptide.Core.Data
                     DreamCard = row["dream_card"],
                     Deck = ParseDeck(row["deck"]),
                     Text = row["text"],
+                    Archetypes = staged.Cards
+                        .Where(c => c.Character == id && c.Archetype.Length > 0 && !RunTelemetry.NotArchetypes.Contains(c.Archetype))
+                        .Select(c => c.Archetype).Distinct().ToList(),
                 };
                 if (def.Name.Length == 0) throw new FormatException($"{id} 没有名字");
                 if (def.MaxHp <= 0) throw new FormatException($"{id} 的最大生命必须大于 0");
@@ -456,6 +465,63 @@ namespace Deeptide.Core.Data
             });
             if (!staged.SeenCharacters.Contains(CharacterIds.Investigator))
                 errors.Add($"{table.FileName}：缺少默认角色 {CharacterIds.Investigator}（RunConfig 和旧存档默认用它）");
+        }
+
+        // ------------------------------------------------------------------ echoes.csv
+
+        static void LoadEchoes(CsvTable table, List<string> errors, Staged staged)
+        {
+            var output = staged.Echoes;
+            var ids = new List<string>();
+            EachRow(table, errors, row =>
+            {
+                string id = row["id"];
+                ids.Add(id);
+                if (id.Length == 0) throw new FormatException("id 为空");
+                if (output.Any(d => d.Id == id)) throw new FormatException($"回响 ID 重复：{id}");
+                if (!EchoClasses.Factories.TryGetValue(id, out var factory)) throw new FormatException($"{id} 没有对应的类（在 EchoClasses 里注册）");
+
+                var def = new EchoDef
+                {
+                    Id = id,
+                    Name = row["name"],
+                    Tier = row.Enum<EchoTier>("tier"),
+                    Character = row["character"],
+                    Tendency = row["tendency"],
+                    Vars = Csv.ParseVars(row["vars"]),
+                    Text = row["text"],
+                    Factory = factory,
+                };
+                if (def.Name.Length == 0) throw new FormatException($"{id} 没有名字");
+                if (def.Text.Length == 0) throw new FormatException($"{id} 没有效果文本");
+
+                // 角色表没载入时不查归属和倾向（同 CheckOwners），免得一条错误刷满屏
+                if (staged.SeenCharacters.Count > 0)
+                {
+                    if (def.Character.Length > 0 && !staged.SeenCharacters.Contains(def.Character))
+                        throw new FormatException($"{id} 的 character 列是不存在的角色 {def.Character}");
+                    // 专属回响的倾向只能是本角色的流派；通用回响可以是任何角色的流派（对别的角色按中立算）
+                    var allowed = staged.Characters.Where(c => def.Character.Length == 0 || c.Id == def.Character)
+                        .SelectMany(c => c.Archetypes).Distinct().Prepend(EchoDef.Neutral).ToList();
+                    if (!allowed.Contains(def.Tendency))
+                        throw new FormatException($"{id} 的倾向「{def.Tendency}」不对，可选：{string.Join(" / ", allowed)}");
+                }
+                CheckPlaceholders($"{row.Where}（{id}）", def.Text, def.Vars, errors);
+
+                def.AsRelic = new RelicDef
+                {
+                    Id = id,
+                    Name = def.Name,
+                    Rarity = RelicRarity.Echo,
+                    Character = def.Character,
+                    Tendency = def.Tendency,
+                    Vars = def.Vars,
+                    Text = def.Text,
+                    Factory = factory,
+                };
+                output.Add(def);
+            });
+            CheckClasses(table.FileName, ids, EchoClasses.Factories.Keys, errors);
         }
 
         /// <summary>「B01*5;B02*3;C01」：ID*N 表示 N 张，按书写顺序展开。</summary>
