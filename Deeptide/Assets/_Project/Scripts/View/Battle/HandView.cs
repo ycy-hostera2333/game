@@ -215,6 +215,7 @@ namespace Deeptide.View.Battle
         void SetHover(CardView view)
         {
             if (_hover != null && _hover != view) _hover.SetHover(false);
+            if (view != null && view != _hover) Audio.AudioDirector.Ui("U01");
             _hover = view;
             if (view != null) view.SetHover(true);
             PreviewCost(view);

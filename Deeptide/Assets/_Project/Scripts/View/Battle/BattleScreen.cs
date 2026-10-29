@@ -3,6 +3,7 @@ using System.Linq;
 using Deeptide.Core;
 using Deeptide.Core.Cards;
 using Deeptide.Core.Enemies;
+using Deeptide.View.Audio;
 using PrimeTween;
 using TMPro;
 using UnityEngine;
@@ -53,6 +54,7 @@ namespace Deeptide.View.Battle
         Image _arrow;
         readonly Queue<string> _logLines = new Queue<string>();
         int _energy, _drawCount, _discardCount, _exhaustCount;
+        readonly BattleSounds _sounds = new BattleSounds();
 
         // ------------------------------------------------------------------ 搭建
 
@@ -67,7 +69,7 @@ namespace Deeptide.View.Battle
             var scaler = go.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
-            scaler.matchWidthOrHeight = 0.5f;
+            go.AddComponent<CanvasFit>();
             go.AddComponent<GraphicRaycaster>();
 
             var screen = go.AddComponent<BattleScreen>();
@@ -105,6 +107,7 @@ namespace Deeptide.View.Battle
         {
             Controller = controller;
             Controller.Rejected += Toast;
+            Controller.Rejected += _ => AudioDirector.Ui("U05");
             _topBar.Bind(Controller.Engine);
             Controller.Begin();
         }
@@ -198,7 +201,12 @@ namespace Deeptide.View.Battle
             _drawText = PileLabel(controls, "Draw", new Vector2(-860, 80));
             _discardText = PileLabel(controls, "Discard", new Vector2(860, 80));
             _exhaustText = PileLabel(controls, "Exhaust", new Vector2(860, 210));
-            _endTurn = Ui.TextButton("EndTurn", controls, "结束回合", Palette.PanelLight, () => Controller.EndTurn());
+            _endTurn = Ui.TextButton("EndTurn", controls, "结束回合", Palette.PanelLight, () =>
+            {
+                // 先响怀表再结束回合：EndTurn 里会同步播第一条事件，声音要排在它前面
+                if (Controller.AcceptsInput) AudioDirector.Ui("U06");
+                Controller.EndTurn();
+            });
             var endTurnBg = (Image)_endTurn.targetGraphic;
             endTurnBg.sprite = Shapes.RoundRect(14);
             endTurnBg.type = Image.Type.Sliced;
@@ -301,6 +309,8 @@ namespace Deeptide.View.Battle
         {
             var engine = Controller.Engine;
             if (!e.IsStateChange && !string.IsNullOrEmpty(e.Message)) Log(e.Message);
+            // 声音和画面一起逐条走：BattleDirector 放慢、倍速，声音也跟着（13 §6.1「接入点」）
+            AudioDirector.Instance.Play(_sounds.Map(e, engine, Director.Upcoming), Director.Speed);
 
             switch (e.Type)
             {

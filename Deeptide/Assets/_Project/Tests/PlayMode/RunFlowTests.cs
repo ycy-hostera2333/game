@@ -438,6 +438,38 @@ namespace Deeptide.View.Tests
             Assert.AreEqual("boss_mirror", ReadTelemetry().Boss);
         }
 
+        /// <summary>菜单 → 设置：全屏 / 窗口来回切，窗口大小只在窗口模式下能点；「返回」回到菜单。标题画面上也能打开设置。</summary>
+        [UnityTest]
+        public IEnumerator SettingsTogglesWindowMode()
+        {
+            _boot.NewRun(5);
+            yield return null;
+            yield return PickEcho();
+            Screen.TopBar.GetComponentsInChildren<UnityEngine.UI.Button>().First(b => b.name == "菜单").onClick.Invoke();
+            Assert.IsTrue(Screen.ClickModal("Settings"));
+            Assert.AreEqual("Settings", Screen.ModalName);
+            yield return Shot("35_settings");
+
+            bool windowed = DisplaySettings.Windowed;
+            bool CanResize() => Screen.GetComponentsInChildren<UnityEngine.UI.Button>(true).First(b => b.name == "WindowSize").interactable;
+            Assert.AreEqual(windowed, CanResize());
+            Assert.IsTrue(Screen.ClickModal("Display"));
+            Assert.AreEqual(!windowed, DisplaySettings.Windowed);
+            Assert.AreEqual(!windowed, CanResize(), "切换后重画，窗口大小跟着能点 / 不能点");
+            Assert.IsTrue(Screen.ClickModal("Display"));
+            Assert.AreEqual(windowed, DisplaySettings.Windowed);
+            Assert.IsTrue(Screen.ClickModal("Back"));
+            Assert.AreEqual("Menu", Screen.ModalName);
+
+            Screen.ExitToTitle(false);
+            yield return null;
+            Assert.IsTrue(_boot.ClickTitle("Settings"));
+            Assert.IsNotNull(_boot.Title.Find("SettingsLayer"));
+            Assert.IsTrue(_boot.ClickTitle("Back"));
+            yield return null;
+            Assert.IsNull(_boot.Title.Find("SettingsLayer"));
+        }
+
         /// <summary>战斗中保存退出 → 继续：回到这场战斗的开头，和刚进入时完全一样；打完在奖励界面退出 → 继续：还在奖励界面。</summary>
         [UnityTest]
         public IEnumerator ContinueResumesSavedRun()

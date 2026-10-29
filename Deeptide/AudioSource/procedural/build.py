@@ -155,6 +155,26 @@ function guess(g){{ if(cur===null) return; st.n++; const d=Math.abs(g-cur);
 """
 
 
+def write_sfx_page(names):
+    """P0 音效的试听页：按 13 §5.2 的分组列出每个变体。"""
+    import cues.sfx as sfx
+    groups = (('U', '界面'), ('C', '战斗'), ('R', '理智（游戏里后面会接 R01）'), ('F', '恐惧'), ('L', '提灯'), ('B', 'Boss 潮位'))
+    body = ''
+    for prefix, title in groups:
+        rows = ''.join(f'<div class="row"><div class="lab">{nm}<small>{(sfx.CUES[nm.rsplit("_", 1)[0]][0].__doc__ or "")}</small></div>'
+                       f'<audio controls preload="none" src="../../sfx/{nm}.wav"></audio></div>'
+                       for nm in names if nm.startswith(prefix))
+        if rows:
+            body += f'<h2>{title}</h2>{rows}'
+    notes = {fn.__name__: line.split('#', 1)[1].strip() for fn, _, _ in sfx.CUES.values()
+             for line in [__import__('inspect').getsource(fn).splitlines()[0]] if '#' in line}
+    for nm in names:
+        key = sfx.CUES[nm.rsplit('_', 1)[0]][0].__name__
+        body = body.replace(f'{nm}<small></small>', f'{nm}<small>{notes.get(key, "")}</small>', 1)
+    html = PAGE.split('<main>')[0] + '<main><h1>深潮 · P0 音效</h1><p>策划/13 §5.2。R01 / R02 / C01 在 listen.html。</p>' + body + '</main></body></html>'
+    (PREVIEW / 'sfx.html').write_text(html.replace('{{', '{').replace('}}', '}'), encoding='utf-8')
+
+
 def calibrate():
     """实测各档理智的整体响度，给出 mixer.LEVELS 最后一列「音乐总线补偿」的建议值（以理智 7 为准，取到 0.5 dB）。"""
     import mixer
@@ -170,7 +190,7 @@ def calibrate():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('cues', nargs='*', default=['M02', 'sanity', 'S02'])
+    ap.add_argument('cues', nargs='*', default=['M02', 'sanity', 'S02', 'sfx'])
     ap.add_argument('--spectro', action='store_true', help='给主要文件画频谱图（preview/_spec_*.png）')
     ap.add_argument('--calibrate', action='store_true', help='只实测各档响度，给出总线补偿建议值')
     args = ap.parse_args()
@@ -196,6 +216,10 @@ def main():
         if stems is None:
             stems = {k: dsp.read_wav(OUT / 'music' / f'M02_{k}.wav') for k in ('base', 'main', 'clarity', 'deep')}
         s02.build(OUT, log, PREVIEW, stems)
+    if 'sfx' in want:
+        print('P0 音效')
+        import cues.sfx as sfx
+        write_sfx_page(sfx.build(OUT, log))
     if not sanity_log and (PREVIEW / 'sweep_log.json').exists():
         sanity_log = json.loads((PREVIEW / 'sweep_log.json').read_text(encoding='utf-8'))
     write_page(sanity_log)

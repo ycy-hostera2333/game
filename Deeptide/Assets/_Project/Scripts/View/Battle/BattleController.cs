@@ -92,6 +92,9 @@ namespace Deeptide.View.Battle
 
         public bool IsIdle => !_running && _queue.Count == 0;
 
+        /// <summary>这一批里还没播的事件（AudioDirector 往后看：这次扣格挡是不是被打的、这次掉理智是谁造成的）。</summary>
+        public IEnumerable<BattleEvent> Upcoming => _queue;
+
         public void Bind(BattleScreen screen) => _screen = screen;
 
         public void Play(IEnumerable<BattleEvent> batch)

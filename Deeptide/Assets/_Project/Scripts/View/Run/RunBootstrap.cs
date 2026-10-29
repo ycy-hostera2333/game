@@ -216,13 +216,25 @@ namespace Deeptide.View.Run
             y -= 90;
             RunUi.Button(root, "Greybox", "单场战斗（灰盒测试）", new Vector2(col, y), new Vector2(460, 70),
                 () => SceneManager.LoadScene("Battle_Greybox"), true, null, 26);
-            if (!Application.isEditor)
-                RunUi.Button(root, "Quit", "退出", new Vector2(col, y - 90), new Vector2(460, 70), Application.Quit, true, null, 26);
+            // 设置和退出并排（编辑器里没有退出，设置占整行）
+            bool quit = !Application.isEditor;
+            RunUi.Button(root, "Settings", "设置", new Vector2(quit ? col - 120 : col, y - 90), new Vector2(quit ? 220 : 460, 70),
+                () => ShowSettings(root), true, null, 26);
+            if (quit)
+                RunUi.Button(root, "Quit", "退出", new Vector2(col + 120, y - 90), new Vector2(220, 70), Application.Quit, true, null, 26);
             _hint = RunUi.Label(root, "", new Vector2(col, -470), new Vector2(1000, 40), 24, Palette.Blood);
 
             // 右下角：试玩记录和版本号（写在按钮底色上，主视觉的排线上小字看不清）。试玩的人把记录文件夹发回来，用 Tools 的 telemetry 汇总（策划/07 §6.2）
             RunUi.Button(root, "Telemetry", $"打开试玩记录（{TelemetryFiles.Count} 局）\n<size=75%>版本 {TelemetryFiles.GameVersion}</size>",
                 new Vector2(760, -476), new Vector2(360, 80), TelemetryFiles.Reveal, true, null, 22);
+        }
+
+        /// <summary>标题画面上的设置：盖一层遮罩和卷轴面板，点遮罩或「返回」关掉。</summary>
+        void ShowSettings(RectTransform title)
+        {
+            var layer = Ui.Rect("SettingsLayer", title).Fill();
+            RunUi.Dim(layer, 0.6f).gameObject.AddComponent<ClickHandler>().OnClick = _ => Destroy(layer.gameObject);
+            SettingsPanel.Build(RunUi.Panel(layer, "Box", Vector2.zero, SettingsPanel.Size).rectTransform, () => Destroy(layer.gameObject));
         }
 
         // ------------------------------------------------------------------ 选角（策划/14、09 M6.5）

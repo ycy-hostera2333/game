@@ -1,0 +1,207 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bff1cf96a85e1194197fa90e42f12ef9, type: 3}
+  m_Name: AudioDatabase
+  m_EditorClassIdentifier: Game.View::Deeptide.View.Audio.AudioDatabase
+  Sfx:
+  - Id: B01_1
+    Clip: {fileID: 8300000, guid: d54d5f0e51bf2e143bdf7763cb3f9c18, type: 3}
+  - Id: B02_1
+    Clip: {fileID: 8300000, guid: 4ed3f0c8e73353443906aa1e70afda27, type: 3}
+  - Id: C01_heavy_1
+    Clip: {fileID: 8300000, guid: 5e44e420586de254288e9c7eb93732e0, type: 3}
+  - Id: C01_heavy_2
+    Clip: {fileID: 8300000, guid: 6aa8822f1ac34ee49805c8c8420cc663, type: 3}
+  - Id: C01_heavy_3
+    Clip: {fileID: 8300000, guid: fd12bc84895756c45ad559f16100193b, type: 3}
+  - Id: C01_light_1
+    Clip: {fileID: 8300000, guid: ad68e65a3cc32a2478ec57b74b5b5a89, type: 3}
+  - Id: C01_light_2
+    Clip: {fileID: 8300000, guid: 3d2625aaa1812ad428804629ac4a4881, type: 3}
+  - Id: C01_light_3
+    Clip: {fileID: 8300000, guid: 51b0764c7a92fe54e9e2dfa3407a4267, type: 3}
+  - Id: C01_medium_1
+    Clip: {fileID: 8300000, guid: 29f67528d3f4ec44cbefa2d7d7328c08, type: 3}
+  - Id: C01_medium_2
+    Clip: {fileID: 8300000, guid: 6a5745112d90f3946ada0b386cbe23e8, type: 3}
+  - Id: C01_medium_3
+    Clip: {fileID: 8300000, guid: 1e21ddbab6520f440b6ae643df50e20e, type: 3}
+  - Id: C02_1
+    Clip: {fileID: 8300000, guid: ca65f64834b1dc146ba8df9f9ecc0327, type: 3}
+  - Id: C02_2
+    Clip: {fileID: 8300000, guid: c38dcd2fe9b35a649a075a0a37016c53, type: 3}
+  - Id: C02_3
+    Clip: {fileID: 8300000, guid: b6a0d39b3d55cda45b6b73a8b0b82b64, type: 3}
+  - Id: C03_1
+    Clip: {fileID: 8300000, guid: c87ffc29d65555f49a8beaa76c3cef4b, type: 3}
+  - Id: C03_2
+    Clip: {fileID: 8300000, guid: 8f612e6fddc653f4cae30a21c726e654, type: 3}
+  - Id: C03_3
+    Clip: {fileID: 8300000, guid: 3e18994ccf11d2a4b81b9839b7495cd4, type: 3}
+  - Id: C04_1
+    Clip: {fileID: 8300000, guid: a4be0eb0114607e4cb18e08efb02a9da, type: 3}
+  - Id: C04_2
+    Clip: {fileID: 8300000, guid: 317bc8aac7529e945a82700d975aa239, type: 3}
+  - Id: C05_1
+    Clip: {fileID: 8300000, guid: 190309abb1260004da1d1d9e43134646, type: 3}
+  - Id: C05_2
+    Clip: {fileID: 8300000, guid: 8481295a7912e6243b7c821fdea6c32c, type: 3}
+  - Id: C05_3
+    Clip: {fileID: 8300000, guid: be7f021f80e6fb8418f0fef444e06d47, type: 3}
+  - Id: C06_1
+    Clip: {fileID: 8300000, guid: 0606cf61fe75f7d4e9263658edb5ea50, type: 3}
+  - Id: C06_2
+    Clip: {fileID: 8300000, guid: ba09525f2f6ed2346b4ffc71e83fe32f, type: 3}
+  - Id: C07_1
+    Clip: {fileID: 8300000, guid: a3ca12246bb366f46b8fe90ead9b3c81, type: 3}
+  - Id: C08_buff_1
+    Clip: {fileID: 8300000, guid: a2b8d5bc6dc27c040ba1b0e9fa2608bb, type: 3}
+  - Id: C08_buff_2
+    Clip: {fileID: 8300000, guid: bee8f3dedcf854946a1e7b887e082c3a, type: 3}
+  - Id: C08_debuff_1
+    Clip: {fileID: 8300000, guid: 350d5b59242cfef4aae0df6d1e109f39, type: 3}
+  - Id: C08_debuff_2
+    Clip: {fileID: 8300000, guid: b486832ab8e96e146a6855ae6a748b22, type: 3}
+  - Id: C09_1
+    Clip: {fileID: 8300000, guid: d5a274a2834de4f4fbc34f4772ce1161, type: 3}
+  - Id: C10_1
+    Clip: {fileID: 8300000, guid: f3234f33624e3be4baf4df35ced6923b, type: 3}
+  - Id: C10_2
+    Clip: {fileID: 8300000, guid: 10e90b1c4a162714492cca6679fb3f07, type: 3}
+  - Id: F01_1
+    Clip: {fileID: 8300000, guid: afebb98159f402641acec52e9fae3f01, type: 3}
+  - Id: F02_1
+    Clip: {fileID: 8300000, guid: e596814ea576b03418e3b311131f7cd3, type: 3}
+  - Id: F03_1
+    Clip: {fileID: 8300000, guid: 6f5fa06d43b730f478dfbc1bc102f7ff, type: 3}
+  - Id: L01_1
+    Clip: {fileID: 8300000, guid: d42158611cc6fcb488d6e731f3a10025, type: 3}
+  - Id: R01_0
+    Clip: {fileID: 8300000, guid: 0dee3bf9871d8b041b9c08d673b882a2, type: 3}
+  - Id: R01_1
+    Clip: {fileID: 8300000, guid: 39556045e58e39a4099c9e2c6e0a57c4, type: 3}
+  - Id: R01_10
+    Clip: {fileID: 8300000, guid: 32b1f213760aeac48965aabda94e3dd2, type: 3}
+  - Id: R01_11
+    Clip: {fileID: 8300000, guid: 14243eead087ed241958fd671cf926f4, type: 3}
+  - Id: R01_12
+    Clip: {fileID: 8300000, guid: 9b9e37ff188a6874693a1a8ddbc75946, type: 3}
+  - Id: R01_2
+    Clip: {fileID: 8300000, guid: ccdfabf76405adb43ac374e2d623baa6, type: 3}
+  - Id: R01_3
+    Clip: {fileID: 8300000, guid: 51ecc295c3843d34eb415e5720b22c9b, type: 3}
+  - Id: R01_4
+    Clip: {fileID: 8300000, guid: b78a30a2d9144fb47bb48a3376eefb99, type: 3}
+  - Id: R01_5
+    Clip: {fileID: 8300000, guid: cfe4d6b85105ac247abdb5cdad6f1778, type: 3}
+  - Id: R01_6
+    Clip: {fileID: 8300000, guid: a0f7c35297654ae4aa907717f6d126e6, type: 3}
+  - Id: R01_7
+    Clip: {fileID: 8300000, guid: 8ca614c0249de984f957ca49881d3537, type: 3}
+  - Id: R01_8
+    Clip: {fileID: 8300000, guid: 252277f47c6902e408259c8a92bb53c5, type: 3}
+  - Id: R01_9
+    Clip: {fileID: 8300000, guid: d7808f32f1fa2af49b10a518a64fd618, type: 3}
+  - Id: R02_1
+    Clip: {fileID: 8300000, guid: c08de1fe919a7cd4fbbc1dac0052db87, type: 3}
+  - Id: R02_10
+    Clip: {fileID: 8300000, guid: e9496dbd627011c43b3c89b4bdb54b0e, type: 3}
+  - Id: R02_11
+    Clip: {fileID: 8300000, guid: 8f1a3eb791cb4264c896609752164d5f, type: 3}
+  - Id: R02_12
+    Clip: {fileID: 8300000, guid: 8cdc9160d11978d438c7ddf75e6e8790, type: 3}
+  - Id: R02_2
+    Clip: {fileID: 8300000, guid: 767b7f3c6ede0ee44b34fd0b18466840, type: 3}
+  - Id: R02_3
+    Clip: {fileID: 8300000, guid: 652ef10274bc7d54b8562dd4f4c65a24, type: 3}
+  - Id: R02_4
+    Clip: {fileID: 8300000, guid: 9df2777ce3931854bad12eb97e6dcdd9, type: 3}
+  - Id: R02_5
+    Clip: {fileID: 8300000, guid: 74a405dd1ac0bc549aeb9aee627a3581, type: 3}
+  - Id: R02_6
+    Clip: {fileID: 8300000, guid: 9ed21afe5e1bb8441bc7ffca4185904c, type: 3}
+  - Id: R02_7
+    Clip: {fileID: 8300000, guid: 1d832db322445094ead7fe7e4d5c48e5, type: 3}
+  - Id: R02_8
+    Clip: {fileID: 8300000, guid: 78cddb0e34efdb148bcf7f10463386eb, type: 3}
+  - Id: R02_9
+    Clip: {fileID: 8300000, guid: e7931f8467b32c64ea7df61fc1afcfca, type: 3}
+  - Id: R03_1
+    Clip: {fileID: 8300000, guid: e3b2bd676876e1943ae8115aa0ef40a6, type: 3}
+  - Id: R03_2
+    Clip: {fileID: 8300000, guid: 9ff06958270aefa4e879a767d733f1d6, type: 3}
+  - Id: R03_3
+    Clip: {fileID: 8300000, guid: b4156f7a730bb9247bee213fc42bc7e4, type: 3}
+  - Id: R04_1
+    Clip: {fileID: 8300000, guid: 0d93134efdca37846b0bd0cb544d90d4, type: 3}
+  - Id: R05_1
+    Clip: {fileID: 8300000, guid: 4be1995fec25697469b3c8a84a1272c4, type: 3}
+  - Id: R06_1
+    Clip: {fileID: 8300000, guid: af59af01fb2d65d459ceb88ac0e41cba, type: 3}
+  - Id: R06_2
+    Clip: {fileID: 8300000, guid: e15d909ced339f548b38926821acccc5, type: 3}
+  - Id: U01_1
+    Clip: {fileID: 8300000, guid: 8203a2a4907c4614c9ad4f2e4e15687e, type: 3}
+  - Id: U01_2
+    Clip: {fileID: 8300000, guid: 489b08402002dc242a30efc2e2a1e666, type: 3}
+  - Id: U01_3
+    Clip: {fileID: 8300000, guid: 502f442c3136de54484fc5cb2b865cc5, type: 3}
+  - Id: U02_1
+    Clip: {fileID: 8300000, guid: 18e44a6a295faa646978dce9b23a22d2, type: 3}
+  - Id: U02_2
+    Clip: {fileID: 8300000, guid: 17ac79da207076e45abbbb7b68bebb44, type: 3}
+  - Id: U02_3
+    Clip: {fileID: 8300000, guid: 97f42c0b955fe394f90f9597bbe88cc4, type: 3}
+  - Id: U03_1
+    Clip: {fileID: 8300000, guid: e857e75e4c5283243ac3f4aaac0df89b, type: 3}
+  - Id: U04_attack_1
+    Clip: {fileID: 8300000, guid: fa30e95501696374bb093f9f27ed0495, type: 3}
+  - Id: U04_attack_2
+    Clip: {fileID: 8300000, guid: 824137a13c105324e83f6ba70b211c8b, type: 3}
+  - Id: U04_attack_3
+    Clip: {fileID: 8300000, guid: 4ad8b4af4f3332d43ad87dc1c17f22f3, type: 3}
+  - Id: U04_power_1
+    Clip: {fileID: 8300000, guid: 127138e3ca393a34b96e3ce3ef40c15c, type: 3}
+  - Id: U04_power_2
+    Clip: {fileID: 8300000, guid: 814357ce638d6b7468a531317cdbf4ec, type: 3}
+  - Id: U04_skill_1
+    Clip: {fileID: 8300000, guid: ee01372363ac7b349b0cff56a3661ff1, type: 3}
+  - Id: U04_skill_2
+    Clip: {fileID: 8300000, guid: aee5c66db4a49104dbdd42218e972ed5, type: 3}
+  - Id: U04_skill_3
+    Clip: {fileID: 8300000, guid: 3e4ce7d76e380a34fa25c0839383246c, type: 3}
+  - Id: U05_1
+    Clip: {fileID: 8300000, guid: a9f4d7437fcb43e45a4edbdddc329899, type: 3}
+  - Id: U05_2
+    Clip: {fileID: 8300000, guid: 8e5fad87033506d4b818b989ccb5979b, type: 3}
+  - Id: U06_1
+    Clip: {fileID: 8300000, guid: 7c2bccfc2e78f96479e4b5caea8d0f88, type: 3}
+  - Id: U07_1
+    Clip: {fileID: 8300000, guid: bfb4c974b559bc04bb69db21f240ab93, type: 3}
+  - Id: U07_2
+    Clip: {fileID: 8300000, guid: f1dddb0bf5a7273429394f6e59be48b8, type: 3}
+  - Id: U07_3
+    Clip: {fileID: 8300000, guid: 9e17736d8f86ec4488a9ca6617298086, type: 3}
+  - Id: U08_1
+    Clip: {fileID: 8300000, guid: 00b7873d0446f764eac70c98e5354710, type: 3}
+  - Id: U08_2
+    Clip: {fileID: 8300000, guid: 76a7ea02e80b7ac478bc4ce925fef1f8, type: 3}
+  - Id: U09_1
+    Clip: {fileID: 8300000, guid: f92a237ca4234674eb45698e28a9d55a, type: 3}
+  - Id: U09_2
+    Clip: {fileID: 8300000, guid: 9eae3401a274db442898bc74286f905c, type: 3}
+  - Id: U10_card_1
+    Clip: {fileID: 8300000, guid: 76adebd7550235347be9876a01175149, type: 3}
+  - Id: U10_potion_1
+    Clip: {fileID: 8300000, guid: 6b01a68f47aa73140ab56f430d3431b2, type: 3}
+  - Id: U10_relic_1
+    Clip: {fileID: 8300000, guid: 03e83e476690bf64d88398bdca7b8e3e, type: 3}

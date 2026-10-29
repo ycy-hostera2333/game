@@ -117,7 +117,7 @@ namespace Deeptide.View.Battle
             return bar;
         }
 
-        /// <summary>「降低癫狂特效」（策划/10 §7.4）：设置界面还没有，先放在顶栏，选择记在 PlayerPrefs 里。</summary>
+        /// <summary>「降低癫狂特效」（策划/10 §7.4）：设置里也有，顶栏留一个战斗中随手切的开关，选择记在 PlayerPrefs 里。</summary>
         void FxButton(Vector2 pos, float width)
         {
             TextMeshProUGUI fxLabel = null;

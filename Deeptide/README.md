@@ -48,6 +48,7 @@ PlayMode 测试在 `Assets/_Project/Tests/PlayMode/`：通过表现层入口出�
 
 - `BattleGreyboxTests`：打击 + 防御的基本流程、能量不足被拒、一路打到胜利
 - `BattleContentTests`：15 组遭遇用混合牌组逐个打到分出胜负，每一步核对手牌、牌堆、能量、生命、格挡、每个敌人、药水栏和选择面板；启动面板换成 Boss 战；药水选目标；查阅资料的选择面板
+- `AudioTests`：战斗里出牌、防御、悬停、结束回合时 AudioDirector 收到的音效 ID；能量不足被拒；节流（同一 ID 80 ms 内最多 2 个）和没有素材时不报错；`BattleSounds` 的映射（命中三档、挡住 / 击破 / 清格挡、理智音阶和来源）
 - `RunFlowTests`：标题开局、地图卷动和悬停；一局从出发打到 Boss 通关（生命给到 999，路线预先规划成走遍 6 种房间），每一步核对面板画出了内核的全部选项、顶栏和 RunState 一致；战斗中保存退出再继续（战斗从头开始，哈希和第一次进入时一致）、奖励界面换场景后继续；牌组弹窗、丢药水；遥测文件的结果（没打完 / 通关 / 放弃）、节点数和用时。存档和遥测都写到临时目录，不碰玩家的
 
 ```bash
@@ -55,6 +56,10 @@ PlayMode 测试在 `Assets/_Project/Tests/PlayMode/`：通过表现层入口出�
 ```
 
 编辑器里打开着这个工程时，batchmode 会因为工程被占用而失败，先关掉编辑器，或者直接用 Window → General → Test Runner。
+
+## 声音
+
+音效在 `Scripts/View/Audio/`（策划/13 §6.1）：`AudioDirector` 常驻、自带 AudioListener，`BattleSounds` 把战斗事件翻译成音效 ID，`AudioDatabase`（`Audio/Resources/AudioDatabase.asset`）查片段，没有素材的 ID 不出声。素材的源文件和合成脚本在 `AudioSource/`，改完用菜单「Deeptide → 音频 → 打包音效」导进来。「设置」面板里「声音」一档一档切主音量。音乐还没接。
 
 ## 打包试玩版
 

@@ -46,6 +46,7 @@ namespace Deeptide.Core.Actions
             stats.MinSanity = Math.Min(stats.MinSanity, p.Sanity);
             var ev = e.Log.Add(BattleEventType.SanityLost, $"失去 {lost} 理智（{SourceName(_source)}）→ {p.Sanity}/{p.MaxSanity}", amount: lost);
             ev.Value = p.Sanity;
+            ev.Id = _source.ToString();   // 表现层按来源配声音（策划/13 §5.2 的 R03 / R05 / R06）
             e.Notify(l => l.OnSanityLost(e, lost, _source));
 
             if (!wasLunatic && p.IsLunatic) e.LunacyCrossed(true);

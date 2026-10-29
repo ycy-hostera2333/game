@@ -6,6 +6,7 @@ using Deeptide.Core.Enemies;
 using Deeptide.Core.Map;
 using Deeptide.Core.Potions;
 using Deeptide.Core.Run;
+using Deeptide.View.Audio;
 using Deeptide.View.Battle;
 using PrimeTween;
 using TMPro;
@@ -36,7 +37,7 @@ namespace Deeptide.View.Run
         public RunPhase Shown { get; private set; }
         /// <summary>当前面板的根节点（地图和战斗阶段为 null）。</summary>
         public RectTransform Panel => _panel;
-        /// <summary>当前弹窗的名字（Deck / Menu / Potion），没有弹窗为 null。</summary>
+        /// <summary>当前弹窗的名字（Deck / Menu / Settings / Potion），没有弹窗为 null。</summary>
         public string ModalName => _modal != null ? _modal.name : null;
         /// <summary>战斗打完、正在等横幅（这段时间不接受操作）。</summary>
         public bool Transitioning => _transition;
@@ -206,14 +207,31 @@ namespace Deeptide.View.Run
         public bool Pick(int index)
         {
             if (_transition || Run.State.Phase == RunPhase.Battle) return false;
+            var s = Run.State;
+            var phase = s.Phase;
+            int gold = s.Gold, deck = s.Deck.Count, relics = s.Relics.Count, potions = s.Potions.Count(p => p != null);
             if (!Run.Execute(RunCommand.Pick(index), out var error))
             {
                 Toast(error);
                 return false;
             }
+            PickSound(phase, gold, deck, relics, potions);
             CheckSave();
             Show();
             return true;
+        }
+
+        /// <summary>跑局界面的声音（策划/13 §5.2 U07–U10）：按这一步前后 RunState 的变化挑。商店买东西是「东西 + 钱」两声。</summary>
+        void PickSound(RunPhase phase, int gold, int deck, int relics, int potions)
+        {
+            var s = Run.State;
+            string got = s.Relics.Count > relics ? "U10_relic"
+                : s.Deck.Count > deck ? "U10_card"
+                : s.Potions.Count(p => p != null) > potions ? "U10_potion" : null;
+            if (phase == RunPhase.Map) AudioDirector.Ui("U08");
+            else if (got != null) AudioDirector.Ui(got);
+            if (s.Gold != gold) AudioDirector.Ui("U09");
+            else if (got == null && phase != RunPhase.Map) AudioDirector.Ui("U07");
         }
 
         public bool DropPotion(int slot)
@@ -307,13 +325,14 @@ namespace Deeptide.View.Run
         {
             CloseModal();
             _confirmAbandon = false;
-            var box = OpenModal("Menu", new Vector2(520, 420));
-            RunUi.Title(box, "菜单", new Vector2(0, 150), new Vector2(400, 60), 44);
-            RunUi.Label(box, $"种子 {Run.State.Seed}", new Vector2(0, 95), new Vector2(400, 34), 22, Palette.InkMid);
-            RunUi.Button(box, "Resume", "回到游戏", new Vector2(0, 25), new Vector2(360, 66), CloseModal);
-            RunUi.Button(box, "Exit", "保存并回到标题", new Vector2(0, -55), new Vector2(360, 66), () => _exit?.Invoke(false));
+            var box = OpenModal("Menu", new Vector2(520, 500));
+            RunUi.Title(box, "菜单", new Vector2(0, 190), new Vector2(400, 60), 44);
+            RunUi.Label(box, $"种子 {Run.State.Seed}", new Vector2(0, 135), new Vector2(400, 34), 22, Palette.InkMid);
+            RunUi.Button(box, "Resume", "回到游戏", new Vector2(0, 65), new Vector2(360, 66), CloseModal);
+            RunUi.Button(box, "Settings", "设置", new Vector2(0, -15), new Vector2(360, 66), OpenSettings);
+            RunUi.Button(box, "Exit", "保存并回到标题", new Vector2(0, -95), new Vector2(360, 66), () => _exit?.Invoke(false));
             TextMeshProUGUI abandonLabel = null;
-            var abandon = RunUi.Button(box, "Abandon", "放弃这一局", new Vector2(0, -135), new Vector2(360, 66), () =>
+            var abandon = RunUi.Button(box, "Abandon", "放弃这一局", new Vector2(0, -175), new Vector2(360, 66), () =>
             {
                 if (!_confirmAbandon)
                 {
@@ -326,6 +345,9 @@ namespace Deeptide.View.Run
             });
             abandonLabel = abandon.GetComponentInChildren<TextMeshProUGUI>();
         }
+
+        /// <summary>菜单里的「设置」：返回回到菜单。</summary>
+        void OpenSettings() => SettingsPanel.Build(OpenModal("Settings", SettingsPanel.Size), OpenMenu);
 
         /// <summary>居中的卷轴弹窗，下面一层墨色遮罩（点遮罩关闭）。</summary>
         RectTransform OpenModal(string name, Vector2 size)

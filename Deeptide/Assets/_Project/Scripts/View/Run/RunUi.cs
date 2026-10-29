@@ -13,7 +13,7 @@ namespace Deeptide.View.Run
     /// <summary>跑局界面共用的部件（策划/10 §8「奖励 / 牌组 / 选牌：纸面卷轴，纯 UI」）：画布、牌匾按钮、卷轴面板、可点的卡牌。</summary>
     public static class RunUi
     {
-        /// <summary>和战斗界面同一套画布设置：相机空间、1920 × 1080 参考分辨率、宽高各占一半。</summary>
+        /// <summary>和战斗界面同一套画布设置：相机空间、1920 × 1080 参考分辨率，按窗口比例对齐宽或高（CanvasFit）。</summary>
         public static RectTransform Canvas(string name, Camera camera, int sortingOrder = 0)
         {
             var go = new GameObject(name, typeof(RectTransform)) { layer = Ui.Layer };
@@ -25,7 +25,7 @@ namespace Deeptide.View.Run
             var scaler = go.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
-            scaler.matchWidthOrHeight = 0.5f;
+            go.AddComponent<CanvasFit>();
             go.AddComponent<GraphicRaycaster>();
             return (RectTransform)go.transform;
         }
