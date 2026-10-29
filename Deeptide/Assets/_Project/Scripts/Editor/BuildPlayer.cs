@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -60,12 +61,45 @@ namespace Deeptide.EditorTools
             string zip = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(OutDir) ?? "", $"Deeptide_{PlayerSettings.bundleVersion}.zip"));
             if (File.Exists(zip)) File.Delete(zip);
             // 压缩包里带一层 Deeptide_Windows/ 目录，解压后不会把文件撒一地
-            ZipFile.CreateFromDirectory(OutDir, zip, System.IO.Compression.CompressionLevel.Optimal, true);
+            // 文件名用 UTF-8 写，再补上 UTF-8 标记：Unity 的 Mono 不指定编码时按系统代码页（GBK）写「试玩说明.txt」却打 UTF-8 标记，
+            // 指定 UTF-8 时又不打标记，两种解压出来都是乱码
+            ZipFile.CreateFromDirectory(OutDir, zip, System.IO.Compression.CompressionLevel.Optimal, true, new System.Text.UTF8Encoding(false));
+            MarkUtf8Names(zip);
 
             string exe = Path.GetFullPath(s.outputPath);
             Debug.Log($"[BuildPlayer] 打包完成：{exe}，版本 {PlayerSettings.bundleVersion}，{s.totalSize / 1048576f:F0} MB，用时 {s.totalTime.TotalSeconds:F0} 秒，" +
                       $"场景 {string.Join(" / ", scenes.Select(Path.GetFileNameWithoutExtension))}；压缩包 {zip}（{new FileInfo(zip).Length / 1048576f:F0} MB）");
             return exe;
+        }
+
+        /// <summary>给 zip 里每一项的「通用标志」补上第 11 位（文件名是 UTF-8）：中央目录和本地文件头各一处。</summary>
+        static void MarkUtf8Names(string zip)
+        {
+            const ushort Utf8Flag = 0x800;
+            var bytes = File.ReadAllBytes(zip);
+            int eocd = -1;
+            for (int i = bytes.Length - 22; i >= 0 && i >= bytes.Length - 22 - 65535; i--)
+                if (BitConverter.ToUInt32(bytes, i) == 0x06054b50) { eocd = i; break; }
+            if (eocd < 0) throw new InvalidDataException($"{zip} 找不到中央目录结尾");
+            int count = BitConverter.ToUInt16(bytes, eocd + 10);
+            int at = (int)BitConverter.ToUInt32(bytes, eocd + 16);
+            for (int k = 0; k < count; k++)
+            {
+                if (BitConverter.ToUInt32(bytes, at) != 0x02014b50) throw new InvalidDataException($"{zip} 第 {k} 个中央目录项不对");
+                SetFlag(bytes, at + 8, Utf8Flag);
+                int local = (int)BitConverter.ToUInt32(bytes, at + 42);
+                if (BitConverter.ToUInt32(bytes, local) != 0x04034b50) throw new InvalidDataException($"{zip} 第 {k} 项的本地文件头不对");
+                SetFlag(bytes, local + 6, Utf8Flag);
+                at += 46 + BitConverter.ToUInt16(bytes, at + 28) + BitConverter.ToUInt16(bytes, at + 30) + BitConverter.ToUInt16(bytes, at + 32);
+            }
+            File.WriteAllBytes(zip, bytes);
+        }
+
+        static void SetFlag(byte[] bytes, int offset, ushort flag)
+        {
+            ushort v = (ushort)(BitConverter.ToUInt16(bytes, offset) | flag);
+            bytes[offset] = (byte)v;
+            bytes[offset + 1] = (byte)(v >> 8);
         }
     }
 }
