@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using Deeptide.Core.Cards;
 using Deeptide.Core.Map;
+using Deeptide.Core.Relics;
+using Deeptide.Core.Enemies;
 using Deeptide.Core.Run;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -78,6 +80,8 @@ namespace Deeptide.Sim
             PrintChoices(runs);
             PrintNodeTimes(runs);
             PrintPlays(runs);
+            var echoes = runs.Where(t => t.EchoChoices != null).SelectMany(t => t.EchoChoices).ToList();
+            if (echoes.Count > 0) RunModes.PrintEchoRates(echoes, "真人的选择，样本少时只看极端值");
             RunModes.PrintPickRates(runs.SelectMany(t => t.CardChoices), "真人的选择，样本少时只看极端值");
             return 0;
         }
@@ -87,15 +91,23 @@ namespace Deeptide.Sim
         static string OutcomeName(RunOutcome o) =>
             o == RunOutcome.Victory ? "通关" : o == RunOutcome.Defeat ? "倒下" : o == RunOutcome.Abandoned ? "放弃" : "没打完";
 
+        /// <summary>这一局选的回响（第一章只有一个）；加回响之前的局为「-」。</summary>
+        static string EchoName(RunTelemetry t) =>
+            t.Echoes == null || t.Echoes.Count == 0 ? "-" : string.Join("、", t.Echoes.Select(id => EchoLibrary.Exists(id) ? EchoLibrary.Get(id).Name : id));
+
+        /// <summary>这一局的 Boss（开局抽的，没打到也有）；加三选一之前的局为「-」。</summary>
+        static string BossName(RunTelemetry t) =>
+            string.IsNullOrEmpty(t.Boss) ? "-" : EncounterLibrary.Exists(t.Boss) ? EncounterLibrary.Get(t.Boss).Name : t.Boss;
+
         static string CharacterName(string id) => CharacterLibrary.Exists(id) ? CharacterLibrary.Get(id).Name : id ?? "?";
 
         static void PrintRuns(List<RunTelemetry> runs)
         {
             Console.WriteLine("逐局（按开局时间）：");
-            Console.WriteLine("  开局时间             第几局  角色    流派  结果    层数  用时    Boss 前生命  死因");
+            Console.WriteLine("  开局时间             第几局  角色    流派  结果    层数  用时    Boss 前生命  回响    Boss      死因");
             foreach (var t in runs)
                 Console.WriteLine($"  {t.StartedAt ?? "?",-19}  {t.RunIndex,4}    {CharacterName(t.Character),-3}  {t.Archetype,-2}  {OutcomeName(t.Outcome),-4}  {t.Floor,4}  {t.PlaySeconds / 60,4:F0} 分  " +
-                                  $"{(t.HpAtBoss >= 0 ? t.HpAtBoss.ToString() : "-"),8}     {(t.DeathCause != null ? RunModes.DeathName(t.DeathCause) : "")}");
+                                  $"{(t.HpAtBoss >= 0 ? t.HpAtBoss.ToString() : "-"),8}     {EchoName(t),-4}  {BossName(t),-6}  {(t.DeathCause != null ? RunModes.DeathName(t.DeathCause) : "")}");
             Console.WriteLine();
         }
 
