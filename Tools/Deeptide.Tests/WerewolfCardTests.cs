@@ -81,6 +81,23 @@ namespace Deeptide.Tests
             }
         }
 
+        [Test]
+        public void Shop_RelicFallback_NeverStocksBeastBlood()
+        {
+            // 普通 / 罕见 / 稀有全拿光，商店的遗物兜底以前会落到「兽血」这类特性上
+            for (ulong seed = 1; seed <= 20; seed++)
+            {
+                var run = RunEngine.NewRun(seed, new RunConfig { Character = Werewolf });
+                run.State.Relics.AddRange(RelicLibrary.All
+                    .Where(d => d.Rarity == RelicRarity.Common || d.Rarity == RelicRarity.Uncommon || d.Rarity == RelicRarity.Rare)
+                    .Select(d => d.Id));
+                run.State.Floor = 7;
+                run.EnterNode(6, 0, RoomType.Shop);
+                var relics = run.State.Shop.Items.Where(i => i.Kind == ShopItemKind.Relic).Select(i => RelicLibrary.Get(i.Id)).ToList();
+                Assert.That(relics.All(d => d.Rarity == RelicRarity.Shop), Is.True, $"种子 {seed}：{string.Join(" / ", relics.Select(d => d.Id))}");
+            }
+        }
+
         // ---------------- 起始专属牌
 
         [Test]

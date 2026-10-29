@@ -200,7 +200,8 @@ namespace Deeptide.Core.Run
             {
                 var rarity = RollRelicRarity(rng);
                 var pool = RelicLibrary.All.Where(d => d.Rarity == rarity && !HasRelic(d.Id) && !relics.Contains(d.Id) && Mine(d.Character)).ToList();
-                if (pool.Count == 0) pool = RelicLibrary.All.Where(d => d.Rarity != RelicRarity.Starter && d.Rarity != RelicRarity.Shop && !HasRelic(d.Id) && !relics.Contains(d.Id) && Mine(d.Character)).ToList();
+                // 兜底只在普通 / 罕见 / 稀有里找：起始、商店专属、特性（兽血）、回响都不能摆上货架
+                if (pool.Count == 0) pool = RelicLibrary.All.Where(d => (d.Rarity == RelicRarity.Common || d.Rarity == RelicRarity.Uncommon || d.Rarity == RelicRarity.Rare) && !HasRelic(d.Id) && !relics.Contains(d.Id) && Mine(d.Character)).ToList();
                 if (pool.Count == 0) continue;
                 relics.Add(pool[rng.NextInt(pool.Count)].Id);
             }
